@@ -21,8 +21,8 @@ const (
 	ID
 	PrivateIP
 	PublicIP
-	NameTag
 	PrivateDNSName
+	NameTag
 )
 
 var (
@@ -184,21 +184,15 @@ func main() {
 		instanceID = getEC2InstanceIDByFilter("tag:Name", sshArgs.Destination())
 	}
 
-	var sshDestination string
-	switch destinationType {
-	case PrivateIP, PublicIP:
-		if opts.usePublicIP {
-			handleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
-		}
-		sshDestination = sshArgs.Destination()
-	default:
-		sshDestination = getEC2InstanceIPByID(instanceID, opts.usePublicIP)
+	if destinationType != PrivateIP && destinationType != PublicIP {
+		ip := getEC2InstanceIPByID(instanceID, opts.usePublicIP)
+		sshArgs.SetDestination(ip)
+	} else if opts.usePublicIP {
+		handleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
 	}
 
 	sshPublicKey := getSSHPublicKey(opts.sshPublicKeyPath)
 	sendSSHPublicKey(instanceID, opts.loginUser, sshPublicKey)
-
-	sshArgs.SetDestination(sshDestination)
 
 	cmd := exec.Command("ssh", sshArgs.Args()...)
 	cmd.Stdin = os.Stdin
