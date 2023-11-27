@@ -11,7 +11,7 @@ type Opts struct {
 	loginUser        string
 	sshPublicKeyPath string
 	usePublicIP      bool
-	destinationType  DestinationType
+	dstType          DstType
 }
 
 type SSHArgs struct {
@@ -23,8 +23,8 @@ func (a SSHArgs) Destination() string {
 	return a.args[a.dstIdx]
 }
 
-func (a SSHArgs) SetDestination(destination string) {
-	a.args[a.dstIdx] = destination
+func (a SSHArgs) SetDestination(dst string) {
+	a.args[a.dstIdx] = dst
 }
 
 func (a SSHArgs) Args() []string {
@@ -47,7 +47,7 @@ func parseArgs() (Opts, SSHArgs) {
 		loginUser:        "ec2-user",
 		sshPublicKeyPath: usr.HomeDir + "/.ssh/id_rsa.pub",
 		usePublicIP:      false,
-		destinationType:  Unknown,
+		dstType:          DstTypeUnknown,
 	}
 
 	sshArgs := SSHArgs{
@@ -73,15 +73,15 @@ func parseArgs() (Opts, SSHArgs) {
 				}
 				switch args[i+1] {
 				case "id":
-					opts.destinationType = ID
+					opts.dstType = DstTypeID
 				case "private_ip":
-					opts.destinationType = PrivateIP
+					opts.dstType = DstTypePrivateIP
 				case "public_ip":
-					opts.destinationType = PublicIP
+					opts.dstType = DstTypePublicIP
 				case "private_dns":
-					opts.destinationType = PrivateDNSName
+					opts.dstType = DstTypePrivateDNSName
 				case "name_tag":
-					opts.destinationType = NameTag
+					opts.dstType = DstTypeNameTag
 				default:
 					handleError(fmt.Errorf("unknown destination type: %s", args[i+1]))
 				}

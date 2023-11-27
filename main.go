@@ -14,15 +14,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect"
 )
 
-type DestinationType int
+type DstType int
 
 const (
-	Unknown DestinationType = iota
-	ID
-	PrivateIP
-	PublicIP
-	PrivateDNSName
-	NameTag
+	DstTypeUnknown DstType = iota
+	DstTypeID
+	DstTypePrivateIP
+	DstTypePublicIP
+	DstTypePrivateDNSName
+	DstTypeNameTag
 )
 
 var (
@@ -125,25 +125,25 @@ func getSSHPublicKey(sshPublicKeyPath string) string {
 	return sshPublicKey
 }
 
-func guessDestinationType(destination string) DestinationType {
-	if strings.HasPrefix(destination, "i-") {
-		return ID
+func guessDestinationType(dst string) DstType {
+	if strings.HasPrefix(dst, "i-") {
+		return DstTypeID
 	}
 
-	if strings.HasPrefix(destination, "ip-") {
-		return PrivateDNSName
+	if strings.HasPrefix(dst, "ip-") {
+		return DstTypePrivateDNSName
 	}
 
-	ip := net.ParseIP(destination)
+	ip := net.ParseIP(dst)
 	if ip != nil {
 		if ip.IsPrivate() {
-			return PrivateIP
+			return DstTypePrivateIP
 		} else {
-			return PublicIP
+			return DstTypePublicIP
 		}
 	}
 
-	return NameTag
+	return DstTypeNameTag
 }
 
 func handleError(err error) {
@@ -165,26 +165,26 @@ func usage() {
 func main() {
 	opts, sshArgs := parseArgs()
 
-	destinationType := opts.destinationType
-	if destinationType == Unknown {
-		destinationType = guessDestinationType(sshArgs.Destination())
+	dstType := opts.dstType
+	if dstType == DstTypeUnknown {
+		dstType = guessDestinationType(sshArgs.Destination())
 	}
 
 	var instanceID string
-	switch destinationType {
-	case ID:
+	switch dstType {
+	case DstTypeID:
 		instanceID = sshArgs.Destination()
-	case PrivateIP:
+	case DstTypePrivateIP:
 		instanceID = getEC2InstanceIDByFilter("private-ip-address", sshArgs.Destination())
-	case PublicIP:
+	case DstTypePublicIP:
 		instanceID = getEC2InstanceIDByFilter("ip-address", sshArgs.Destination())
-	case PrivateDNSName:
+	case DstTypePrivateDNSName:
 		instanceID = getEC2InstanceIDByFilter("private-dns-name", sshArgs.Destination()+".*")
-	case NameTag:
+	case DstTypeNameTag:
 		instanceID = getEC2InstanceIDByFilter("tag:Name", sshArgs.Destination())
 	}
 
-	if destinationType != PrivateIP && destinationType != PublicIP {
+	if dstType != DstTypePrivateIP && dstType != DstTypePublicIP {
 		ip := getEC2InstanceIPByID(instanceID, opts.usePublicIP)
 		sshArgs.SetDestination(ip)
 	} else if opts.usePublicIP {
