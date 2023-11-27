@@ -13,6 +13,7 @@ ec2ssh [--public-key path] [--use-public-ip] [-l login_user] [other ssh flags] d
 ```
 - `--public-key`: path to SSH public key file. Default is `~/.ssh/id_rsa.pub`.
 - `--use-public-ip`: use instance's public IP instead of its private IP.
+- `--destination-type`: interpret destination as instance `id`, `private_ip`, `public_ip`, `private_dns` or `name_tag`. Default is to guess.
 - `-l login_user`: Specify the login user for the SSH connection (default: `ec2-user`).
 - `destination`: Can be an instance ID (e.g., `i-1234567890abcdef0`), private DNS name (e.g., `ip-172-31-32-101`), private or public IP address, or a Name tag value.
 - `other ssh flags`: Additional flags to pass to the SSH command.
