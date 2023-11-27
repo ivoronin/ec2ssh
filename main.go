@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"os/user"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -25,16 +24,6 @@ const (
 	NameTag
 	PrivateDNSName
 )
-
-type Opts struct {
-	loginUser        string
-	sshPublicKeyPath string
-	usePublicIP      bool
-	destinationType  DestinationType
-	sshArgs          []string
-	destinationIdx   int
-	destination      string
-}
 
 var (
 	ec2Client                *ec2.EC2
@@ -173,104 +162,26 @@ func usage() {
 	os.Exit(1)
 }
 
-func parseArgs() Opts {
-	args := os.Args[1:]
-	if len(args) < 1 {
-		usage()
-	}
-
-	usr, err := user.Current()
-	if err != nil {
-		handleError(err)
-	}
-
-	/* default values */
-	opts := Opts{
-		loginUser:        "ec2-user",
-		sshPublicKeyPath: usr.HomeDir + "/.ssh/id_rsa.pub",
-		usePublicIP:      false,
-		destinationType:  Unknown,
-		sshArgs:          make([]string, 0, len(args)),
-	}
-
-	for i := 0; i < len(args); i++ {
-		/* ssh doesn't use long keys */
-		if strings.HasPrefix(args[i], "--") && len(args[i]) > 2 {
-			switch args[i] {
-			case "--public-key":
-				if i+1 >= len(args) {
-					handleError(fmt.Errorf("public key path not provided"))
-				}
-				opts.sshPublicKeyPath = args[i+1]
-				i++
-			case "--use-public-ip":
-				opts.usePublicIP = true
-			case "--destination-type":
-				if i+1 >= len(args) {
-					handleError(fmt.Errorf("destination type not provided"))
-				}
-				switch args[i+1] {
-				case "id":
-					opts.destinationType = ID
-				case "private_ip":
-					opts.destinationType = PrivateIP
-				case "public_ip":
-					opts.destinationType = PublicIP
-				case "private_dns":
-					opts.destinationType = PrivateDNSName
-				case "name_tag":
-					opts.destinationType = NameTag
-				default:
-					handleError(fmt.Errorf("unknown destination type: %s", args[i+1]))
-				}
-				i++
-			default:
-				handleError(fmt.Errorf("unknown option %s", args[i]))
-			}
-			continue
-		}
-
-		opts.sshArgs = append(opts.sshArgs, args[i])
-		if args[i] == "-l" && i+1 < len(args) {
-			opts.loginUser = args[i+1]
-			// Skip next argument
-			i++
-			opts.sshArgs = append(opts.sshArgs, args[i])
-		} else if !strings.HasPrefix(args[i], "-") {
-			if opts.destination == "" {
-				opts.destinationIdx = len(opts.sshArgs) - 1
-				opts.destination = args[i]
-			}
-		}
-	}
-
-	if opts.destination == "" {
-		usage()
-	}
-
-	return opts
-}
-
 func main() {
-	opts := parseArgs()
+	opts, sshArgs := parseArgs()
 
 	destinationType := opts.destinationType
 	if destinationType == Unknown {
-		destinationType = guessDestinationType(opts.destination)
+		destinationType = guessDestinationType(sshArgs.Destination())
 	}
 
 	var instanceID string
 	switch destinationType {
 	case ID:
-		instanceID = opts.destination
+		instanceID = sshArgs.Destination()
 	case PrivateIP:
-		instanceID = getEC2InstanceIDByFilter("private-ip-address", opts.destination)
+		instanceID = getEC2InstanceIDByFilter("private-ip-address", sshArgs.Destination())
 	case PublicIP:
-		instanceID = getEC2InstanceIDByFilter("ip-address", opts.destination)
+		instanceID = getEC2InstanceIDByFilter("ip-address", sshArgs.Destination())
 	case PrivateDNSName:
-		instanceID = getEC2InstanceIDByFilter("private-dns-name", opts.destination+".*")
+		instanceID = getEC2InstanceIDByFilter("private-dns-name", sshArgs.Destination()+".*")
 	case NameTag:
-		instanceID = getEC2InstanceIDByFilter("tag:Name", opts.destination)
+		instanceID = getEC2InstanceIDByFilter("tag:Name", sshArgs.Destination())
 	}
 
 	var sshDestination string
@@ -279,7 +190,7 @@ func main() {
 		if opts.usePublicIP {
 			handleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
 		}
-		sshDestination = opts.destination
+		sshDestination = sshArgs.Destination()
 	default:
 		sshDestination = getECInstanceIPByID(instanceID, opts.usePublicIP)
 	}
@@ -287,11 +198,9 @@ func main() {
 	sshPublicKey := getSSHPublicKey(opts.sshPublicKeyPath)
 	sendSSHPublicKey(instanceID, opts.loginUser, sshPublicKey)
 
-	sshArgs := make([]string, len(opts.sshArgs))
-	copy(sshArgs, opts.sshArgs)
-	sshArgs[opts.destinationIdx] = sshDestination
+	sshArgs.SetDestination(sshDestination)
 
-	cmd := exec.Command("ssh", sshArgs...)
+	cmd := exec.Command("ssh", sshArgs.Args()...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
