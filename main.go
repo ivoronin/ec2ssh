@@ -54,7 +54,7 @@ func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKey string) {
 	}
 }
 
-func getECInstanceIPByID(instanceID string, usePublicIP bool) string {
+func getEC2InstanceIPByID(instanceID string, usePublicIP bool) string {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	}
@@ -192,7 +192,7 @@ func main() {
 		}
 		sshDestination = sshArgs.Destination()
 	default:
-		sshDestination = getECInstanceIPByID(instanceID, opts.usePublicIP)
+		sshDestination = getEC2InstanceIPByID(instanceID, opts.usePublicIP)
 	}
 
 	sshPublicKey := getSSHPublicKey(opts.sshPublicKeyPath)
