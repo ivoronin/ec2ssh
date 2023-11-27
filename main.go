@@ -169,10 +169,15 @@ func main() {
 		instanceID = getEC2InstanceIDByFilter("tag:Name", destination)
 	}
 
-	sshDestination := getECInstanceIPByID(instanceID)
 	sshPublicKey := getSSHPublicKey()
-
 	sendSSHPublicKey(instanceID, loginUser, sshPublicKey)
+
+	var sshDestination string
+	if destinationIP != nil {
+		sshDestination = destination
+	} else {
+		sshDestination = getECInstanceIPByID(instanceID)
+	}
 
 	sshArgs[destinationIndex] = sshDestination
 	cmd := exec.Command("ssh", sshArgs...)
