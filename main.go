@@ -44,7 +44,7 @@ func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKey string) {
 	}
 }
 
-func getECInstanceIPByID(instanceID string) string {
+func getECInstanceIPByID(instanceID string, usePublicIP bool) string {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	}
@@ -56,7 +56,17 @@ func getECInstanceIPByID(instanceID string) string {
 
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
-			return *instance.PrivateIpAddress
+			if usePublicIP {
+				if instance.PublicIpAddress == nil {
+					handleError(fmt.Errorf("public IP address not found for instance with ID %s", instanceID))
+				}
+				return *instance.PublicIpAddress
+			} else {
+				if instance.PrivateIpAddress == nil {
+					handleError(fmt.Errorf("private IP address not found for instance with ID %s", instanceID))
+				}
+				return *instance.PrivateIpAddress
+			}
 		}
 	}
 
@@ -89,16 +99,7 @@ func getEC2InstanceIDByFilter(filterName, filterValue string) string {
 	return ""
 }
 
-func getSSHPublicKey() string {
-	sshPublicKeyPath := os.Getenv(("SSH_PUBLIC_KEY_PATH"))
-	if sshPublicKeyPath == "" {
-		usr, err := user.Current()
-		if err != nil {
-			handleError(err)
-		}
-		sshPublicKeyPath = usr.HomeDir + "/.ssh/id_rsa.pub"
-	}
-
+func getSSHPublicKey(sshPublicKeyPath string) string {
 	file, err := os.Open(sshPublicKeyPath)
 	if err != nil {
 		handleError(err)
@@ -115,12 +116,16 @@ func getSSHPublicKey() string {
 }
 
 func handleError(err error) {
-	fmt.Fprintf(os.Stderr, "An error occurred: %v\n", err)
+	fmt.Fprintf(os.Stderr, "ec2ssh: error: %v\n", err)
 	os.Exit(1)
 }
 
+func handleWarning(msg string) {
+	fmt.Fprintf(os.Stderr, "ec2ssh: warning: %s\n", msg)
+}
+
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [-l login_user] [other ssh flags] destination [command [argument ...]]\n")
+	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--ssh-public-key path] [--use-public-ip] [-l login_user] [other ssh flags] destination [command [argument ...]]\n")
 	os.Exit(1)
 }
 
@@ -130,20 +135,45 @@ func main() {
 		usage()
 	}
 
-	sshArgs := make([]string, len(args))
-	copy(sshArgs, args)
-
+	usr, err := user.Current()
+	if err != nil {
+		handleError(err)
+	}
+	sshPublicKeyPath := usr.HomeDir + "/.ssh/id_rsa.pub"
 	loginUser := "ec2-user"
+	usePublicIP := false
+
 	var destination string
 	var destinationIndex int
+	sshArgs := make([]string, 0, len(args))
 
 	for i := 0; i < len(args); i++ {
+		/* ssh doesn't use long keys */
+		if strings.HasPrefix(args[i], "--") && len(args[i]) > 2 {
+			switch args[i] {
+			case "--public-key":
+				if i+1 >= len(args) {
+					handleError(fmt.Errorf("public key path not provided"))
+				}
+				sshPublicKeyPath = args[i+1]
+				i++
+			case "--use-public-ip":
+				usePublicIP = true
+			default:
+				handleError(fmt.Errorf("unknown option %s", args[i]))
+			}
+			continue
+		}
+
+		sshArgs = append(sshArgs, args[i])
 		if args[i] == "-l" && i+1 < len(args) {
 			loginUser = args[i+1]
-			i++ // Skip next argument
+			// Skip next argument
+			i++
+			sshArgs = append(sshArgs, args[i])
 		} else if !strings.HasPrefix(args[i], "-") {
 			if destination == "" {
-				destinationIndex = i
+				destinationIndex = len(sshArgs) - 1
 				destination = args[i]
 			}
 		}
@@ -169,14 +199,17 @@ func main() {
 		instanceID = getEC2InstanceIDByFilter("tag:Name", destination)
 	}
 
-	sshPublicKey := getSSHPublicKey()
+	sshPublicKey := getSSHPublicKey(sshPublicKeyPath)
 	sendSSHPublicKey(instanceID, loginUser, sshPublicKey)
 
 	var sshDestination string
 	if destinationIP != nil {
+		if usePublicIP {
+			handleWarning("the option '--ec2-use-public-ip' is ignored since an IP address has been provided")
+		}
 		sshDestination = destination
 	} else {
-		sshDestination = getECInstanceIPByID(instanceID)
+		sshDestination = getECInstanceIPByID(instanceID, usePublicIP)
 	}
 
 	sshArgs[destinationIndex] = sshDestination
