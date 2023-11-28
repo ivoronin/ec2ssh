@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+type DstType int
+
+const (
+	DstTypeUnknown DstType = iota
+	DstTypeID
+	DstTypePrivateIP
+	DstTypePublicIP
+	DstTypePrivateDNSName
+	DstTypeNameTag
+)
+
+var DstTypeNames = map[string]DstType{
+	"id":          DstTypeID,
+	"private_ip":  DstTypePrivateIP,
+	"public_ip":   DstTypePublicIP,
+	"private_dns": DstTypePrivateDNSName,
+	"name_tag":    DstTypeNameTag,
+}
+
 type Opts struct {
 	loginUser        string
 	sshPublicKeyPath string
@@ -61,7 +80,7 @@ func parseArgs() (Opts, SSHArgs) {
 			switch args[i] {
 			case "--public-key":
 				if i+1 >= len(args) {
-					handleError(fmt.Errorf("public key path not provided"))
+					handleError(fmt.Errorf("expected value after %s", args[i]))
 				}
 				opts.sshPublicKeyPath = args[i+1]
 				i++
@@ -69,20 +88,11 @@ func parseArgs() (Opts, SSHArgs) {
 				opts.usePublicIP = true
 			case "--destination-type":
 				if i+1 >= len(args) {
-					handleError(fmt.Errorf("destination type not provided"))
+					handleError(fmt.Errorf("expected value after %s", args[i]))
 				}
-				switch args[i+1] {
-				case "id":
-					opts.dstType = DstTypeID
-				case "private_ip":
-					opts.dstType = DstTypePrivateIP
-				case "public_ip":
-					opts.dstType = DstTypePublicIP
-				case "private_dns":
-					opts.dstType = DstTypePrivateDNSName
-				case "name_tag":
-					opts.dstType = DstTypeNameTag
-				default:
+				var ok bool
+				opts.dstType, ok = DstTypeNames[args[i+1]]
+				if !ok {
 					handleError(fmt.Errorf("unknown destination type: %s", args[i+1]))
 				}
 				i++
@@ -98,10 +108,8 @@ func parseArgs() (Opts, SSHArgs) {
 			// Skip next argument
 			i++
 			sshArgs.args = append(sshArgs.args, args[i])
-		} else if !strings.HasPrefix(args[i], "-") {
-			if sshArgs.dstIdx == -1 {
-				sshArgs.dstIdx = len(sshArgs.args) - 1
-			}
+		} else if !strings.HasPrefix(args[i], "-") && sshArgs.dstIdx == -1 {
+			sshArgs.dstIdx = len(sshArgs.args) - 1
 		}
 	}
 

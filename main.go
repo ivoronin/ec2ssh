@@ -14,17 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2instanceconnect"
 )
 
-type DstType int
-
-const (
-	DstTypeUnknown DstType = iota
-	DstTypeID
-	DstTypePrivateIP
-	DstTypePublicIP
-	DstTypePrivateDNSName
-	DstTypeNameTag
-)
-
 var (
 	ec2Client                *ec2.EC2
 	ec2InstanceConnectClient *ec2instanceconnect.EC2InstanceConnect
