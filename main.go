@@ -30,14 +30,27 @@ func init() {
 	ec2InstanceConnectClient = ec2instanceconnect.New(sess)
 }
 
-func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKey string) {
+func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKeyPath string) {
+	file, err := os.Open(sshPublicKeyPath)
+	if err != nil {
+		handleError(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Scan()
+	sshPublicKey := scanner.Text()
+	if err := scanner.Err(); err != nil {
+		handleError(err)
+	}
+
 	input := &ec2instanceconnect.SendSSHPublicKeyInput{
 		InstanceId:     aws.String(instanceID),
 		InstanceOSUser: aws.String(instanceOSUser),
 		SSHPublicKey:   aws.String(sshPublicKey),
 	}
 
-	_, err := ec2InstanceConnectClient.SendSSHPublicKey(input)
+	_, err = ec2InstanceConnectClient.SendSSHPublicKey(input)
 	if err != nil {
 		handleError(err)
 	}
@@ -96,22 +109,6 @@ func getEC2InstanceIDByFilter(filterName, filterValue string) string {
 
 	handleError(fmt.Errorf("no instance found with %s=%s", filterName, filterValue))
 	return ""
-}
-
-func getSSHPublicKey(sshPublicKeyPath string) string {
-	file, err := os.Open(sshPublicKeyPath)
-	if err != nil {
-		handleError(err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Scan()
-	sshPublicKey := scanner.Text()
-	if err := scanner.Err(); err != nil {
-		handleError(err)
-	}
-	return sshPublicKey
 }
 
 func guessDestinationType(dst string) DstType {
@@ -180,8 +177,7 @@ func main() {
 		handleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
 	}
 
-	sshPublicKey := getSSHPublicKey(opts.sshPublicKeyPath)
-	sendSSHPublicKey(instanceID, opts.loginUser, sshPublicKey)
+	sendSSHPublicKey(instanceID, opts.loginUser, opts.sshPublicKeyPath)
 
 	cmd := exec.Command("ssh", sshArgs.Args()...)
 	cmd.Stdin = os.Stdin
