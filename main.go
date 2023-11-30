@@ -16,7 +16,7 @@ func handleWarning(msg string) {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--ssh-public-key path] [--use-public-ip]\n")
+	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--ssh-public-key path] [--use-public-ip] [--region region]\n")
 	fmt.Fprintf(os.Stderr, "        [--destination-type <id|private_ip|public_ip|private_dns|name_tag>]\n")
 	fmt.Fprintf(os.Stderr, "        [-l login_user] [other ssh flags] destination [command [argument ...]]\n")
 	os.Exit(1)
@@ -24,6 +24,8 @@ func usage() {
 
 func main() {
 	opts, sshArgs := parseArgs()
+
+	ec2init(opts)
 
 	dstType := opts.dstType
 	if dstType == DstTypeUnknown {

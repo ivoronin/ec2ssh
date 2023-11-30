@@ -18,12 +18,15 @@ var (
 	ec2InstanceConnectClient *ec2instanceconnect.EC2InstanceConnect
 )
 
-func init() {
+func ec2init(opts Opts) {
 	var config aws.Config
-	region := os.Getenv("AWS_DEFAULT_REGION")
-	if region != "" {
+
+	if opts.region != "" {
+		config.Region = aws.String(opts.region)
+	} else if region := os.Getenv("AWS_DEFAULT_REGION"); region != "" {
 		config.Region = aws.String(region)
 	}
+
 	sess := session.Must(session.NewSession(&config))
 	ec2Client = ec2.New(sess)
 	ec2InstanceConnectClient = ec2instanceconnect.New(sess)

@@ -31,6 +31,7 @@ type Opts struct {
 	sshPublicKeyPath string
 	usePublicIP      bool
 	dstType          DstType
+	region           string
 }
 
 type SSHArgs struct {
@@ -83,6 +84,12 @@ func parseArgs() (Opts, SSHArgs) {
 					handleError(fmt.Errorf("expected value after %s", args[i]))
 				}
 				opts.sshPublicKeyPath = args[i+1]
+				i++
+			case "--region":
+				if i+1 >= len(args) {
+					handleError(fmt.Errorf("expected value after %s", args[i]))
+				}
+				opts.region = args[i+1]
 				i++
 			case "--use-public-ip":
 				opts.usePublicIP = true
