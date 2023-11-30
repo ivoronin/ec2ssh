@@ -82,6 +82,10 @@ func (s *ArgShifter) Must() string {
 	return *elem
 }
 
+func (s *ArgShifter) Rest() []string {
+	return s.slice[s.index:]
+}
+
 func ParseArgs() (Opts, SSHArgs) {
 	args := os.Args[1:]
 	if len(args) < 1 {
@@ -109,8 +113,16 @@ func ParseArgs() (Opts, SSHArgs) {
 	shifter := NewArgShifter(&args)
 	for argp := shifter.Try(); argp != nil; argp = shifter.Try() {
 		arg := *argp
+
+		/* Detected option stop marker; appending remaining arguments to sshArgs and exiting loop */
+		if arg == "--" {
+			sshArgs.args = append(sshArgs.args, arg)
+			sshArgs.args = append(sshArgs.args, shifter.Rest()...)
+			break
+		}
+
 		/* ssh doesn't use long keys, so we do */
-		if strings.HasPrefix(arg, "--") && len(arg) > 2 {
+		if strings.HasPrefix(arg, "--") {
 			switch arg {
 			case "--public-key":
 				opts.sshPublicKeyPath = shifter.Must()
