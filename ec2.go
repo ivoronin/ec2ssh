@@ -27,7 +27,10 @@ func ec2init(opts Opts) {
 		config.Region = aws.String(region)
 	}
 
-	sess := session.Must(session.NewSession(&config))
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            config,
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 	ec2Client = ec2.New(sess)
 	ec2InstanceConnectClient = ec2instanceconnect.New(sess)
 }
