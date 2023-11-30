@@ -23,8 +23,6 @@ func ec2init(opts Opts) {
 
 	if opts.region != "" {
 		config.Region = aws.String(opts.region)
-	} else if region := os.Getenv("AWS_DEFAULT_REGION"); region != "" {
-		config.Region = aws.String(region)
 	}
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
