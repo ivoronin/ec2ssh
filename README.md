@@ -14,6 +14,7 @@ ec2ssh [ec2ssh flags] [-l login_user] [ssh flags] destination [command [argument
 - `--public-key`: path to SSH public key file. Default is `~/.ssh/id_rsa.pub`.
 - `--use-public-ip`: use instance's public IP instead of its private IP.
 - `--region`: AWS region in which the instance search is to be performed.
+- `--profile`: AWS configuration profile to use.
 - `--destination-type`: interpret destination as instance `id`, `private_ip`, `public_ip`, `private_dns` or `name_tag`. Default is to guess.
 - `-l login_user`: Specify the login user for the SSH connection (default: `ec2-user`).
 - `destination`: Can be an instance ID (e.g., `i-1234567890abcdef0`), private DNS name (e.g., `ip-172-31-32-101`), private or public IP address, or a Name tag value.

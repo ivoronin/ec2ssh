@@ -27,6 +27,7 @@ func ec2init(opts Opts) {
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config:            config,
+		Profile:           opts.profile,
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	ec2Client = ec2.New(sess)

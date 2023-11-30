@@ -32,6 +32,7 @@ type Opts struct {
 	usePublicIP      bool
 	dstType          DstType
 	region           string
+	profile          string
 }
 
 type SSHArgs struct {
@@ -49,6 +50,37 @@ func (a SSHArgs) SetDestination(dst string) {
 
 func (a SSHArgs) Args() []string {
 	return a.args
+}
+
+type ArgShifter struct {
+	slice  []string
+	index  int
+	length int
+}
+
+func NewArgShifter(slice *[]string) ArgShifter {
+	return ArgShifter{
+		slice:  *slice,
+		index:  0,
+		length: len(*slice),
+	}
+}
+
+func (s *ArgShifter) try() *string {
+	if s.index < s.length {
+		elem := &s.slice[s.index]
+		s.index++
+		return elem
+	}
+	return nil
+}
+
+func (s *ArgShifter) must() string {
+	elem := s.try()
+	if elem == nil {
+		usage()
+	}
+	return *elem
 }
 
 func parseArgs() (Opts, SSHArgs) {
@@ -75,47 +107,38 @@ func parseArgs() (Opts, SSHArgs) {
 		dstIdx: -1,
 	}
 
-	for i := 0; i < len(args); i++ {
+	shifter := NewArgShifter(&args)
+	for argp := shifter.try(); argp != nil; argp = shifter.try() {
+		arg := *argp
 		/* ssh doesn't use long keys */
-		if strings.HasPrefix(args[i], "--") && len(args[i]) > 2 {
-			switch args[i] {
+		if strings.HasPrefix(arg, "--") && len(arg) > 2 {
+			switch arg {
 			case "--public-key":
-				if i+1 >= len(args) {
-					handleError(fmt.Errorf("expected value after %s", args[i]))
-				}
-				opts.sshPublicKeyPath = args[i+1]
-				i++
+				opts.sshPublicKeyPath = shifter.must()
 			case "--region":
-				if i+1 >= len(args) {
-					handleError(fmt.Errorf("expected value after %s", args[i]))
-				}
-				opts.region = args[i+1]
-				i++
+				opts.region = shifter.must()
+			case "--profile":
+				opts.profile = shifter.must()
 			case "--use-public-ip":
 				opts.usePublicIP = true
 			case "--destination-type":
-				if i+1 >= len(args) {
-					handleError(fmt.Errorf("expected value after %s", args[i]))
-				}
+				dstType := shifter.must()
 				var ok bool
-				opts.dstType, ok = DstTypeNames[args[i+1]]
+				opts.dstType, ok = DstTypeNames[dstType]
 				if !ok {
-					handleError(fmt.Errorf("unknown destination type: %s", args[i+1]))
+					handleError(fmt.Errorf("unknown destination type: %s", arg))
 				}
-				i++
 			default:
-				handleError(fmt.Errorf("unknown option %s", args[i]))
+				handleError(fmt.Errorf("unknown option %s", arg))
 			}
 			continue
 		}
 
-		sshArgs.args = append(sshArgs.args, args[i])
-		if args[i] == "-l" && i+1 < len(args) {
-			opts.loginUser = args[i+1]
-			// Skip next argument
-			i++
-			sshArgs.args = append(sshArgs.args, args[i])
-		} else if !strings.HasPrefix(args[i], "-") && sshArgs.dstIdx == -1 {
+		sshArgs.args = append(sshArgs.args, arg)
+		if arg == "-l" {
+			opts.loginUser = shifter.must()
+			sshArgs.args = append(sshArgs.args, opts.loginUser)
+		} else if !strings.HasPrefix(arg, "-") && sshArgs.dstIdx == -1 {
 			sshArgs.dstIdx = len(sshArgs.args) - 1
 		}
 	}
