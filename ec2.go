@@ -18,7 +18,7 @@ var (
 	ec2InstanceConnectClient *ec2instanceconnect.EC2InstanceConnect
 )
 
-func ec2init(opts Opts) {
+func EC2Init(opts Opts) {
 	var config aws.Config
 
 	if opts.region != "" {
@@ -34,10 +34,10 @@ func ec2init(opts Opts) {
 	ec2InstanceConnectClient = ec2instanceconnect.New(sess)
 }
 
-func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKeyPath string) {
+func SendSSHPublicKey(instanceID, instanceOSUser, sshPublicKeyPath string) {
 	file, err := os.Open(sshPublicKeyPath)
 	if err != nil {
-		handleError(err)
+		HandleError(err)
 	}
 	defer file.Close()
 
@@ -45,7 +45,7 @@ func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKeyPath string) {
 	scanner.Scan()
 	sshPublicKey := scanner.Text()
 	if err := scanner.Err(); err != nil {
-		handleError(err)
+		HandleError(err)
 	}
 
 	input := &ec2instanceconnect.SendSSHPublicKeyInput{
@@ -56,41 +56,41 @@ func sendSSHPublicKey(instanceID, instanceOSUser, sshPublicKeyPath string) {
 
 	_, err = ec2InstanceConnectClient.SendSSHPublicKey(input)
 	if err != nil {
-		handleError(err)
+		HandleError(err)
 	}
 }
 
-func getInstanceIPByID(instanceID string, usePublicIP bool) string {
+func GetInstanceIPByID(instanceID string, usePublicIP bool) string {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	}
 
 	result, err := ec2Client.DescribeInstances(input)
 	if err != nil {
-		handleError(err)
+		HandleError(err)
 	}
 
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
 			if usePublicIP {
 				if instance.PublicIpAddress == nil {
-					handleError(fmt.Errorf("public IP address not found for instance with ID %s", instanceID))
+					HandleError(fmt.Errorf("public IP address not found for instance with ID %s", instanceID))
 				}
 				return *instance.PublicIpAddress
 			} else {
 				if instance.PrivateIpAddress == nil {
-					handleError(fmt.Errorf("private IP address not found for instance with ID %s", instanceID))
+					HandleError(fmt.Errorf("private IP address not found for instance with ID %s", instanceID))
 				}
 				return *instance.PrivateIpAddress
 			}
 		}
 	}
 
-	handleError(fmt.Errorf("no IP found for instance ID %s", instanceID))
+	HandleError(fmt.Errorf("no IP found for instance ID %s", instanceID))
 	return ""
 }
 
-func getInstanceIDByFilter(filterName, filterValue string) string {
+func GetInstanceIDByFilter(filterName, filterValue string) string {
 	input := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			{
@@ -102,7 +102,7 @@ func getInstanceIDByFilter(filterName, filterValue string) string {
 
 	result, err := ec2Client.DescribeInstances(input)
 	if err != nil {
-		handleError(err)
+		HandleError(err)
 	}
 
 	for _, reservation := range result.Reservations {
@@ -111,11 +111,11 @@ func getInstanceIDByFilter(filterName, filterValue string) string {
 		}
 	}
 
-	handleError(fmt.Errorf("no instance found with %s=%s", filterName, filterValue))
+	HandleError(fmt.Errorf("no instance found with %s=%s", filterName, filterValue))
 	return ""
 }
 
-func guessDestinationType(dst string) DstType {
+func GuessDestinationType(dst string) DstType {
 	if strings.HasPrefix(dst, "i-") {
 		return DstTypeID
 	}

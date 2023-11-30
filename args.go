@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/user"
 	"strings"
@@ -66,7 +65,7 @@ func NewArgShifter(slice *[]string) ArgShifter {
 	}
 }
 
-func (s *ArgShifter) try() *string {
+func (s *ArgShifter) Try() *string {
 	if s.index < s.length {
 		elem := &s.slice[s.index]
 		s.index++
@@ -75,23 +74,23 @@ func (s *ArgShifter) try() *string {
 	return nil
 }
 
-func (s *ArgShifter) must() string {
-	elem := s.try()
+func (s *ArgShifter) Must() string {
+	elem := s.Try()
 	if elem == nil {
-		usage()
+		Usage()
 	}
 	return *elem
 }
 
-func parseArgs() (Opts, SSHArgs) {
+func ParseArgs() (Opts, SSHArgs) {
 	args := os.Args[1:]
 	if len(args) < 1 {
-		usage()
+		Usage()
 	}
 
 	usr, err := user.Current()
 	if err != nil {
-		handleError(err)
+		HandleError(err)
 	}
 
 	/* default values */
@@ -108,35 +107,35 @@ func parseArgs() (Opts, SSHArgs) {
 	}
 
 	shifter := NewArgShifter(&args)
-	for argp := shifter.try(); argp != nil; argp = shifter.try() {
+	for argp := shifter.Try(); argp != nil; argp = shifter.Try() {
 		arg := *argp
-		/* ssh doesn't use long keys */
+		/* ssh doesn't use long keys, so we do */
 		if strings.HasPrefix(arg, "--") && len(arg) > 2 {
 			switch arg {
 			case "--public-key":
-				opts.sshPublicKeyPath = shifter.must()
+				opts.sshPublicKeyPath = shifter.Must()
 			case "--region":
-				opts.region = shifter.must()
+				opts.region = shifter.Must()
 			case "--profile":
-				opts.profile = shifter.must()
+				opts.profile = shifter.Must()
 			case "--use-public-ip":
 				opts.usePublicIP = true
 			case "--destination-type":
-				dstType := shifter.must()
+				dstType := shifter.Must()
 				var ok bool
 				opts.dstType, ok = DstTypeNames[dstType]
 				if !ok {
-					handleError(fmt.Errorf("unknown destination type: %s", arg))
+					Usage()
 				}
 			default:
-				handleError(fmt.Errorf("unknown option %s", arg))
+				Usage()
 			}
 			continue
 		}
 
 		sshArgs.args = append(sshArgs.args, arg)
 		if arg == "-l" {
-			opts.loginUser = shifter.must()
+			opts.loginUser = shifter.Must()
 			sshArgs.args = append(sshArgs.args, opts.loginUser)
 		} else if !strings.HasPrefix(arg, "-") && sshArgs.dstIdx == -1 {
 			sshArgs.dstIdx = len(sshArgs.args) - 1
@@ -144,7 +143,7 @@ func parseArgs() (Opts, SSHArgs) {
 	}
 
 	if sshArgs.dstIdx == -1 {
-		usage()
+		Usage()
 	}
 
 	return opts, sshArgs
