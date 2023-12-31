@@ -33,6 +33,8 @@ type Opts struct {
 	region           string
 	profile          string
 	noSendKeys       bool
+	useEICE          bool
+	eiceId           string
 }
 
 type SSHArgs struct {
@@ -105,6 +107,8 @@ func ParseArgs() (Opts, SSHArgs) {
 		usePublicIP:      false,
 		dstType:          DstTypeUnknown,
 		noSendKeys:       false,
+		useEICE:          false,
+		eiceId:           "",
 	}
 
 	sshArgs := SSHArgs{
@@ -143,6 +147,11 @@ func ParseArgs() (Opts, SSHArgs) {
 				}
 			case "--no-send-keys":
 				opts.noSendKeys = true
+			case "--use-eice":
+				opts.useEICE = true
+			case "--eice-id":
+				opts.eiceId = shifter.Must()
+				opts.useEICE = true
 			default:
 				Usage()
 			}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 func HandleError(err error) {
@@ -18,7 +20,7 @@ func HandleWarning(msg string) {
 func Usage() {
 	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--ssh-public-key path] [--use-public-ip] [--region region]\n")
 	fmt.Fprintf(os.Stderr, "        [--destination-type <id|private_ip|public_ip|private_dns|name_tag>]\n")
-	fmt.Fprintf(os.Stderr, "        [--no-send-keys]\n")
+	fmt.Fprintf(os.Stderr, "        [--no-send-keys] [--use-eice] [--eice-id id]\n")
 	fmt.Fprintf(os.Stderr, "        [-l login_user] [other ssh flags] destination [command [argument ...]]\n")
 	os.Exit(1)
 }
@@ -26,36 +28,59 @@ func Usage() {
 func main() {
 	opts, sshArgs := ParseArgs()
 
-	EC2Init(opts)
+	AWSInit(opts)
 
 	dstType := opts.dstType
 	if dstType == DstTypeUnknown {
 		dstType = GuessDestinationType(sshArgs.Destination())
 	}
 
-	var instanceID string
+	var instance *ec2Types.Instance
 	switch dstType {
 	case DstTypeID:
-		instanceID = sshArgs.Destination()
+		instance = GetInstanceById(sshArgs.Destination())
 	case DstTypePrivateIP:
-		instanceID = GetInstanceIDByFilter("private-ip-address", sshArgs.Destination())
+		instance = GetInstanceByFilter("private-ip-address", sshArgs.Destination())
+		if opts.usePublicIP {
+			HandleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
+		}
 	case DstTypePublicIP:
-		instanceID = GetInstanceIDByFilter("ip-address", sshArgs.Destination())
+		instance = GetInstanceByFilter("ip-address", sshArgs.Destination())
+		if opts.usePublicIP {
+			HandleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
+		}
 	case DstTypePrivateDNSName:
-		instanceID = GetInstanceIDByFilter("private-dns-name", sshArgs.Destination()+".*")
+		instance = GetInstanceByFilter("private-dns-name", sshArgs.Destination()+".*")
 	case DstTypeNameTag:
-		instanceID = GetInstanceIDByFilter("tag:Name", sshArgs.Destination())
+		instance = GetInstanceByFilter("tag:Name", sshArgs.Destination())
 	}
 
-	if dstType != DstTypePrivateIP && dstType != DstTypePublicIP {
-		ip := GetInstanceIPByID(instanceID, opts.usePublicIP)
-		sshArgs.SetDestination(ip)
-	} else if opts.usePublicIP {
-		HandleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
+	var ip string
+	if opts.usePublicIP {
+		if instance.PublicIpAddress == nil {
+			HandleError(fmt.Errorf("public IP address not found for instance with ID %s", *instance.InstanceId))
+		}
+		ip = *instance.PublicIpAddress
+	} else {
+		if instance.PrivateIpAddress == nil {
+			HandleError(fmt.Errorf("private IP address not found for instance with ID %s", *instance.InstanceId))
+		}
+		ip = *instance.PrivateIpAddress
 	}
+	sshArgs.SetDestination(ip)
 
 	if !opts.noSendKeys {
-		SendSSHPublicKey(instanceID, opts.loginUser, opts.sshPublicKeyPath)
+		SendSSHPublicKey(*instance.InstanceId, opts.loginUser, opts.sshPublicKeyPath)
+	}
+
+	if opts.useEICE {
+		var eice *ec2Types.Ec2InstanceConnectEndpoint
+		if opts.eiceId != "" {
+			eice = GetInstanceConnectEndpointByID(opts.eiceId)
+		} else {
+			eice = GetInstanceConnectEndpointByVpc(*instance.VpcId, *instance.SubnetId)
+		}
+		fmt.Printf("using EICE: %s\n", *eice.DnsName)
 	}
 
 	cmd := exec.Command("ssh", sshArgs.Args()...)
