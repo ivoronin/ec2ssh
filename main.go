@@ -18,6 +18,7 @@ func HandleWarning(msg string) {
 func Usage() {
 	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--ssh-public-key path] [--use-public-ip] [--region region]\n")
 	fmt.Fprintf(os.Stderr, "        [--destination-type <id|private_ip|public_ip|private_dns|name_tag>]\n")
+	fmt.Fprintf(os.Stderr, "        [--no-send-keys]\n")
 	fmt.Fprintf(os.Stderr, "        [-l login_user] [other ssh flags] destination [command [argument ...]]\n")
 	os.Exit(1)
 }
@@ -53,7 +54,9 @@ func main() {
 		HandleWarning("the option '--use-public-ip' is ignored since an IP address has been provided")
 	}
 
-	SendSSHPublicKey(instanceID, opts.loginUser, opts.sshPublicKeyPath)
+	if !opts.noSendKeys {
+		SendSSHPublicKey(instanceID, opts.loginUser, opts.sshPublicKeyPath)
+	}
 
 	cmd := exec.Command("ssh", sshArgs.Args()...)
 	cmd.Stdin = os.Stdin

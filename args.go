@@ -32,6 +32,7 @@ type Opts struct {
 	dstType          DstType
 	region           string
 	profile          string
+	noSendKeys       bool
 }
 
 type SSHArgs struct {
@@ -103,6 +104,7 @@ func ParseArgs() (Opts, SSHArgs) {
 		sshPublicKeyPath: usr.HomeDir + "/.ssh/id_rsa.pub",
 		usePublicIP:      false,
 		dstType:          DstTypeUnknown,
+		noSendKeys:       false,
 	}
 
 	sshArgs := SSHArgs{
@@ -139,6 +141,8 @@ func ParseArgs() (Opts, SSHArgs) {
 				if !ok {
 					Usage()
 				}
+			case "--no-send-keys":
+				opts.noSendKeys = true
 			default:
 				Usage()
 			}
