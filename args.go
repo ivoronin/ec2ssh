@@ -1,10 +1,12 @@
 package main
 
 import (
-	"os"
-	"os/user"
+	"errors"
+	"fmt"
 	"strings"
 )
+
+var ErrArgParse = errors.New("error parsing arguments")
 
 type DstType int
 
@@ -26,141 +28,301 @@ var DstTypeNames = map[string]DstType{
 }
 
 type Opts struct {
-	loginUser        string
-	sshPublicKeyPath string
-	usePublicIP      bool
-	dstType          DstType
-	region           string
-	profile          string
-	noSendKeys       bool
+	dstType     DstType
+	region      string
+	profile     string
+	eiceID      string
+	useEICE     bool
+	usePublicIP bool
+	noSendKeys  bool
 }
 
 type SSHArgs struct {
-	args   []string
-	dstIdx int
+	otherFlags     []string
+	commandAndArgs []string
+	destination    string
+	port           string
+	login          string
+	identityFile   string
+	proxyCommand   string
+	hostKeyAlias   string
 }
 
-func (a SSHArgs) Destination() string {
-	return a.args[a.dstIdx]
+func (a *SSHArgs) Destination() string {
+	return a.destination
 }
 
-func (a SSHArgs) SetDestination(dst string) {
-	a.args[a.dstIdx] = dst
+func (a *SSHArgs) IdentityFile() string {
+	return a.identityFile
 }
 
-func (a SSHArgs) Args() []string {
-	return a.args
+func (a *SSHArgs) Port() string {
+	return a.port
 }
 
-type ArgShifter struct {
-	slice  []string
-	index  int
-	length int
+func (a *SSHArgs) Login() string {
+	return a.login
 }
 
-func NewArgShifter(slice *[]string) ArgShifter {
-	return ArgShifter{
-		slice:  *slice,
-		index:  0,
-		length: len(*slice),
-	}
+func (a *SSHArgs) SetDestination(dst string) {
+	a.destination = dst
 }
 
-func (s *ArgShifter) Try() *string {
-	if s.index < s.length {
-		elem := &s.slice[s.index]
-		s.index++
-		return elem
-	}
-	return nil
+func (a *SSHArgs) SetIdentityFile(identityFile string) {
+	a.identityFile = identityFile
 }
 
-func (s *ArgShifter) Must() string {
-	elem := s.Try()
-	if elem == nil {
-		Usage()
-	}
-	return *elem
+func (a *SSHArgs) SetProxyCommand(proxyCommand string) {
+	a.proxyCommand = proxyCommand
 }
 
-func (s *ArgShifter) Rest() []string {
-	return s.slice[s.index:]
+func (a *SSHArgs) SetHostKeyAlias(alias string) {
+	a.hostKeyAlias = alias
 }
 
-func ParseArgs() (Opts, SSHArgs) {
-	args := os.Args[1:]
-	if len(args) < 1 {
-		Usage()
+func (a *SSHArgs) Args() []string {
+	args := make([]string, 0)
+
+	if a.proxyCommand != "" {
+		args = append(args, fmt.Sprintf("-oProxyCommand=%s", a.proxyCommand))
 	}
 
-	usr, err := user.Current()
-	if err != nil {
-		HandleError(err)
+	if a.hostKeyAlias != "" {
+		args = append(args, fmt.Sprintf("-oHostKeyAlias=%s", a.hostKeyAlias))
 	}
 
-	/* default values */
-	opts := Opts{
-		loginUser:        "ec2-user",
-		sshPublicKeyPath: usr.HomeDir + "/.ssh/id_rsa.pub",
-		usePublicIP:      false,
-		dstType:          DstTypeUnknown,
-		noSendKeys:       false,
+	if a.login != "" {
+		args = append(args, fmt.Sprintf("-l%s", a.login))
 	}
 
-	sshArgs := SSHArgs{
-		args:   make([]string, 0, len(args)),
-		dstIdx: -1,
+	if a.port != "" {
+		args = append(args, fmt.Sprintf("-p%s", a.port))
 	}
 
-	shifter := NewArgShifter(&args)
-	for argp := shifter.Try(); argp != nil; argp = shifter.Try() {
-		arg := *argp
+	if a.identityFile != "" {
+		args = append(args, fmt.Sprintf("-i%s", a.identityFile))
+	}
 
-		/* Detected option stop marker; appending remaining arguments to sshArgs and exiting loop */
-		if arg == "--" {
-			sshArgs.args = append(sshArgs.args, arg)
-			sshArgs.args = append(sshArgs.args, shifter.Rest()...)
+	args = append(args, a.otherFlags...)
+	args = append(args, a.destination)
+	args = append(args, a.commandAndArgs...)
+
+	return args
+}
+
+func getOptValue(args []string, idx int) (value string, err error) {
+	if idx+1 >= len(args) || strings.HasPrefix(args[idx+1], "-") {
+		return "", fmt.Errorf("%w: missing argument for %s", ErrArgParse, args[idx])
+	}
+
+	return args[idx+1], nil
+}
+
+func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
+	opts = &Opts{dstType: DstTypeUnknown}
+
+	leftoverArgs = []string{}
+	/* Pass 1 - parse long options */
+	for argIdx := 0; argIdx < len(args); argIdx++ {
+		if args[argIdx] == "--" {
+			leftoverArgs = append(leftoverArgs, args[argIdx:]...)
+
 			break
 		}
 
-		/* ssh doesn't use long keys, so we do */
-		if strings.HasPrefix(arg, "--") {
-			switch arg {
-			case "--public-key":
-				opts.sshPublicKeyPath = shifter.Must()
-			case "--region":
-				opts.region = shifter.Must()
-			case "--profile":
-				opts.profile = shifter.Must()
+		if strings.HasPrefix(args[argIdx], "--") { /* ssh doesn't use long keys, so we do */
+			opt, value, includesValue := strings.Cut(args[argIdx], "=")
+
+			done := true
+
+			switch opt { /* parse long options without values */
 			case "--use-public-ip":
 				opts.usePublicIP = true
-			case "--destination-type":
-				dstType := shifter.Must()
-				var ok bool
-				opts.dstType, ok = DstTypeNames[dstType]
-				if !ok {
-					Usage()
-				}
 			case "--no-send-keys":
 				opts.noSendKeys = true
+			case "--use-eice":
+				opts.useEICE = true
 			default:
-				Usage()
+				done = false
 			}
+
+			if !done { /* parse long options with values */
+				if !includesValue {
+					if value, err = getOptValue(args, argIdx); err != nil {
+						return nil, nil, err
+					}
+					argIdx++
+				}
+
+				switch opt {
+				case "--region":
+					opts.region = value
+				case "--profile":
+					opts.profile = value
+				case "--destination-type":
+					var ok bool
+					if opts.dstType, ok = DstTypeNames[value]; !ok {
+						return nil, nil, fmt.Errorf("%w: unknown destination type %s", ErrArgParse, value)
+					}
+				case "--eice-id":
+					opts.eiceID, opts.useEICE = value, true
+				default:
+					return nil, nil, fmt.Errorf("%w: unknown option %s", ErrArgParse, opt)
+				}
+			}
+
 			continue
 		}
 
-		sshArgs.args = append(sshArgs.args, arg)
-		if arg == "-l" {
-			opts.loginUser = shifter.Must()
-			sshArgs.args = append(sshArgs.args, opts.loginUser)
-		} else if !strings.HasPrefix(arg, "-") && sshArgs.dstIdx == -1 {
-			sshArgs.dstIdx = len(sshArgs.args) - 1
+		leftoverArgs = append(leftoverArgs, args[argIdx])
+	}
+
+	return opts, leftoverArgs, nil
+}
+
+/* https://github.com/openssh/openssh-portable/blob/V_9_6_P1/ssh.c#L183 */
+const sshFlagsWithArguments = "BbcDEeFIiJLlmOoPpRSWw"
+
+func ParseSSHArgs(args []string) (sshArgs *SSHArgs, err error) {
+	sshArgs = &SSHArgs{otherFlags: []string{}, commandAndArgs: []string{}}
+
+	for argIdx := 0; argIdx < len(args); argIdx++ {
+		if args[argIdx] == "--" {
+			sshArgs.commandAndArgs = append(sshArgs.commandAndArgs, args[argIdx:]...)
+
+			break
+		}
+
+		if strings.HasPrefix(args[argIdx], "-") && len(args[argIdx]) > 1 {
+			flags := args[argIdx][1:]
+			/* for each flag in the current argument */
+			for flagIdx := 0; flagIdx < len(flags); flagIdx++ {
+				flag := flags[flagIdx : flagIdx+1]
+
+				/* current flag doesn't have a value */
+				if !strings.Contains(sshFlagsWithArguments, flag) {
+					sshArgs.otherFlags = append(sshArgs.otherFlags, "-"+flag)
+
+					continue
+				}
+
+				var value string
+
+				/* current flag must have a value */
+				if len(flags[flagIdx:]) > 2 {
+					/* current flag has an argument attached to it */
+					value = flags[flagIdx+1:]
+					flagIdx = len(flags) // Stop iterating over current argument
+				} else {
+					/* current flag must have a value in the next argument */
+					if value, err = getOptValue(args, argIdx); err != nil {
+						return nil, err
+					}
+					argIdx++
+				}
+
+				switch flag { /* extract login, port and identity values */
+				case "l":
+					if sshArgs.login == "" {
+						sshArgs.login = value
+					}
+				case "p":
+					if sshArgs.port == "" {
+						sshArgs.port = value
+					}
+				case "i":
+					if sshArgs.identityFile == "" {
+						sshArgs.identityFile = value
+					}
+				default: /* normalize and save other flags */
+					sshArgs.otherFlags = append(sshArgs.otherFlags, "-"+flag, value)
+				}
+			}
+
+			continue
+		}
+
+		if sshArgs.destination == "" {
+			login, host, port := parseSSHDestination(args[argIdx])
+			sshArgs.destination = host
+
+			if sshArgs.login == "" && login != "" {
+				sshArgs.login = login
+			}
+
+			if sshArgs.port == "" && port != "" {
+				sshArgs.port = port
+			}
+		} else {
+			sshArgs.commandAndArgs = append(sshArgs.commandAndArgs, args[argIdx:]...)
+
+			break
 		}
 	}
 
-	if sshArgs.dstIdx == -1 {
-		Usage()
+	return sshArgs, nil
+}
+
+func parseSSHDestination(destination string) (string, string, string) {
+	var login, host, port string
+
+	loginhostport, hasPrefix := strings.CutPrefix(destination, "ssh://")
+
+	if hasPrefix {
+		var hostport string
+
+		atIdx := strings.LastIndex(loginhostport, "@")
+
+		if atIdx != -1 {
+			before, after := loginhostport[:atIdx], loginhostport[atIdx+1:]
+			login = before
+			hostport = after
+		} else {
+			hostport = loginhostport
+		}
+
+		colonIdx := strings.LastIndex(hostport, ":")
+		/* hanle IPv6 addresses */
+		bracketIdx := strings.LastIndex(hostport, "]")
+		if bracketIdx > colonIdx {
+			colonIdx = -1
+		}
+
+		if colonIdx != -1 {
+			before, after := hostport[:colonIdx], hostport[colonIdx+1:]
+			host = before
+			port = after
+		} else {
+			host = hostport
+		}
+	} else {
+		atIdx := strings.LastIndex(destination, "@")
+		if atIdx != -1 {
+			before, after := destination[:atIdx], destination[atIdx+1:]
+			login = before
+			host = after
+		} else {
+			host = destination
+		}
 	}
 
-	return opts, sshArgs
+	return login, host, port
+}
+
+func ParseArgs(args []string) (*Opts, *SSHArgs, error) {
+	if len(args) < 1 {
+		return nil, nil, fmt.Errorf("%w: no arguments provided", ErrArgParse)
+	}
+
+	opts, leftoverArgs, err := ParseOpts(args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sshArgs, err := ParseSSHArgs(leftoverArgs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return opts, sshArgs, nil
 }
