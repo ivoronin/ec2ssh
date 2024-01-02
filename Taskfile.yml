@@ -10,3 +10,11 @@ tasks:
   test:
     cmds:
       - go test ./...
+  demo:
+    dir: demo
+    cmds:
+      - vhs demo.vhs
+    sources:
+      - demo.vhs
+    generates:
+      - demo.webp
