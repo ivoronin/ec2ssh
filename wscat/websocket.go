@@ -2,6 +2,7 @@ package wscat
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 
@@ -13,8 +14,11 @@ type Websocket struct {
 }
 
 func NewWebSocket(uri string) (*Websocket, error) {
-	conn, _, err := websocket.DefaultDialer.Dial(uri, nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(uri, nil)
 	if err != nil {
+		if errors.Is(err, websocket.ErrBadHandshake) {
+			return nil, fmt.Errorf("%w: %s", err, resp.Status)
+		}
 		return nil, err
 	}
 
