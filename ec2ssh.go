@@ -104,7 +104,7 @@ func RunSSH(sshArgs *SSHArgs, env []string) error {
 }
 
 func GetInstance(dstType DstType, destination string) (instance *types.Instance, err error) {
-	if dstType == DstTypeUnknown {
+	if dstType == DstTypeAuto {
 		dstType = GuessAWSDestinationType(destination)
 	}
 
@@ -121,7 +121,7 @@ func GetInstance(dstType DstType, destination string) (instance *types.Instance,
 		instance, err = awsutil.GetInstanceByFilter("private-dns-name", destination+".*")
 	case DstTypeNameTag:
 		instance, err = awsutil.GetInstanceByFilter("tag:Name", destination)
-	case DstTypeUnknown: // silence linter
+	case DstTypeAuto: // silence linter
 	}
 
 	return instance, err

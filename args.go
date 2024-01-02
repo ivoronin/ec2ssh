@@ -11,7 +11,7 @@ var ErrArgParse = errors.New("error parsing arguments")
 type DstType int
 
 const (
-	DstTypeUnknown DstType = iota
+	DstTypeAuto DstType = iota
 	DstTypeID
 	DstTypePrivateIP
 	DstTypePublicIP
@@ -121,7 +121,7 @@ func getOptValue(args []string, idx int) (value string, err error) {
 
 func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
 	DstTypeNames := map[string]DstType{
-		"auto":        DstTypeUnknown,
+		"auto":        DstTypeAuto,
 		"id":          DstTypeID,
 		"private_ip":  DstTypePrivateIP,
 		"public_ip":   DstTypePublicIP,
@@ -136,7 +136,7 @@ func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
 		"ipv6":    AddrTypeIPv6,
 	}
 
-	opts = &Opts{dstType: DstTypeUnknown}
+	opts = &Opts{dstType: DstTypeAuto}
 
 	leftoverArgs = []string{}
 	/* Pass 1 - parse long options */
