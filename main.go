@@ -15,8 +15,9 @@ func FatalError(err error) {
 
 const helpText = `Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
 
-Connect to an EC2 instance directly using SSH or via the EC2 Instance Connect Endpoint (EICE), by the
-instance ID, private, public, or IPv6 address, private DNS name, or name tag, using ephemeral SSH keys.
+Connect to an EC2 instance directly using SSH or via the EC2 Instance Connect
+Endpoint (EICE), by the instance ID, private, public, or IPv6 address, private
+DNS name, or name tag, using ephemeral SSH keys.
 
   Example - Connect to an instance using the instance ID:
      $ ec2ssh -l ec2-user i-0123456789abcdef0
@@ -60,7 +61,7 @@ Options:
 
   destination
      Specify the destination for connection. Can be one of: instance ID,
-	 private IP address, public IP address, IPv6 address, private DNS name, or name tag.
+     private IP address, public IP address, IPv6 address, private DNS name, or name tag.
 `
 
 func Usage(err error) {
