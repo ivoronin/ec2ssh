@@ -127,31 +127,46 @@ func GetInstance(dstType DstType, destination string) (instance *types.Instance,
 	return instance, err
 }
 
-func SetupDestination(sshArgs *SSHArgs, instance *types.Instance, addrType AddrType) error {
-	sshArgs.SetHostKeyAlias(*instance.InstanceId)
-
+func GetInstanceAddr(instance *types.Instance, addrType AddrType, useEICE bool) (string, error) {
 	switch addrType {
+	case AddrTypeAuto:
+		if useEICE {
+			return GetInstanceAddr(instance, AddrTypePrivate, useEICE)
+		}
+
+		if instance.PrivateIpAddress != nil {
+			return GetInstanceAddr(instance, AddrTypePrivate, useEICE)
+		}
+
+		if instance.PublicIpAddress != nil {
+			return GetInstanceAddr(instance, AddrTypePublic, useEICE)
+		}
+
+		if instance.Ipv6Address != nil {
+			return GetInstanceAddr(instance, AddrTypeIPv6, useEICE)
+		}
 	case AddrTypePrivate:
 		if instance.PrivateIpAddress == nil {
-			return fmt.Errorf("%w: private IP address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
+			return "", fmt.Errorf("%w: private IP address not found for instance ID %s", ErrGeneral, *instance.InstanceId)
 		}
 
-		sshArgs.SetDestination(*instance.PrivateIpAddress)
+		return *instance.PrivateIpAddress, nil
 	case AddrTypePublic:
 		if instance.PublicIpAddress == nil {
-			return fmt.Errorf("%w: public IP address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
+			return "", fmt.Errorf("%w: public IP address not found for instance ID %s", ErrGeneral, *instance.InstanceId)
 		}
 
-		sshArgs.SetDestination(*instance.PublicIpAddress)
+		return *instance.PublicIpAddress, nil
 	case AddrTypeIPv6:
 		if instance.Ipv6Address == nil {
-			return fmt.Errorf("%w: IPv6 address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
+			return "", fmt.Errorf("%w: IPv6 address not found for instance ID %s", ErrGeneral, *instance.InstanceId)
 		}
 
-		sshArgs.SetDestination(*instance.Ipv6Address)
+		return *instance.Ipv6Address, nil
 	}
 
-	return nil
+	/* auto falls through here */
+	return "", fmt.Errorf("%w: no IP addresses found for instance with ID %s", ErrGeneral, *instance.InstanceId)
 }
 
 func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
@@ -159,7 +174,7 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 		return fmt.Errorf("%w: no destination specified", ErrGeneral)
 	}
 
-	if opts.useEICE && opts.addrType != AddrTypePrivate {
+	if opts.useEICE && !((opts.addrType == AddrTypePrivate) || (opts.addrType == AddrTypeAuto)) {
 		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) can be used only with private addresses", ErrGeneral)
 	}
 
@@ -179,10 +194,13 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 		return fmt.Errorf("unable to get instance: %w", err)
 	}
 
-	err = SetupDestination(sshArgs, instance, opts.addrType)
+	dstAddr, err := GetInstanceAddr(instance, opts.addrType, opts.useEICE)
 	if err != nil {
-		return fmt.Errorf("unable to setup destination: %w", err)
+		return fmt.Errorf("unable to get destination address: %w", err)
 	}
+
+	sshArgs.SetHostKeyAlias(*instance.InstanceId)
+	sshArgs.SetDestination(dstAddr)
 
 	if !opts.noSendKeys {
 		if err = SetupAndSendSSHKeys(sshArgs, instance, tmpDir); err != nil {

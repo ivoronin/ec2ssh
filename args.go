@@ -23,7 +23,8 @@ const (
 type AddrType int
 
 const (
-	AddrTypePrivate AddrType = iota
+	AddrTypeAuto AddrType = iota
+	AddrTypePrivate
 	AddrTypePublic
 	AddrTypeIPv6
 )
@@ -131,12 +132,13 @@ func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
 	}
 
 	AddrTypeNames := map[string]AddrType{
+		"auto":    AddrTypeAuto,
 		"private": AddrTypePrivate,
 		"public":  AddrTypePublic,
 		"ipv6":    AddrTypeIPv6,
 	}
 
-	opts = &Opts{dstType: DstTypeAuto}
+	opts = &Opts{dstType: DstTypeAuto, addrType: AddrTypeAuto}
 
 	leftoverArgs = []string{}
 	/* Pass 1 - parse long options */
