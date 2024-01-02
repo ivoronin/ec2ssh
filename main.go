@@ -17,9 +17,9 @@ func Usage(err error) {
 		fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--public-key path] [--use-public-ip] [--region region] [--profile profile]\n")
-	fmt.Fprintf(os.Stderr, "        [--destination-type <id|private_ip|public_ip|private_dns|name_tag>]\n")
-	fmt.Fprintf(os.Stderr, "        [--no-generate-keys] [--use-eice] [--eice-id id]\n")
+	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--region region] [--profile profile] [--use-eice] [--eice-id id]\n")
+	fmt.Fprintf(os.Stderr, "        [--destination-type <auto|id|private_ip|public_ip|ipv6|private_dns|name_tag>]\n")
+	fmt.Fprintf(os.Stderr, "        [--address-type <private|public|ipv6] [--no-send-keys]\n")
 	fmt.Fprintf(os.Stderr, "        [other ssh flags] destination [command [argument ...]]\n")
 	os.Exit(1)
 }

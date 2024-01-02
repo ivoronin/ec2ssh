@@ -24,16 +24,20 @@ func GuessAWSDestinationType(dst string) DstType {
 		return DstTypePrivateDNSName
 	}
 
-	ip := net.ParseIP(dst)
-	if ip != nil {
-		if ip.IsPrivate() {
+	addr := net.ParseIP(dst)
+	if addr == nil {
+		return DstTypeNameTag
+	}
+
+	if addr.To4() != nil {
+		if addr.IsPrivate() {
 			return DstTypePrivateIP
 		}
 
 		return DstTypePublicIP
 	}
 
-	return DstTypeNameTag
+	return DstTypeIPv6
 }
 
 func SetupEICETunnel(sshArgs *SSHArgs, instance *types.Instance, eiceID string) (url string, err error) {
@@ -111,6 +115,8 @@ func GetInstance(dstType DstType, destination string) (instance *types.Instance,
 		instance, err = awsutil.GetInstanceByFilter("private-ip-address", destination)
 	case DstTypePublicIP:
 		instance, err = awsutil.GetInstanceByFilter("ip-address", destination)
+	case DstTypeIPv6:
+		instance, err = awsutil.GetInstanceByFilter("ipv6-address", destination)
 	case DstTypePrivateDNSName:
 		instance, err = awsutil.GetInstanceByFilter("private-dns-name", destination+".*")
 	case DstTypeNameTag:
@@ -121,20 +127,28 @@ func GetInstance(dstType DstType, destination string) (instance *types.Instance,
 	return instance, err
 }
 
-func SetupDestination(sshArgs *SSHArgs, instance *types.Instance, usePublicIP bool) error {
+func SetupDestination(sshArgs *SSHArgs, instance *types.Instance, addrType AddrType) error {
 	sshArgs.SetHostKeyAlias(sshArgs.Destination()) // Save original destination in HostKeyAlias
 
-	if usePublicIP {
+	switch addrType {
+	case AddrTypePrivate:
+		if instance.PrivateIpAddress == nil {
+			return fmt.Errorf("%w: private IP address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
+		}
+
+		sshArgs.SetDestination(*instance.PrivateIpAddress)
+	case AddrTypePublic:
 		if instance.PublicIpAddress == nil {
 			return fmt.Errorf("%w: public IP address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
 		}
 
 		sshArgs.SetDestination(*instance.PublicIpAddress)
-	} else {
-		if instance.PrivateIpAddress == nil {
-			return fmt.Errorf("%w: private IP address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
+	case AddrTypeIPv6:
+		if instance.Ipv6Address == nil {
+			return fmt.Errorf("%w: IPv6 address not found for instance with ID %s", ErrGeneral, *instance.InstanceId)
 		}
-		sshArgs.SetDestination(*instance.PrivateIpAddress)
+
+		sshArgs.SetDestination(*instance.Ipv6Address)
 	}
 
 	return nil
@@ -145,8 +159,8 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 		return fmt.Errorf("%w: no destination specified", ErrGeneral)
 	}
 
-	if opts.useEICE && opts.usePublicIP {
-		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) cannot be used with a public IP address", ErrGeneral)
+	if opts.useEICE && opts.addrType != AddrTypePrivate {
+		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) can be used only with private addresses", ErrGeneral)
 	}
 
 	if err = awsutil.Init(opts.region, opts.profile); err != nil {
@@ -165,7 +179,7 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 		return fmt.Errorf("unable to get instance: %w", err)
 	}
 
-	err = SetupDestination(sshArgs, instance, opts.usePublicIP)
+	err = SetupDestination(sshArgs, instance, opts.addrType)
 	if err != nil {
 		return fmt.Errorf("unable to setup destination: %w", err)
 	}

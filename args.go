@@ -15,26 +15,27 @@ const (
 	DstTypeID
 	DstTypePrivateIP
 	DstTypePublicIP
+	DstTypeIPv6
 	DstTypePrivateDNSName
 	DstTypeNameTag
 )
 
-var DstTypeNames = map[string]DstType{
-	"id":          DstTypeID,
-	"private_ip":  DstTypePrivateIP,
-	"public_ip":   DstTypePublicIP,
-	"private_dns": DstTypePrivateDNSName,
-	"name_tag":    DstTypeNameTag,
-}
+type AddrType int
+
+const (
+	AddrTypePrivate AddrType = iota
+	AddrTypePublic
+	AddrTypeIPv6
+)
 
 type Opts struct {
-	dstType     DstType
-	region      string
-	profile     string
-	eiceID      string
-	useEICE     bool
-	usePublicIP bool
-	noSendKeys  bool
+	dstType    DstType
+	addrType   AddrType
+	region     string
+	profile    string
+	eiceID     string
+	useEICE    bool
+	noSendKeys bool
 }
 
 type SSHArgs struct {
@@ -119,6 +120,22 @@ func getOptValue(args []string, idx int) (value string, err error) {
 }
 
 func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
+	DstTypeNames := map[string]DstType{
+		"auto":        DstTypeUnknown,
+		"id":          DstTypeID,
+		"private_ip":  DstTypePrivateIP,
+		"public_ip":   DstTypePublicIP,
+		"ipv6":        DstTypeIPv6,
+		"private_dns": DstTypePrivateDNSName,
+		"name_tag":    DstTypeNameTag,
+	}
+
+	AddrTypeNames := map[string]AddrType{
+		"private": AddrTypePrivate,
+		"public":  AddrTypePublic,
+		"ipv6":    AddrTypeIPv6,
+	}
+
 	opts = &Opts{dstType: DstTypeUnknown}
 
 	leftoverArgs = []string{}
@@ -136,8 +153,6 @@ func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
 			done := true
 
 			switch opt { /* parse long options without values */
-			case "--use-public-ip":
-				opts.usePublicIP = true
 			case "--no-send-keys":
 				opts.noSendKeys = true
 			case "--use-eice":
@@ -163,6 +178,11 @@ func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
 					var ok bool
 					if opts.dstType, ok = DstTypeNames[value]; !ok {
 						return nil, nil, fmt.Errorf("%w: unknown destination type %s", ErrArgParse, value)
+					}
+				case "--address-type":
+					var ok bool
+					if opts.addrType, ok = AddrTypeNames[value]; !ok {
+						return nil, nil, fmt.Errorf("%w: unknown connection type %s", ErrArgParse, value)
 					}
 				case "--eice-id":
 					opts.eiceID, opts.useEICE = value, true
@@ -282,7 +302,7 @@ func parseSSHDestination(destination string) (string, string, string) {
 		}
 
 		colonIdx := strings.LastIndex(hostport, ":")
-		/* hanle IPv6 addresses */
+		/* workaround for IPv6 addresses, e.g. [fec1::1] will give {"[fec1:", "1]"} */
 		bracketIdx := strings.LastIndex(hostport, "]")
 		if bracketIdx > colonIdx {
 			colonIdx = -1
@@ -294,6 +314,11 @@ func parseSSHDestination(destination string) (string, string, string) {
 			port = after
 		} else {
 			host = hostport
+		}
+
+		// Strip IPv6 brackets
+		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			host = host[1 : len(host)-1]
 		}
 	} else {
 		atIdx := strings.LastIndex(destination, "@")

@@ -38,16 +38,22 @@ func TestParseSSHDestionation(t *testing.T) {
 	login, host, port = parseSSHDestination("ssh://login@domain@[fec1::1]:port")
 
 	assert.Equal(t, "login@domain", login)
-	assert.Equal(t, "[fec1::1]", host)
+	assert.Equal(t, "fec1::1", host)
 	assert.Equal(t, "port", port)
 
 	login, host, port = parseSSHDestination("ssh://login@domain@[fec1::1]")
 
 	assert.Equal(t, "login@domain", login)
-	assert.Equal(t, "[fec1::1]", host)
+	assert.Equal(t, "fec1::1", host)
 	assert.Equal(t, "", port)
 
 	login, host, port = parseSSHDestination("ssh://@[fec1::1]")
+
+	assert.Equal(t, "", login)
+	assert.Equal(t, "fec1::1", host)
+	assert.Equal(t, "", port)
+
+	login, host, port = parseSSHDestination("[fec1::1]")
 
 	assert.Equal(t, "", login)
 	assert.Equal(t, "[fec1::1]", host)
