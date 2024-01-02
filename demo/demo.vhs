@@ -6,7 +6,7 @@ Set FontSize 26
 Set Padding 12
 Set Width 1660
 Set Height 80
-Set Theme "Broadcast"
+Set Theme "Builtin Light"
 
 Type "ec2ssh -l ec2-user i-0e2d55b1a6328d2ea  # connect using generated ephemeral SSH key"
 Sleep 2s
