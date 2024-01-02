@@ -1,4 +1,9 @@
 # EC2 SSH Connection Tool
+![GitHub release (with filter)](https://img.shields.io/github/v/release/ivoronin/ec2ssh)
+![GitHub last commit (branch)](https://img.shields.io/github/last-commit/ivoronin/ec2ssh/main)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/ivoronin/ec2ssh/goreleaser.yml)
+![GitHub top language](https://img.shields.io/github/languages/top/ivoronin/ec2ssh)
+
 ## Description
 This CLI tool eases secure SSH connections to AWS EC2 instances. It automatically retrieves the instance's IP address, sends the SSH public key using AWS EC2 Instance Connect, and initiates an SSH connection directly or through the AWS EC2 Instance Connect Endpoint.
 
