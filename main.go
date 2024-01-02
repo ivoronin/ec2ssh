@@ -34,6 +34,13 @@ func main() {
 		}
 	} else {
 		/* Run in ec2ssh mode otherwise */
-		ec2ssh()
+		opts, sshArgs, err := ParseArgs(os.Args[1:])
+		if err != nil {
+			Usage(err)
+		}
+		err = ec2ssh(opts, sshArgs)
+		if err != nil {
+			FatalError(err)
+		}
 	}
 }

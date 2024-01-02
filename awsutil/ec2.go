@@ -14,9 +14,9 @@ func GetInstanceByID(instanceID string) (*types.Instance, error) {
 		InstanceIds: []string{instanceID},
 	}
 
-	instance := getFirstMatchingInstance(input)
-	if instance == nil {
-		return nil, fmt.Errorf("%w: no instance found with id %s", ErrNotFound, instanceID)
+	instance, err := getFirstMatchingInstance(input)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find an instance with ID=%s: %w", instanceID, err)
 	}
 
 	return instance, nil
@@ -32,25 +32,25 @@ func GetInstanceByFilter(filterName, filterValue string) (*types.Instance, error
 		},
 	}
 
-	instance := getFirstMatchingInstance(input)
-	if instance == nil {
-		return nil, fmt.Errorf("%w: no instance found with %s=%s", ErrNotFound, filterName, filterValue)
+	instance, err := getFirstMatchingInstance(input)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find an instance with %s=%s: %w", filterName, filterValue, err)
 	}
 
 	return instance, nil
 }
 
-func getFirstMatchingInstance(input *ec2.DescribeInstancesInput) *types.Instance {
+func getFirstMatchingInstance(input *ec2.DescribeInstancesInput) (*types.Instance, error) {
 	result, err := awsEC2Client.DescribeInstances(context.TODO(), input)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
-			return &instance
+			return &instance, nil
 		}
 	}
 
-	return nil
+	return nil, fmt.Errorf("%w in %s", ErrNoMatches, awsRegion)
 }

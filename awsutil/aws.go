@@ -3,7 +3,6 @@ package awsutil
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	signerV4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
@@ -12,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect"
 )
 
-var ErrNotFound = fmt.Errorf("not found")
+var ErrNoMatches = fmt.Errorf("no matches")
 
 var (
 	awsEC2Client                *ec2.Client
@@ -35,7 +34,7 @@ func Init(region string, profile string) (err error) {
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(), optFns...)
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+		return err
 	}
 
 	/* Credentials and region are required for Signer API */

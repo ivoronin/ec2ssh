@@ -75,7 +75,7 @@ func SetupAndSendSSHKeys(sshArgs *SSHArgs, instance *types.Instance, tmpDir stri
 
 	err = awsutil.SendSSHPublicKey(instance, sshArgs.Login(), publicKey)
 	if err != nil {
-		FatalError(err)
+		return err
 	}
 
 	return nil
@@ -140,44 +140,39 @@ func SetupDestination(sshArgs *SSHArgs, instance *types.Instance, usePublicIP bo
 	return nil
 }
 
-func ec2ssh() {
-	opts, sshArgs, err := ParseArgs(os.Args[1:])
-	if err != nil {
-		Usage(err)
-	}
-
+func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 	if sshArgs.destination == "" {
-		FatalError(fmt.Errorf("%w: no destination specified", ErrGeneral))
+		return fmt.Errorf("%w: no destination specified", ErrGeneral)
 	}
 
 	if opts.useEICE && opts.usePublicIP {
-		FatalError(fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) cannot be used with a public IP address", ErrGeneral))
+		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) cannot be used with a public IP address", ErrGeneral)
 	}
 
 	if err = awsutil.Init(opts.region, opts.profile); err != nil {
-		FatalError(err)
+		return fmt.Errorf("unable to initialize AWS SDK: %w", err)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "ec2ssh")
 	if err != nil {
-		FatalError(err)
+		return fmt.Errorf("unable to create temporary directory: %w", err)
 	}
 
 	defer os.RemoveAll(tmpDir)
 
 	instance, err := GetInstance(opts.dstType, sshArgs.Destination())
 	if err != nil {
-		FatalError(err)
+		return fmt.Errorf("unable to get instance: %w", err)
 	}
 
 	err = SetupDestination(sshArgs, instance, opts.usePublicIP)
 	if err != nil {
-		FatalError(err)
+		return fmt.Errorf("unable to setup destination: %w", err)
 	}
 
 	if !opts.noSendKeys {
 		if err = SetupAndSendSSHKeys(sshArgs, instance, tmpDir); err != nil {
-			FatalError(err)
+			return fmt.Errorf("unable to setup and send SSH keys: %w", err)
 		}
 	}
 
@@ -186,13 +181,15 @@ func ec2ssh() {
 	if opts.useEICE {
 		tunnelURI, err := SetupEICETunnel(sshArgs, instance, opts.eiceID)
 		if err != nil {
-			FatalError(err)
+			return fmt.Errorf("unable to setup EICE tunnel: %w", err)
 		}
 
 		env = append(env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", tunnelURI))
 	}
 
 	if err = RunSSH(sshArgs, env); err != nil {
-		FatalError(err)
+		return fmt.Errorf("unable to run ssh: %w", err)
 	}
+
+	return nil
 }

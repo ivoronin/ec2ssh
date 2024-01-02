@@ -47,7 +47,7 @@ func getEICEByID(instanceConnectEndpointID string) (*types.Ec2InstanceConnectEnd
 		return &result.InstanceConnectEndpoints[0], nil
 	}
 
-	return nil, fmt.Errorf("%w: no instance connect endpoint found with ID %s", ErrNotFound, instanceConnectEndpointID)
+	return nil, fmt.Errorf("unable to find an endpoint with ID=%s: %w", instanceConnectEndpointID, ErrNoMatches)
 }
 
 func guessEICEByVPCAndSubnet(vpcID string, subnetID string) (*types.Ec2InstanceConnectEndpoint, error) {
@@ -89,7 +89,7 @@ func guessEICEByVPCAndSubnet(vpcID string, subnetID string) (*types.Ec2InstanceC
 		return &endpoints[0], nil
 	}
 
-	return nil, fmt.Errorf("%w: no instance connect endpoint found for VPC %s", ErrNotFound, vpcID)
+	return nil, fmt.Errorf("unable to find an endpoint matching instance vpcID=%s: %w", vpcID, ErrNoMatches)
 }
 
 const presignedURLExpiryTime = 60
