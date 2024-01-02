@@ -35,12 +35,13 @@ Options:
      Defaults to using the AWS SDK configuration.
 
   --use-eice
-     Use EC2 Instance Connect (EICE) to connect to the instance.
+     Use EC2 Instance Connect Endpoint (EICE) to connect to the instance.
      Default is false. Conflicts with --address-type other than 'auto' or 'private'.
 
   --eice-id <string>
-     Specifies the EC2 Instance Connect (EICE) ID to use. Automatically implies --use-eice.
+     Specifies the EC2 Instance Connect Endpoint (EICE) ID to use.
      Defaults to autodetection based on the instance's VPC and subnet.
+     Automatically implies --use-eice.
 
   --destination-type <auto|id|private_ip|public_ip|ipv6|private_dns|name_tag>
      Specify the destination type for instance search.
@@ -58,7 +59,7 @@ Options:
 
   destination
      Specify the destination for connection. Can be one of: instance ID,
-     private IP address, public IP address, IPv6 address, private DNS name, or name tag.
+     private, public or IPv6 IP address, private DNS name, or name tag.
 ```
 
 ## Configuration & AWS Credentials
