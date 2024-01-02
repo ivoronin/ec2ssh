@@ -7,6 +7,8 @@
 ## Description
 This CLI tool eases secure SSH connections to AWS EC2 instances. It automatically retrieves the instance's IP address, sends the SSH public key using AWS EC2 Instance Connect, and initiates an SSH connection directly or through the AWS EC2 Instance Connect Endpoint.
 
+![](demo/demo.webp)
+
 # Features
 - Identifies EC2 instances by ID, DNS name, IP address, or name tag.
 - Automatically fetches EC2 instance's public or private IP addresses.
