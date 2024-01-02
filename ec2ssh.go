@@ -178,6 +178,10 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) can be used only with private addresses", ErrGeneral)
 	}
 
+	if sshArgs.Port() != "" && sshArgs.Port() != "22" && opts.useEICE {
+		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) can be used only with port 22", ErrGeneral)
+	}
+
 	if err = awsutil.Init(opts.region, opts.profile); err != nil {
 		return fmt.Errorf("unable to initialize AWS SDK: %w", err)
 	}
