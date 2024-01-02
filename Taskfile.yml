@@ -2,11 +2,8 @@ version: '3'
 
 tasks:
   lint:
-    vars:
-      DISABLED_LINTERS: "nonamedreturns,wrapcheck,gomnd,nestif,exhaustruct,exhaustivestruct,depguard"
-      EXCLUDED_ISSUES: "(tainted input or cmd|Function 'Test.+' has too many statements|aws.+ is a global variable)"
     cmds:
-      - golangci-lint run --enable-all --disable "{{.DISABLED_LINTERS}}" -e "{{.EXCLUDED_ISSUES}}"
+      - golangci-lint run
   test:
     cmds:
       - go test ./...
