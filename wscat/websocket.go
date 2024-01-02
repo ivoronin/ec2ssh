@@ -19,6 +19,7 @@ func NewWebSocket(uri string) (*Websocket, error) {
 		if errors.Is(err, websocket.ErrBadHandshake) {
 			return nil, fmt.Errorf("%w: %s", err, resp.Status)
 		}
+
 		return nil, err
 	}
 
