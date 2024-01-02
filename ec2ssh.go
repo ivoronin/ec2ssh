@@ -128,7 +128,7 @@ func GetInstance(dstType DstType, destination string) (instance *types.Instance,
 }
 
 func SetupDestination(sshArgs *SSHArgs, instance *types.Instance, addrType AddrType) error {
-	sshArgs.SetHostKeyAlias(sshArgs.Destination()) // Save original destination in HostKeyAlias
+	sshArgs.SetHostKeyAlias(*instance.InstanceId)
 
 	switch addrType {
 	case AddrTypePrivate:
