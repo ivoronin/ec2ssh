@@ -6,7 +6,10 @@ import (
 	"strings"
 )
 
-var ErrArgParse = errors.New("error parsing arguments")
+var (
+	ErrArgParse = errors.New("error parsing arguments")
+	ErrHelp     = errors.New("help requested")
+)
 
 type DstType int
 
@@ -159,6 +162,8 @@ func ParseOpts(args []string) (opts *Opts, leftoverArgs []string, err error) {
 				opts.noSendKeys = true
 			case "--use-eice":
 				opts.useEICE = true
+			case "--help":
+				return nil, nil, ErrHelp
 			default:
 				done = false
 			}
@@ -220,6 +225,10 @@ func ParseSSHArgs(args []string) (sshArgs *SSHArgs, err error) {
 			/* for each flag in the current argument */
 			for flagIdx := 0; flagIdx < len(flags); flagIdx++ {
 				flag := flags[flagIdx : flagIdx+1]
+
+				if flag == "h" {
+					return nil, ErrHelp
+				}
 
 				/* current flag doesn't have a value */
 				if !strings.Contains(sshFlagsWithArguments, flag) {
@@ -338,7 +347,7 @@ func parseSSHDestination(destination string) (string, string, string) {
 
 func ParseArgs(args []string) (*Opts, *SSHArgs, error) {
 	if len(args) < 1 {
-		return nil, nil, fmt.Errorf("%w: no arguments provided", ErrArgParse)
+		return nil, nil, ErrHelp
 	}
 
 	opts, leftoverArgs, err := ParseOpts(args)

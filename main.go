@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -12,15 +13,62 @@ func FatalError(err error) {
 	os.Exit(1)
 }
 
+const helpText = `Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
+
+Connect to an EC2 instance directly using SSH or via the EC2 Instance Connect Endpoint (EICE), by the
+instance ID, private, public, or IPv6 address, private DNS name, or name tag, using ephemeral SSH keys.
+
+  Example - Connect to an instance using the instance ID:
+     $ ec2ssh -l ec2-user i-0123456789abcdef0
+
+  Example - Connect to an instance using a name tag with the public IP address:
+     $ ec2ssh -p 2222 --address-type public ec2-user@app01
+
+  Example - Connect to an instance using its private DNS name via an EICE tunnel:
+     $ ec2ssh --use-eice ip-10-0-0-1
+
+Options:
+  --region <string>
+     Use the specified AWS region (env AWS_REGION, AWS_DEFAULT_REGION).
+     Defaults to using the AWS SDK configuration.
+
+  --profile <string>
+     Use the specified AWS profile (env AWS_PROFILE).
+     Defaults to using the AWS SDK configuration.
+
+  --use-eice
+     Use EC2 Instance Connect (EICE) to connect to the instance.
+     Default is false. Conflicts with --address-type other than 'auto' or 'private'.
+
+  --eice-id <string>
+     Specifies the EC2 Instance Connect (EICE) ID to use. Automatically implies --use-eice.
+     Defaults to autodetection based on the instance's VPC and subnet.
+
+  --destination-type <auto|id|private_ip|public_ip|ipv6|private_dns|name_tag>
+     Specify the destination type for instance search.
+     Defaults to 'auto'.
+
+  --address-type <auto|private|public|ipv6>
+     Specify the address type for connecting to the instance.
+     Defaults to 'auto'.
+
+  --no-send-keys
+     Do not send SSH keys to the instance using EC2 Instance Connect.
+
+  ssh arguments
+     Specify arguments to pass to SSH.
+
+  destination
+     Specify the destination for connection. Can be one of: instance ID,
+	 private IP address, public IP address, IPv6 address, private DNS name, or name tag.
+`
+
 func Usage(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Usage: ec2ssh [--region region] [--profile profile] [--use-eice] [--eice-id id]\n")
-	fmt.Fprintf(os.Stderr, "        [--destination-type <auto|id|private_ip|public_ip|ipv6|private_dns|name_tag>]\n")
-	fmt.Fprintf(os.Stderr, "        [--address-type <auto|private|public|ipv6] [--no-send-keys]\n")
-	fmt.Fprintf(os.Stderr, "        [other ssh flags] destination [command [argument ...]]\n")
+	fmt.Fprint(os.Stderr, helpText)
 	os.Exit(1)
 }
 
@@ -36,6 +84,9 @@ func main() {
 		/* Run in ec2ssh mode otherwise */
 		opts, sshArgs, err := ParseArgs(os.Args[1:])
 		if err != nil {
+			if errors.Is(err, ErrHelp) {
+				Usage(nil)
+			}
 			Usage(err)
 		}
 		err = ec2ssh(opts, sshArgs)
