@@ -136,3 +136,50 @@ func TestParseSSHArgs(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestParseOpts(t *testing.T) {
+	t.Parallel()
+
+	opts, leftoverArgs, err := ParseOpts([]string{"-l", "login", "--use-eice", "host"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, []string{"-l", "login", "host"}, leftoverArgs)
+
+	opts, leftoverArgs, err = ParseOpts([]string{"-l", "login", "--eice-id", "eice-070594c0adf9e0f56", "host"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, "eice-070594c0adf9e0f56", opts.eiceID)
+	assert.Equal(t, []string{"-l", "login", "host"}, leftoverArgs)
+
+	_, _, err = ParseOpts([]string{"-l", "login", "--eice-id"})
+	require.Error(t, err)
+
+	_, _, err = ParseOpts([]string{"-l", "login", "--destination-type", "host"})
+	require.Error(t, err)
+
+	opts, leftoverArgs, err = ParseOpts([]string{"-l", "login", "--use-eice", "host", "--", "command", "arg1", "arg2"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, []string{"-l", "login", "host", "--", "command", "arg1", "arg2"}, leftoverArgs)
+
+	opts, leftoverArgs, err = ParseOpts([]string{"-l", "login", "host", "--use-eice", "command", "arg1", "arg2"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, []string{"-l", "login", "host", "command", "arg1", "arg2"}, leftoverArgs)
+
+	opts, leftoverArgs, err = ParseOpts([]string{"host", "--use-eice", "command", "--", "arg1", "arg2", "--eice-id"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, []string{"host", "command", "--", "arg1", "arg2", "--eice-id"}, leftoverArgs)
+
+	opts, leftoverArgs, err = ParseOpts([]string{"host", "--use-eice", "--", "command", "arg1", "arg2", "--eice-id"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, []string{"host", "--", "command", "arg1", "arg2", "--eice-id"}, leftoverArgs)
+
+	// This should be an error, but it's not - long option between short option and its argument
+	opts, leftoverArgs, err = ParseOpts([]string{"-l", "--use-eice", "login", "host"})
+	require.NoError(t, err)
+	assert.True(t, opts.useEICE)
+	assert.Equal(t, []string{"-l", "login", "host"}, leftoverArgs)
+}
