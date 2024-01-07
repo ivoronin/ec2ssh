@@ -46,13 +46,13 @@ Options:
      Defaults to autodetection based on the instance's VPC and subnet.
      Automatically implies --use-eice.
 
-  --destination-type <auto|id|private_ip|public_ip|ipv6|private_dns|name_tag>
+  --destination-type <id|private_ip|public_ip|ipv6|private_dns|name_tag>
      Specify the destination type for instance search.
-     Defaults to 'auto'.
+     Defaults to automatically detecting the type based on the destination.
 
-  --address-type <auto|private|public|ipv6>
+  --address-type <private|public|ipv6>
      Specify the address type for connecting to the instance.
-     Defaults to 'auto'.
+     Defaults to use the first available address from the list: private, public, ipv6.
 
   --no-send-keys
      Do not send SSH keys to the instance using EC2 Instance Connect.
@@ -84,14 +84,20 @@ func main() {
 		}
 	} else {
 		/* Run in ec2ssh mode otherwise */
-		opts, sshArgs, err := ParseArgs(os.Args[1:])
+		parsedArgs, err := ParseArgs(os.Args[1:])
 		if err != nil {
 			if errors.Is(err, ErrHelp) {
 				Usage(nil)
 			}
 			Usage(err)
 		}
-		err = ec2ssh(opts, sshArgs)
+
+		session, err := NewSession(parsedArgs)
+		if err != nil {
+			FatalError(err)
+		}
+
+		err = ec2ssh(session)
 		if err != nil {
 			FatalError(err)
 		}

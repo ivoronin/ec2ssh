@@ -7,179 +7,127 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseSSHDestionation(t *testing.T) {
+func TestParseArgs(t *testing.T) {
 	t.Parallel()
 
-	/* URL like destination */
-	login, host, port := parseSSHDestination("ssh://login@host:port")
-
-	assert.Equal(t, "login", login)
-	assert.Equal(t, "host", host)
-	assert.Equal(t, "port", port)
-
-	login, host, port = parseSSHDestination("ssh://host:port")
-
-	assert.Equal(t, "", login)
-	assert.Equal(t, "host", host)
-	assert.Equal(t, "port", port)
-
-	login, host, port = parseSSHDestination("ssh://host")
-
-	assert.Equal(t, "", login)
-	assert.Equal(t, "host", host)
-	assert.Equal(t, "", port)
-
-	login, host, port = parseSSHDestination("ssh://login@domain@host:port")
-
-	assert.Equal(t, "login@domain", login)
-	assert.Equal(t, "host", host)
-	assert.Equal(t, "port", port)
-
-	login, host, port = parseSSHDestination("ssh://login@domain@[fec1::1]:port")
-
-	assert.Equal(t, "login@domain", login)
-	assert.Equal(t, "fec1::1", host)
-	assert.Equal(t, "port", port)
-
-	login, host, port = parseSSHDestination("ssh://login@domain@[fec1::1]")
-
-	assert.Equal(t, "login@domain", login)
-	assert.Equal(t, "fec1::1", host)
-	assert.Equal(t, "", port)
-
-	login, host, port = parseSSHDestination("ssh://@[fec1::1]")
-
-	assert.Equal(t, "", login)
-	assert.Equal(t, "fec1::1", host)
-	assert.Equal(t, "", port)
-
-	login, host, port = parseSSHDestination("[fec1::1]")
-
-	assert.Equal(t, "", login)
-	assert.Equal(t, "[fec1::1]", host)
-	assert.Equal(t, "", port)
-
-	/* Non-URL like destination */
-	login, host, port = parseSSHDestination("login@host")
-	assert.Equal(t, "login", login)
-	assert.Equal(t, "host", host)
-	assert.Equal(t, "", port)
-
-	login, host, port = parseSSHDestination("host")
-	assert.Equal(t, "", login)
-	assert.Equal(t, "host", host)
-	assert.Equal(t, "", port)
-
-	login, host, port = parseSSHDestination("host:port")
-	assert.Equal(t, "", login)
-	assert.Equal(t, "host:port", host)
-	assert.Equal(t, "", port)
-
-	login, host, port = parseSSHDestination("login@host:port")
-	assert.Equal(t, "login", login)
-	assert.Equal(t, "host:port", host)
-	assert.Equal(t, "", port)
-}
-
-func TestParseSSHArgs(t *testing.T) {
-	t.Parallel()
-
-	sshArgs, err := ParseSSHArgs([]string{"login@host"})
+	parsedArgs, err := ParseArgs([]string{"host"})
 
 	require.NoError(t, err)
-	assert.Equal(t, "login", sshArgs.Login())
-	assert.Equal(t, "host", sshArgs.Destination())
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{}, parsedArgs.Options)
+	assert.Equal(t, []string{}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
 
-	sshArgs, err = ParseSSHArgs([]string{"-l", "login", "host"})
-
-	require.NoError(t, err)
-	assert.Equal(t, "login", sshArgs.Login())
-	assert.Equal(t, "host", sshArgs.Destination())
-
-	sshArgs, err = ParseSSHArgs([]string{"-llogin", "host"})
+	parsedArgs, err = ParseArgs([]string{"host", "command"})
 
 	require.NoError(t, err)
-	assert.Equal(t, "login", sshArgs.Login())
-	assert.Equal(t, "host", sshArgs.Destination())
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{}, parsedArgs.Options)
+	assert.Equal(t, []string{"command"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
 
-	sshArgs, err = ParseSSHArgs([]string{"-llogin", "-p", "port", "host", "command", "arg1", "arg2"})
-
-	require.NoError(t, err)
-	assert.Equal(t, "login", sshArgs.Login())
-	assert.Equal(t, "host", sshArgs.Destination())
-	assert.Equal(t, "port", sshArgs.Port())
-	assert.Equal(t, []string{}, sshArgs.otherFlags)
-	assert.Equal(t, []string{"command", "arg1", "arg2"}, sshArgs.commandAndArgs)
-	assert.Equal(t, []string{"-llogin", "-pport", "host", "command", "arg1", "arg2"}, sshArgs.Args())
-
-	sshArgs, err = ParseSSHArgs([]string{"-llogin", "host", "-p", "port", "command", "arg1", "arg2"})
+	/* consumed short options */
+	parsedArgs, err = ParseArgs([]string{"-l", "login", "host", "command"})
 
 	require.NoError(t, err)
-	assert.Equal(t, "login", sshArgs.Login())
-	assert.Equal(t, "host", sshArgs.Destination())
-	assert.Equal(t, "port", sshArgs.Port())
-	assert.Equal(t, []string{}, sshArgs.otherFlags)
-	assert.Equal(t, []string{"command", "arg1", "arg2"}, sshArgs.commandAndArgs)
-	assert.Equal(t, []string{"-llogin", "-pport", "host", "command", "arg1", "arg2"}, sshArgs.Args())
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
 
-	sshArgs, err = ParseSSHArgs([]string{"-llogin", "-X", "-o", "Option=2", "host", "-p", "port", "command", "-l", "arg2"})
+	/* host before options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "command"})
 
 	require.NoError(t, err)
-	assert.Equal(t, "login", sshArgs.Login())
-	assert.Equal(t, "host", sshArgs.Destination())
-	assert.Equal(t, "port", sshArgs.Port())
-	assert.Equal(t, []string{"-X", "-o", "Option=2"}, sshArgs.otherFlags)
-	assert.Equal(t, []string{"command", "-l", "arg2"}, sshArgs.commandAndArgs)
-	assert.Equal(t, []string{"-llogin", "-pport", "-X", "-o", "Option=2", "host", "command", "-l", "arg2"}, sshArgs.Args())
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
 
-	_, err = ParseSSHArgs([]string{"-l", "-llogin", "host", "-p", "port", "command", "-l", "arg2"})
+	/* more consumed short options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "-p", "port", "command"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login", "-p": "port"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
+
+	/* command with short options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "command", "-p", "port"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
+
+	/* command starts with a double dash */
+	_, err = ParseArgs([]string{"host", "-l", "login", "--command", "-p", "port"})
 
 	require.Error(t, err)
-}
 
-func TestParseOpts(t *testing.T) {
-	t.Parallel()
-
-	opts, leftoverArgs, err := ParseOpts([]string{"-l", "login", "--use-eice", "host"})
+	/* command starts with a double dash after a double dash */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "--", "--command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, []string{"-l", "login", "host"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"--command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
 
-	opts, leftoverArgs, err = ParseOpts([]string{"-l", "login", "--eice-id", "eice-070594c0adf9e0f56", "host"})
+	/* unconsumed short options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "-t", "command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, "eice-070594c0adf9e0f56", opts.eiceID)
-	assert.Equal(t, []string{"-l", "login", "host"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{"-t"}, parsedArgs.SSHArgs)
 
-	_, _, err = ParseOpts([]string{"-l", "login", "--eice-id"})
-	require.Error(t, err)
-
-	_, _, err = ParseOpts([]string{"-l", "login", "--destination-type", "host"})
-	require.Error(t, err)
-
-	opts, leftoverArgs, err = ParseOpts([]string{"-l", "login", "--use-eice", "host", "--", "command", "arg1", "arg2"})
+	/* illegal SSH option -H */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "-H", "-t", "command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, []string{"-l", "login", "host", "--", "command", "arg1", "arg2"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{"-H", "-t"}, parsedArgs.SSHArgs)
 
-	opts, leftoverArgs, err = ParseOpts([]string{"-l", "login", "host", "--use-eice", "command", "arg1", "arg2"})
+	/* illegal SSH option -H with an argument should break parsing */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "-H", "needle", "-t", "command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, []string{"-l", "login", "host", "command", "arg1", "arg2"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"needle", "-t", "command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{"-H"}, parsedArgs.SSHArgs)
 
-	opts, leftoverArgs, err = ParseOpts([]string{"host", "--use-eice", "command", "--", "arg1", "arg2", "--eice-id"})
+	/* passing unconsumed SSH options with arguments */
+	parsedArgs, err = ParseArgs([]string{"host", "-J", "jump", "-l", "login", "-t", "command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, []string{"host", "command", "--", "arg1", "arg2", "--eice-id"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{"-Jjump", "-t"}, parsedArgs.SSHArgs)
 
-	opts, leftoverArgs, err = ParseOpts([]string{"host", "--use-eice", "--", "command", "arg1", "arg2", "--eice-id"})
+	/* multiple -l options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "-l", "login2", "-t", "command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, []string{"host", "--", "command", "arg1", "arg2", "--eice-id"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{"-t"}, parsedArgs.SSHArgs)
 
-	// This should be an error, but it's not - long option between short option and its argument
-	opts, leftoverArgs, err = ParseOpts([]string{"-l", "--use-eice", "login", "host"})
+	/* boolean long options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "--use-eice", "-t", "command", "-p", "port"})
 	require.NoError(t, err)
-	assert.True(t, opts.useEICE)
-	assert.Equal(t, []string{"-l", "login", "host"}, leftoverArgs)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login", "--use-eice": "true"}, parsedArgs.Options)
+	assert.Equal(t, []string{"command", "-p", "port"}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{"-t"}, parsedArgs.SSHArgs)
+
+	/* boolean and string long options */
+	parsedArgs, err = ParseArgs([]string{"host", "-l", "login", "--use-eice", "--profile", "profile"})
+	require.NoError(t, err)
+	assert.Equal(t, "host", parsedArgs.Destination)
+	assert.Equal(t, map[string]string{"-l": "login", "--use-eice": "true", "--profile": "profile"}, parsedArgs.Options)
+	assert.Equal(t, []string{}, parsedArgs.CommandWithArgs)
+	assert.Equal(t, []string{}, parsedArgs.SSHArgs)
 }

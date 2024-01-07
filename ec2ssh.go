@@ -40,10 +40,10 @@ func GuessAWSDestinationType(dst string) DstType {
 	return DstTypeIPv6
 }
 
-func SetupEICETunnel(sshArgs *SSHArgs, instance *types.Instance, eiceID string) (url string, err error) {
+func SetupEICETunnel(session *Session, instance *types.Instance, eiceID string) (url string, err error) {
 	port := 22
 
-	if portStr := sshArgs.Port(); portStr != "" {
+	if portStr := session.Port(); portStr != "" {
 		if port, err = strconv.Atoi(portStr); err != nil {
 			return "", fmt.Errorf("%w: ssh port (%s) must be an integer", ErrGeneral, portStr)
 		}
@@ -54,22 +54,22 @@ func SetupEICETunnel(sshArgs *SSHArgs, instance *types.Instance, eiceID string) 
 		return "", err
 	}
 
-	sshArgs.SetProxyCommand(fmt.Sprintf("%s --wscat", os.Args[0]))
+	session.SetProxyCommand(fmt.Sprintf("%s --wscat", os.Args[0]))
 
 	return tunnelURI, nil
 }
 
-func SetupAndSendSSHKeys(sshArgs *SSHArgs, instance *types.Instance, tmpDir string) (err error) {
+func SetupAndSendSSHKeys(session *Session, instance *types.Instance, tmpDir string) (err error) {
 	var publicKey string
 
-	privateKeyPath := sshArgs.IdentityFile()
+	privateKeyPath := session.IdentityFile()
 	if privateKeyPath == "" {
 		privateKeyPath, publicKey, err = GenerateSSHKeypair(tmpDir)
 		if err != nil {
 			return err
 		}
 
-		sshArgs.SetIdentityFile(privateKeyPath)
+		session.SetIdentityFile(privateKeyPath)
 	} else {
 		publicKey, err = GetSSHPublicKey(privateKeyPath)
 		if err != nil {
@@ -77,7 +77,7 @@ func SetupAndSendSSHKeys(sshArgs *SSHArgs, instance *types.Instance, tmpDir stri
 		}
 	}
 
-	err = awsutil.SendSSHPublicKey(instance, sshArgs.Login(), publicKey)
+	err = awsutil.SendSSHPublicKey(instance, session.Login(), publicKey)
 	if err != nil {
 		return err
 	}
@@ -85,8 +85,8 @@ func SetupAndSendSSHKeys(sshArgs *SSHArgs, instance *types.Instance, tmpDir stri
 	return nil
 }
 
-func RunSSH(sshArgs *SSHArgs, env []string) error {
-	cmd := exec.Command("ssh", sshArgs.Args()...)
+func RunSSH(session *Session, env []string) error {
+	cmd := exec.Command("ssh", session.BuildSSHArgs()...)
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -169,20 +169,16 @@ func GetInstanceAddr(instance *types.Instance, addrType AddrType, useEICE bool) 
 	return "", fmt.Errorf("%w: no IP addresses found for instance with ID %s", ErrGeneral, *instance.InstanceId)
 }
 
-func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
-	if sshArgs.destination == "" {
-		return fmt.Errorf("%w: no destination specified", ErrGeneral)
-	}
-
-	if opts.useEICE && !((opts.addrType == AddrTypePrivate) || (opts.addrType == AddrTypeAuto)) {
+func ec2ssh(session *Session) (err error) {
+	if session.useEICE && !((session.addrType == AddrTypePrivate) || (session.addrType == AddrTypeAuto)) {
 		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) can be used only with private addresses", ErrGeneral)
 	}
 
-	if sshArgs.Port() != "" && sshArgs.Port() != "22" && opts.useEICE {
+	if session.Port() != "" && session.Port() != "22" && session.useEICE {
 		return fmt.Errorf("%w: EC2 Instance Connect Endpoint (EICE) can be used only with port 22", ErrGeneral)
 	}
 
-	if err = awsutil.Init(opts.region, opts.profile); err != nil {
+	if err = awsutil.Init(session.region, session.profile); err != nil {
 		return fmt.Errorf("unable to initialize AWS SDK: %w", err)
 	}
 
@@ -193,29 +189,29 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 
 	defer os.RemoveAll(tmpDir)
 
-	instance, err := GetInstance(opts.dstType, sshArgs.Destination())
+	instance, err := GetInstance(session.dstType, session.Destination())
 	if err != nil {
 		return fmt.Errorf("unable to get instance: %w", err)
 	}
 
-	dstAddr, err := GetInstanceAddr(instance, opts.addrType, opts.useEICE)
+	dstAddr, err := GetInstanceAddr(instance, session.addrType, session.useEICE)
 	if err != nil {
 		return fmt.Errorf("unable to get destination address: %w", err)
 	}
 
-	sshArgs.SetHostKeyAlias(*instance.InstanceId)
-	sshArgs.SetDestination(dstAddr)
+	session.SetHostKeyAlias(*instance.InstanceId)
+	session.SetDestination(dstAddr)
 
-	if !opts.noSendKeys {
-		if err = SetupAndSendSSHKeys(sshArgs, instance, tmpDir); err != nil {
+	if !session.noSendKeys {
+		if err = SetupAndSendSSHKeys(session, instance, tmpDir); err != nil {
 			return fmt.Errorf("unable to setup and send SSH keys: %w", err)
 		}
 	}
 
 	env := os.Environ()
 
-	if opts.useEICE {
-		tunnelURI, err := SetupEICETunnel(sshArgs, instance, opts.eiceID)
+	if session.useEICE {
+		tunnelURI, err := SetupEICETunnel(session, instance, session.eiceID)
 		if err != nil {
 			return fmt.Errorf("unable to setup EICE tunnel: %w", err)
 		}
@@ -223,7 +219,7 @@ func ec2ssh(opts *Opts, sshArgs *SSHArgs) (err error) {
 		env = append(env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", tunnelURI))
 	}
 
-	if err = RunSSH(sshArgs, env); err != nil {
+	if err = RunSSH(session, env); err != nil {
 		return fmt.Errorf("unable to run ssh: %w", err)
 	}
 
