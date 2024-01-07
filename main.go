@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ivoronin/ec2ssh/awsutil"
 	"github.com/ivoronin/ec2ssh/wscat"
 )
 
@@ -39,7 +40,7 @@ Options:
 
   --use-eice
      Use EC2 Instance Connect Endpoint (EICE) to connect to the instance.
-     Default is false. Conflicts with --address-type other than 'auto' or 'private'.
+     Default is false. Ignores --address-type, private address is always used.
 
   --eice-id <string>
      Specifies the EC2 Instance Connect Endpoint (EICE) ID to use.
@@ -49,6 +50,7 @@ Options:
   --destination-type <id|private_ip|public_ip|ipv6|private_dns|name_tag>
      Specify the destination type for instance search.
      Defaults to automatically detecting the type based on the destination.
+	 First matched instance will be user for connection.
 
   --address-type <private|public|ipv6>
      Specify the address type for connecting to the instance.
@@ -74,6 +76,40 @@ func Usage(err error) {
 	os.Exit(1)
 }
 
+func Run(args []string) error {
+	parsedArgs, err := ParseArgs(args)
+	if err != nil {
+		return err
+	}
+
+	options, err := NewOptions(parsedArgs)
+	if err != nil {
+		return err
+	}
+
+	if err := awsutil.Init(options.Region, options.Profile); err != nil {
+		return err
+	}
+
+	tmpDir, err := os.MkdirTemp("", "ec2ssh")
+	if err != nil {
+		return err
+	}
+
+	session, err := NewSession(options, tmpDir)
+	if err != nil {
+		return err
+	}
+
+	defer os.RemoveAll(tmpDir)
+
+	if err = session.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	tunnelURI := os.Getenv("EC2SSH_TUNNEL_URI")
 	if len(os.Args) == 2 && os.Args[1] == "--wscat" && tunnelURI != "" {
@@ -83,23 +119,17 @@ func main() {
 			FatalError(err)
 		}
 	} else {
-		/* Run in ec2ssh mode otherwise */
-		parsedArgs, err := ParseArgs(os.Args[1:])
-		if err != nil {
-			if errors.Is(err, ErrHelp) {
+		/* Run in normal mode otherwise */
+
+		if err := Run(os.Args[1:]); err != nil {
+			switch {
+			case errors.Is(err, ErrHelp):
 				Usage(nil)
+			case errors.Is(err, ErrArgParse):
+				Usage(err)
+			default:
+				FatalError(err)
 			}
-			Usage(err)
-		}
-
-		session, err := NewSession(parsedArgs)
-		if err != nil {
-			FatalError(err)
-		}
-
-		err = ec2ssh(session)
-		if err != nil {
-			FatalError(err)
 		}
 	}
 }

@@ -76,42 +76,50 @@ func parseShortOption(args []string, idx int, parsedArgs *ParsedArgs) (int, erro
 
 	for flagIdx := 0; flagIdx < len(flags); flagIdx++ {
 		flag := string(flags[flagIdx])
-		if strings.Contains(optionsWithArguments, flag) {
-			var value string
 
-			/* value is attached to the current flag */
-			if flagIdx+1 < len(flags) {
-				value = flags[flagIdx+1:]
-				flagIdx = len(flags) // Stop iterating over current argument
-			} else {
-				/* value is in the next argument */
-				if idx+1 >= len(args) {
-					return idx, fmt.Errorf("%w: missing value for %s", ErrArgParse, args[idx])
-				}
+		if flag == "h" {
+			return idx, ErrHelp
+		}
 
-				value = args[idx+1]
-				idx++
+		/* we don't consume any options without arguments */
+		if !strings.Contains(optionsWithArguments, flag) {
+			parsedArgs.SSHArgs = append(parsedArgs.SSHArgs, "-"+flag)
+
+			continue
+		}
+
+		var value string
+
+		/* value is attached to the current flag */
+		if flagIdx+1 < len(flags) {
+			value = flags[flagIdx+1:]
+			flagIdx = len(flags) // Stop iterating over current argument
+		} else {
+			/* value is in the next argument */
+			if idx+1 >= len(args) {
+				return idx, fmt.Errorf("%w: missing value for %s", ErrArgParse, args[idx])
 			}
 
-			if strings.Contains(consumedOptionsWithArguments, flag) {
-				if _, ok := parsedArgs.Options["-"+flag]; !ok {
-					parsedArgs.Options["-"+flag] = value
-				}
-			} else {
-				parsedArgs.SSHArgs = append(parsedArgs.SSHArgs, "-"+flag+value)
+			value = args[idx+1]
+			idx++
+		}
+
+		if strings.Contains(consumedOptionsWithArguments, flag) {
+			if _, ok := parsedArgs.Options["-"+flag]; !ok {
+				parsedArgs.Options["-"+flag] = value
 			}
 		} else {
-			parsedArgs.SSHArgs = append(parsedArgs.SSHArgs, "-"+flag)
+			parsedArgs.SSHArgs = append(parsedArgs.SSHArgs, "-"+flag+value)
 		}
 	}
 
 	return idx, nil
 }
 
-func ParseArgs(args []string) (*ParsedArgs, error) {
+func ParseArgs(args []string) (ParsedArgs, error) {
 	var err error
 
-	parsedArgs := &ParsedArgs{
+	parsedArgs := ParsedArgs{
 		Options:         make(map[string]string),
 		Destination:     "",
 		CommandWithArgs: []string{},
@@ -128,14 +136,14 @@ loop:
 
 			break loop
 		case strings.HasPrefix(arg, "--"): /* long option */
-			idx, err = parseLongOption(args, idx, parsedArgs)
+			idx, err = parseLongOption(args, idx, &parsedArgs)
 			if err != nil {
-				return nil, err
+				return ParsedArgs{}, err
 			}
 		case strings.HasPrefix(arg, "-") && len(arg) > 1: /* short option */
-			idx, err = parseShortOption(args, idx, parsedArgs)
+			idx, err = parseShortOption(args, idx, &parsedArgs)
 			if err != nil {
-				return nil, err
+				return ParsedArgs{}, err
 			}
 		default: /* non-option argument */
 			if parsedArgs.Destination == "" {

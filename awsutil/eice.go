@@ -3,6 +3,7 @@ package awsutil
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect"
 )
 
-func SendSSHPublicKey(instance *types.Instance, instanceOSUser string, sshPublicKey string) error {
+func SendSSHPublicKey(instance types.Instance, instanceOSUser string, sshPublicKey string) error {
 	input := &ec2instanceconnect.SendSSHPublicKeyInput{
 		InstanceId:     aws.String(*instance.InstanceId),
 		InstanceOSUser: aws.String(instanceOSUser),
@@ -94,7 +95,28 @@ func guessEICEByVPCAndSubnet(vpcID string, subnetID string) (*types.Ec2InstanceC
 
 const presignedURLExpiryTime = 60
 
-func CreateInstanceConnectTunnelPresignedURI(instance types.Instance, eiceID string, port int) (uri string, err error) {
+var ErrInvalidPort = errors.New("invalid port")
+
+const sshPort = 22
+
+func CreateEICETunnelURI(instance types.Instance, portStr string, eiceID string) (string, error) {
+	var err error
+
+	var port int
+
+	if portStr == "" {
+		port = sshPort
+	} else {
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return "", fmt.Errorf("%w: not an integer", ErrInvalidPort)
+		}
+
+		if port != sshPort {
+			return "", fmt.Errorf("%w: must be 22 when using EICE tunnel", ErrInvalidPort)
+		}
+	}
+
 	var eice *types.Ec2InstanceConnectEndpoint
 	if eiceID != "" {
 		eice, err = getEICEByID(eiceID)
@@ -124,7 +146,7 @@ func CreateInstanceConnectTunnelPresignedURI(instance types.Instance, eiceID str
 	/* Calculate hash of empty body */
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte{}))
 	service := "ec2-instance-connect"
-	uri, _, err = awsSigner.PresignHTTP(context.TODO(), awsCredentials, request, hash, service, awsRegion, time.Now())
+	uri, _, err := awsSigner.PresignHTTP(context.TODO(), awsCredentials, request, hash, service, awsRegion, time.Now())
 
 	return uri, err
 }
