@@ -93,11 +93,12 @@ func guessEICEByVPCAndSubnet(vpcID string, subnetID string) (*types.Ec2InstanceC
 	return nil, fmt.Errorf("unable to find an endpoint matching instance vpcID=%s: %w", vpcID, ErrNoMatches)
 }
 
-const presignedURLExpiryTime = 60
+const (
+	defaultPresignedURLExpiryTime = 60
+	defaultSSHPort                = 22
+)
 
 var ErrInvalidPort = errors.New("invalid port")
-
-const sshPort = 22
 
 func CreateEICETunnelURI(instance types.Instance, portStr string, eiceID string) (string, error) {
 	var err error
@@ -105,14 +106,14 @@ func CreateEICETunnelURI(instance types.Instance, portStr string, eiceID string)
 	var port int
 
 	if portStr == "" {
-		port = sshPort
+		port = defaultSSHPort
 	} else {
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
 			return "", fmt.Errorf("%w: not an integer", ErrInvalidPort)
 		}
 
-		if port != sshPort {
+		if port != defaultSSHPort {
 			return "", fmt.Errorf("%w: must be 22 when using EICE tunnel", ErrInvalidPort)
 		}
 	}
@@ -134,7 +135,7 @@ func CreateEICETunnelURI(instance types.Instance, portStr string, eiceID string)
 	params.Add("instanceConnectEndpointId", *eice.InstanceConnectEndpointId)
 	params.Add("remotePort", strconv.Itoa(port))
 	params.Add("privateIpAddress", *instance.PrivateIpAddress)
-	params.Add("X-Amz-Expires", strconv.Itoa(presignedURLExpiryTime))
+	params.Add("X-Amz-Expires", strconv.Itoa(defaultPresignedURLExpiryTime))
 	queryString := params.Encode()
 
 	url := fmt.Sprintf("wss://%s/openTunnel?%s", *eice.DnsName, queryString)
