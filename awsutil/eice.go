@@ -98,7 +98,7 @@ const (
 	defaultSSHPort                = 22
 )
 
-var ErrInvalidPort = errors.New("invalid port")
+var ErrEICETunnelURI = errors.New("cannot create EICE tunnel URI")
 
 func CreateEICETunnelURI(instance types.Instance, portStr string, eiceID string) (string, error) {
 	var err error
@@ -110,12 +110,16 @@ func CreateEICETunnelURI(instance types.Instance, portStr string, eiceID string)
 	} else {
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
-			return "", fmt.Errorf("%w: not an integer", ErrInvalidPort)
+			return "", fmt.Errorf("%w: port is not an integer", ErrEICETunnelURI)
 		}
 
 		if port != defaultSSHPort {
-			return "", fmt.Errorf("%w: must be 22 when using EICE tunnel", ErrInvalidPort)
+			return "", fmt.Errorf("%w: port must be %d", ErrEICETunnelURI, defaultSSHPort)
 		}
+	}
+
+	if instance.PrivateIpAddress == nil {
+		return "", fmt.Errorf("%w: instance %s does not have a private IP address", ErrEICETunnelURI, *instance.InstanceId)
 	}
 
 	var eice *types.Ec2InstanceConnectEndpoint
