@@ -9,11 +9,13 @@ permissions:
 
 jobs:
   goreleaser:
+    env:
+      GORELEASER_FLAGS:
     runs-on: ubuntu-latest
     steps:
       -
         if: ${{ !startsWith(github.ref, 'refs/tags/20') }}
-        run: echo "flags=--snapshot" >> $GITHUB_ENV
+        run: echo "GORELEASER_FLAGS=--snapshot" >> $GITHUB_ENV
       -
         name: Checkout
         uses: actions/checkout@v3
@@ -30,6 +32,6 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean ${{ env.flags }}
+          args: release --clean ${{ env.GORELEASER_FLAGS }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
