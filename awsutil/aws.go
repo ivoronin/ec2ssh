@@ -21,7 +21,7 @@ var (
 	awsRegion                   string
 )
 
-func Init(region string, profile string) (err error) {
+func Init(region string, profile string) error {
 	optFns := make([]func(*config.LoadOptions) error, 0)
 
 	if region != "" {

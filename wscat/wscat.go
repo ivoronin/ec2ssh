@@ -24,7 +24,7 @@ func Run(uri string) error {
 
 	var waitGroup sync.WaitGroup
 
-	waitGroup.Add(2)
+	waitGroup.Add(2) //nolint:gomnd
 
 	go pipe(webSocket.Reader(), os.Stdout, &waitGroup)
 	go pipe(os.Stdin, webSocket.Writer(), &waitGroup)

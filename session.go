@@ -1,258 +1,130 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"os/user"
-	"strings"
-)
+	"os"
+	"os/exec"
 
-type DstType int
-
-const (
-	DstTypeAuto DstType = iota
-	DstTypeID
-	DstTypePrivateIP
-	DstTypePublicIP
-	DstTypeIPv6
-	DstTypePrivateDNSName
-	DstTypeNameTag
-)
-
-type AddrType int
-
-const (
-	AddrTypeAuto AddrType = iota
-	AddrTypePrivate
-	AddrTypePublic
-	AddrTypeIPv6
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/ivoronin/ec2ssh/awsutil"
 )
 
 type Session struct {
-	dstType         DstType
-	addrType        AddrType
-	region          string
-	profile         string
-	eiceID          string
-	useEICE         bool
-	noSendKeys      bool
-	sshArgs         []string
-	commandWithArgs []string
-	destination     string
-	port            string
-	login           string
-	identityFile    string
+	options         Options
+	instance        types.Instance
+	destinationAddr string
+	privateKeyPath  string
+	publicKey       string
 	proxyCommand    string
-	hostKeyAlias    string
 }
 
-func parseSSHDestination(destination string) (string, string, string) {
-	var login, host, port string
+func (s *Session) buildSSHArgs() []string {
+	var sshArgs []string
 
-	loginhostport, hasPrefix := strings.CutPrefix(destination, "ssh://")
-
-	if hasPrefix {
-		var hostport string
-
-		atIdx := strings.LastIndex(loginhostport, "@")
-
-		if atIdx != -1 {
-			before, after := loginhostport[:atIdx], loginhostport[atIdx+1:]
-			login = before
-			hostport = after
-		} else {
-			hostport = loginhostport
-		}
-
-		colonIdx := strings.LastIndex(hostport, ":")
-		/* workaround for IPv6 addresses, e.g. [fec1::1] will give {"[fec1:", "1]"} */
-		bracketIdx := strings.LastIndex(hostport, "]")
-		if bracketIdx > colonIdx {
-			colonIdx = -1
-		}
-
-		if colonIdx != -1 {
-			before, after := hostport[:colonIdx], hostport[colonIdx+1:]
-			host = before
-			port = after
-		} else {
-			host = hostport
-		}
-
-		// Strip IPv6 brackets
-		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
-			host = host[1 : len(host)-1]
-		}
-	} else {
-		atIdx := strings.LastIndex(destination, "@")
-		if atIdx != -1 {
-			before, after := destination[:atIdx], destination[atIdx+1:]
-			login = before
-			host = after
-		} else {
-			host = destination
+	appendIfSet := func(option, value string) {
+		if value != "" {
+			sshArgs = append(sshArgs, fmt.Sprintf(option, value))
 		}
 	}
 
-	return login, host, port
+	appendIfSet("%s", s.proxyCommand)
+	appendIfSet("-l%s", s.options.Login)
+	appendIfSet("-p%s", s.options.Port)
+	appendIfSet("-i%s", s.privateKeyPath)
+
+	sshArgs = append(sshArgs, fmt.Sprintf("-oHostKeyAlias=%s", *s.instance.InstanceId))
+	sshArgs = append(sshArgs, s.options.SSHArgs...)
+	sshArgs = append(sshArgs, s.destinationAddr)
+
+	if len(s.options.CommandWithArgs) > 0 {
+		sshArgs = append(sshArgs, "--")
+		sshArgs = append(sshArgs, s.options.CommandWithArgs...)
+	}
+
+	return sshArgs
 }
 
-func parseDstType(value string) (DstType, error) {
-	dstTypeNames := map[string]DstType{
-		"":            DstTypeAuto,
-		"id":          DstTypeID,
-		"private_ip":  DstTypePrivateIP,
-		"public_ip":   DstTypePublicIP,
-		"ipv6":        DstTypeIPv6,
-		"private_dns": DstTypePrivateDNSName,
-		"name_tag":    DstTypeNameTag,
+func NewSession(options Options, tmpDir string) (*Session, error) {
+	instance, err := GetInstance(options.DstType, options.Destination)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get instance: %w", err)
 	}
-
-	if dstType, ok := dstTypeNames[value]; ok {
-		return dstType, nil
-	}
-
-	return 0, fmt.Errorf("%w: unknown destination type %s", ErrArgParse, value)
-}
-
-func parseAddrType(value string) (AddrType, error) {
-	addrTypeNames := map[string]AddrType{
-		"":        AddrTypeAuto,
-		"private": AddrTypePrivate,
-		"public":  AddrTypePublic,
-		"ipv6":    AddrTypeIPv6,
-	}
-
-	if addrType, ok := addrTypeNames[value]; ok {
-		return addrType, nil
-	}
-
-	return 0, fmt.Errorf("%w: unknown address type %s", ErrArgParse, value)
-}
-
-func NewSession(parsedArgs *ParsedArgs) (*Session, error) {
-	var err error
-
-	if parsedArgs.Destination == "" {
-		return nil, fmt.Errorf("%w: missing destination", ErrArgParse)
-	}
-
-	login, host, port := parseSSHDestination(parsedArgs.Destination)
 
 	session := &Session{
-		destination:     host,
-		login:           login,
-		port:            port,
-		dstType:         DstTypeAuto,
-		addrType:        AddrTypeAuto,
-		commandWithArgs: parsedArgs.CommandWithArgs,
-		sshArgs:         parsedArgs.SSHArgs,
+		options:  options,
+		instance: instance,
 	}
 
-	optionToVariableMap := map[string]*string{
-		"--region":      &session.region,
-		"--profile":     &session.profile,
-		"--eice-id":     &session.eiceID,
-		"--destination": &session.destination,
-		"-i":            &session.identityFile,
-		"-l":            &session.login,
-		"-p":            &session.port,
-	}
-
-	for option, variable := range optionToVariableMap {
-		if *variable == "" { /* do not override destination, login and port */
-			*variable = parsedArgs.Options[option]
-		}
-	}
-
-	_, session.useEICE = parsedArgs.Options["--use-eice"]
-	_, session.noSendKeys = parsedArgs.Options["--no-send-keys"]
-
-	session.dstType, err = parseDstType(parsedArgs.Options["--destination-type"])
+	err = session.setupDestinationAddr()
 	if err != nil {
 		return nil, err
 	}
 
-	session.addrType, err = parseAddrType(parsedArgs.Options["--address-type"])
+	err = session.setupSSHKeys(tmpDir)
 	if err != nil {
 		return nil, err
-	}
-
-	session.useEICE = session.useEICE || session.eiceID != "" /* eiceID implies useEICE */
-
-	if session.login == "" { /* default login to current user */
-		user, err := user.Current()
-		if err != nil {
-			return nil, err
-		}
-
-		session.login = user.Username
 	}
 
 	return session, nil
 }
 
-func (s *Session) Destination() string {
-	return s.destination
-}
+func (s *Session) setupDestinationAddr() error {
+	var err error
 
-func (s *Session) SetDestination(dst string) {
-	s.destination = dst
-}
-
-func (s *Session) IdentityFile() string {
-	return s.identityFile
-}
-
-func (s *Session) SetIdentityFile(identityFile string) {
-	s.identityFile = identityFile
-}
-
-func (s *Session) Port() string {
-	return s.port
-}
-
-func (s *Session) Login() string {
-	return s.login
-}
-
-func (s *Session) SetProxyCommand(proxyCommand string) {
-	s.proxyCommand = proxyCommand
-}
-
-func (s *Session) SetHostKeyAlias(alias string) {
-	s.hostKeyAlias = alias
-}
-
-func (s *Session) BuildSSHArgs() []string {
-	sshArgs := make([]string, 0)
-
-	if s.proxyCommand != "" {
-		sshArgs = append(sshArgs, fmt.Sprintf("-oProxyCommand=%s", s.proxyCommand))
+	if s.options.UseEICE {
+		s.destinationAddr = *s.instance.InstanceId
+		s.proxyCommand = fmt.Sprintf("-oProxyCommand=%s --wscat", os.Args[0])
+	} else {
+		s.destinationAddr, err = GetInstanceAddr(s.instance, s.options.AddrType)
 	}
 
-	if s.hostKeyAlias != "" {
-		sshArgs = append(sshArgs, fmt.Sprintf("-oHostKeyAlias=%s", s.hostKeyAlias))
+	return err
+}
+
+func (s *Session) setupSSHKeys(tmpDir string) error {
+	var err error
+	if s.options.IdentityFile == "" {
+		s.privateKeyPath, s.publicKey, err = GenerateSSHKeypair(tmpDir)
+	} else {
+		s.privateKeyPath = s.options.IdentityFile
+		s.publicKey, err = GetSSHPublicKey(s.options.IdentityFile)
 	}
 
-	if s.login != "" {
-		sshArgs = append(sshArgs, fmt.Sprintf("-l%s", s.login))
+	return err
+}
+
+func (s *Session) Run() error {
+	var err error
+
+	if !s.options.NoSendKeys {
+		err = awsutil.SendSSHPublicKey(s.instance, s.options.Login, s.publicKey)
+		if err != nil {
+			return fmt.Errorf("unable to send SSH public key: %w", err)
+		}
 	}
 
-	if s.port != "" {
-		sshArgs = append(sshArgs, fmt.Sprintf("-p%s", s.port))
+	cmd := exec.Command("ssh", s.buildSSHArgs()...)
+	cmd.Env = os.Environ()
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if s.options.UseEICE {
+		tunnelURI, err := awsutil.CreateEICETunnelURI(s.instance, s.options.Port, s.options.EICEID)
+		if err != nil {
+			return fmt.Errorf("unable to setup EICE tunnel: %w", err)
+		}
+
+		cmd.Env = append(cmd.Env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", tunnelURI))
 	}
 
-	if s.identityFile != "" {
-		sshArgs = append(sshArgs, fmt.Sprintf("-i%s", s.identityFile))
+	if err := cmd.Run(); err != nil {
+		var exitError *exec.ExitError
+		if !errors.As(err, &exitError) { /* Don't print error message if ssh exits with non-zero exit code */
+			return err
+		}
 	}
 
-	sshArgs = append(sshArgs, s.sshArgs...)
-	sshArgs = append(sshArgs, s.destination)
-
-	if len(s.commandWithArgs) > 0 {
-		sshArgs = append(sshArgs, "--")
-		sshArgs = append(sshArgs, s.commandWithArgs...)
-	}
-
-	return sshArgs
+	return nil
 }

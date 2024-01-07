@@ -43,7 +43,7 @@ Options:
 
   --use-eice
      Use EC2 Instance Connect Endpoint (EICE) to connect to the instance.
-     Default is false. Conflicts with --address-type other than 'auto' or 'private'.
+     Default is false. Ignores --address-type, private address is always used.
 
   --eice-id <string>
      Specifies the EC2 Instance Connect Endpoint (EICE) ID to use.
@@ -53,6 +53,7 @@ Options:
   --destination-type <id|private_ip|public_ip|ipv6|private_dns|name_tag>
      Specify the destination type for instance search.
      Defaults to automatically detecting the type based on the destination.
+	 First matched instance will be user for connection.
 
   --address-type <private|public|ipv6>
      Specify the address type for connecting to the instance.

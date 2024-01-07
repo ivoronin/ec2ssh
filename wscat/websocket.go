@@ -44,7 +44,7 @@ type WebsocketReader struct {
 	mu     sync.Mutex // protects buffer
 }
 
-func (r *WebsocketReader) Read(buf []byte) (n int, err error) {
+func (r *WebsocketReader) Read(buf []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -53,10 +53,8 @@ func (r *WebsocketReader) Read(buf []byte) (n int, err error) {
 		if err != nil {
 			// Handle WebSocket close error
 			var closeErr *websocket.CloseError
-			if errors.As(err, &closeErr) {
-				if closeErr.Code == websocket.CloseNormalClosure {
-					return 0, io.EOF
-				}
+			if errors.As(err, &closeErr) && closeErr.Code == websocket.CloseNormalClosure {
+				return 0, io.EOF
 			}
 
 			return 0, err
@@ -65,7 +63,7 @@ func (r *WebsocketReader) Read(buf []byte) (n int, err error) {
 		r.buffer = msg
 	}
 
-	n = copy(buf, r.buffer)
+	n := copy(buf, r.buffer)
 	r.buffer = r.buffer[n:]
 
 	return n, nil
@@ -75,8 +73,8 @@ type WebsocketWriter struct {
 	conn *websocket.Conn
 }
 
-func (w *WebsocketWriter) Write(buf []byte) (n int, err error) {
-	err = w.conn.WriteMessage(websocket.BinaryMessage, buf)
+func (w *WebsocketWriter) Write(buf []byte) (int, error) {
+	err := w.conn.WriteMessage(websocket.BinaryMessage, buf)
 	if err != nil {
 		return 0, err
 	}

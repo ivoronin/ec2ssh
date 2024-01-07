@@ -1,19 +1,26 @@
 linters:
   enable-all: true
   disable:
-    - nonamedreturns
     - wrapcheck
-    - gomnd
-    - nestif
     - exhaustruct
-    - exhaustivestruct
     - depguard
+    # Deprecated:
+    - golint
+    - structcheck
+    - ifshort
+    - nosnakecase
+    - maligned
+    - scopelint
+    - varcheck
+    - interfacer
+    - deadcode
+    - exhaustivestruct
 
 issues:
   exclude-rules:
     - path: awsutil
       text: aws.+ is a global variable
-    - path: ec2ssh.go
+    - path: session.go
       text: G204
     - path: ".*_test.go"
       text: Function 'Test.+' has too many statements
