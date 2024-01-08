@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.3
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.142.1
-	github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect v1.20.5
+	github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect v1.20.6
 	github.com/gorilla/websocket v1.5.1
 	github.com/stretchr/testify v1.8.4
 )
