@@ -87,6 +87,10 @@ func Run(args []string) error {
 		return err
 	}
 
+	if options.Destination == "" {
+		return fmt.Errorf("%w: missing destination", ErrArgParse)
+	}
+
 	if err := awsutil.Init(options.Region, options.Profile); err != nil {
 		return err
 	}
