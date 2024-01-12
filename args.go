@@ -30,6 +30,7 @@ func parseLongOption(args []string, idx int, parsedArgs *ParsedArgs) (int, error
 	consumedLongOptionsWithoutArguments := []string{
 		"--no-send-keys",
 		"--use-eice",
+		"--debug",
 	}
 
 	arg := args[idx]

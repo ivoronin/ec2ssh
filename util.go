@@ -37,13 +37,21 @@ func GuessDestinationType(dst string) DstType {
 func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 	if dstType == DstTypeAuto {
 		dstType = GuessDestinationType(destination)
+
+		DebugLogger.Printf("guessed destination type %d for %s", dstType, destination)
 	}
 
 	var filterName string
 
 	switch dstType {
 	case DstTypeID:
-		return awsutil.GetInstanceByID(destination)
+		DebugLogger.Printf("searching for instance by ID %s", destination)
+
+		instance, err := awsutil.GetInstanceByID(destination)
+
+		DebugLogger.Printf("found instance ID %s", *instance.InstanceId)
+
+		return instance, err
 	case DstTypePrivateIP:
 		filterName = "private-ip-address"
 	case DstTypePublicIP:
@@ -61,7 +69,13 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 		panic(dstType)
 	}
 
-	return awsutil.GetInstanceByFilter(filterName, destination)
+	DebugLogger.Printf("searching for instance by %s=%s", filterName, destination)
+
+	instance, err := awsutil.GetInstanceByFilter(filterName, destination)
+
+	DebugLogger.Printf("found instance id %s", *instance.InstanceId)
+
+	return instance, err
 }
 
 func GetInstanceAddr(instance types.Instance, addrType AddrType) (string, error) {
@@ -96,6 +110,8 @@ func GetInstanceAddr(instance types.Instance, addrType AddrType) (string, error)
 	if addr == nil {
 		return "", fmt.Errorf("%w: no %s IP address found for instance ID %s", ErrNoAddress, typeStr, *instance.InstanceId)
 	}
+
+	DebugLogger.Printf("using %s IP address %s for instance ID %s", typeStr, *addr, *instance.InstanceId)
 
 	return *addr, nil
 }
