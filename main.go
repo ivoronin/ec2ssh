@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"os"
 
 	"github.com/ivoronin/ec2ssh/awsutil"
@@ -13,6 +15,8 @@ func FatalError(err error) {
 	fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
 	os.Exit(1)
 }
+
+var DebugLogger = log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 const helpText = `Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
 
@@ -50,7 +54,7 @@ Options:
   --destination-type <id|private_ip|public_ip|ipv6|private_dns|name_tag>
      Specify the destination type for instance search.
      Defaults to automatically detecting the type based on the destination.
-	 First matched instance will be user for connection.
+     First matched instance will be user for connection.
 
   --address-type <private|public|ipv6>
      Specify the address type for connecting to the instance.
@@ -58,6 +62,9 @@ Options:
 
   --no-send-keys
      Do not send SSH keys to the instance using EC2 Instance Connect.
+
+  --debug
+     Enable debug logging.
 
   ssh arguments
      Specify arguments to pass to SSH.
@@ -89,6 +96,10 @@ func Run(args []string) error {
 
 	if options.Destination == "" {
 		return fmt.Errorf("%w: missing destination", ErrArgParse)
+	}
+
+	if options.Debug {
+		DebugLogger.SetOutput(os.Stderr)
 	}
 
 	if err := awsutil.Init(options.Region, options.Profile); err != nil {

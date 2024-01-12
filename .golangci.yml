@@ -20,6 +20,8 @@ issues:
   exclude-rules:
     - path: awsutil
       text: aws.+ is a global variable
+    - path: main.go
+      text: .*Logger is a global variable
     - path: session.go
       text: G204
     - path: ".*_test.go"

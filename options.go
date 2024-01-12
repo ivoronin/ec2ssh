@@ -35,6 +35,7 @@ type Options struct {
 	EICEID          string
 	UseEICE         bool
 	NoSendKeys      bool
+	Debug           bool
 	SSHArgs         []string
 	CommandWithArgs []string
 	Destination     string
@@ -150,6 +151,10 @@ func setOptionsFromParsedArgs(options *Options, parsedArgs ParsedArgs) error {
 
 	if _, ok := parsedArgs.Options["--no-send-keys"]; ok {
 		options.NoSendKeys = true
+	}
+
+	if _, ok := parsedArgs.Options["--debug"]; ok {
+		options.Debug = true
 	}
 
 	var err error
