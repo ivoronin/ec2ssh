@@ -53,7 +53,7 @@ Options:
   --destination-type <id|private_ip|public_ip|ipv6|private_dns|name_tag>
      Specify the destination type for instance search.
      Defaults to automatically detecting the type based on the destination.
-     First matched instance will be user for connection.
+     First matched instance will be used for connection.
 
   --address-type <private|public|ipv6>
      Specify the address type for connecting to the instance.
