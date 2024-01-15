@@ -10,6 +10,8 @@ import (
 const sshKeyType = "ed25519"
 
 func GenerateSSHKeypair(tmpDir string) (string, string, error) {
+	DebugLogger.Printf("generating SSH keypair in %s", tmpDir)
+
 	privateKeyPath := path.Join(tmpDir, "id_"+sshKeyType)
 	publicKeyPath := privateKeyPath + ".pub"
 	cmd := exec.Command("ssh-keygen", "-q", "-t", sshKeyType, "-f", privateKeyPath, "-N", "")
@@ -31,6 +33,8 @@ func GenerateSSHKeypair(tmpDir string) (string, string, error) {
 }
 
 func GetSSHPublicKey(privateKeyPath string) (string, error) {
+	DebugLogger.Printf("getting public key from %s", privateKeyPath)
+
 	cmd := exec.Command("ssh-keygen", "-y", "-f", privateKeyPath)
 
 	outputBytes, err := cmd.Output()

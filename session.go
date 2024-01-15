@@ -86,12 +86,8 @@ func (s *Session) setupSSHKeys(tmpDir string) error {
 	var err error
 
 	if s.options.IdentityFile == "" {
-		DebugLogger.Printf("generating SSH keypair in %s", tmpDir)
-
 		s.privateKeyPath, s.publicKey, err = GenerateSSHKeypair(tmpDir)
 	} else {
-		DebugLogger.Printf("using SSH private key from %s", s.options.IdentityFile)
-
 		s.privateKeyPath = s.options.IdentityFile
 		s.publicKey, err = GetSSHPublicKey(s.options.IdentityFile)
 	}
@@ -107,8 +103,6 @@ func (s *Session) Run() error {
 		if err != nil {
 			return fmt.Errorf("unable to send SSH public key: %w", err)
 		}
-
-		DebugLogger.Printf("public key successfully sent to instance ID %s", *s.instance.InstanceId)
 	}
 
 	sshArgs := s.buildSSHArgs()
@@ -124,19 +118,23 @@ func (s *Session) Run() error {
 			return fmt.Errorf("unable to setup EICE tunnel: %w", err)
 		}
 
-		DebugLogger.Printf("using EICE tunnel URI: %s", tunnelURI)
-
 		cmd.Env = append(cmd.Env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", tunnelURI))
 	}
 
 	DebugLogger.Printf("running ssh with args: %v", sshArgs)
+
+	exitCode := 0
 
 	if err := cmd.Run(); err != nil {
 		var exitError *exec.ExitError
 		if !errors.As(err, &exitError) { /* Don't print error message if ssh exits with non-zero exit code */
 			return err
 		}
+
+		exitCode = exitError.ExitCode()
 	}
+
+	DebugLogger.Printf("ssh exited with code %d", exitCode)
 
 	return nil
 }

@@ -10,6 +10,8 @@ import (
 )
 
 func GetInstanceByID(instanceID string) (types.Instance, error) {
+	DebugLogger.Printf("searching for instance by ID %s", instanceID)
+
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []string{instanceID},
 	}
@@ -23,6 +25,8 @@ func GetInstanceByID(instanceID string) (types.Instance, error) {
 }
 
 func GetInstanceByFilter(filterName, filterValue string) (types.Instance, error) {
+	DebugLogger.Printf("searching for instance by %s=%s", filterName, filterValue)
+
 	input := &ec2.DescribeInstancesInput{
 		Filters: []types.Filter{
 			{
@@ -46,8 +50,14 @@ func getFirstMatchingInstance(input *ec2.DescribeInstancesInput) (types.Instance
 		return types.Instance{}, err
 	}
 
-	for _, reservation := range result.Reservations {
+	DebugLogger.Printf("found %d reservations", len(result.Reservations))
+
+	for rsvIdx, reservation := range result.Reservations {
+		DebugLogger.Printf("found %d instances in reservation %d", len(reservation.Instances), rsvIdx)
+
 		for _, instance := range reservation.Instances {
+			DebugLogger.Printf("selected first matching instance %s", *instance.InstanceId)
+
 			return instance, nil
 		}
 	}

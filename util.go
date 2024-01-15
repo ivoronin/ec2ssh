@@ -45,11 +45,7 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 
 	switch dstType {
 	case DstTypeID:
-		DebugLogger.Printf("searching for instance by ID %s", destination)
-
 		instance, err := awsutil.GetInstanceByID(destination)
-
-		DebugLogger.Printf("found instance ID %s", *instance.InstanceId)
 
 		return instance, err
 	case DstTypePrivateIP:
@@ -69,15 +65,7 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 		panic(dstType)
 	}
 
-	DebugLogger.Printf("searching for instance by %s=%s", filterName, destination)
-
 	instance, err := awsutil.GetInstanceByFilter(filterName, destination)
-
-	if instance.InstanceId == nil {
-		DebugLogger.Printf("no instance found by %s=%s", filterName, destination)
-	} else {
-		DebugLogger.Printf("found instance id %s", *instance.InstanceId)
-	}
 
 	return instance, err
 }

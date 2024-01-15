@@ -20,9 +20,7 @@ issues:
   exclude-rules:
     - path: awsutil
       text: aws.+ is a global variable
-    - path: main.go
+    - path: .*
       text: .*Logger is a global variable
-    - path: session.go
-      text: G204
     - path: ".*_test.go"
       text: Function 'Test.+' has too many statements
