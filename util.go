@@ -73,7 +73,11 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 
 	instance, err := awsutil.GetInstanceByFilter(filterName, destination)
 
-	DebugLogger.Printf("found instance id %s", *instance.InstanceId)
+	if instance.InstanceId == nil {
+		DebugLogger.Printf("no instance found by %s=%s", filterName, destination)
+	} else {
+		DebugLogger.Printf("found instance id %s", *instance.InstanceId)
+	}
 
 	return instance, err
 }
