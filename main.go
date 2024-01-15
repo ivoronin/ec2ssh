@@ -83,6 +83,10 @@ func Usage(err error) {
 	os.Exit(1)
 }
 
+func EnableDebug() {
+	DebugLogger.SetOutput(os.Stderr)
+}
+
 func Run(args []string) error {
 	parsedArgs, err := ParseArgs(args)
 	if err != nil {
@@ -99,7 +103,8 @@ func Run(args []string) error {
 	}
 
 	if options.Debug {
-		DebugLogger.SetOutput(os.Stderr)
+		EnableDebug()
+		awsutil.EnableDebug()
 	}
 
 	if err := awsutil.Init(options.Region, options.Profile); err != nil {
