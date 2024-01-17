@@ -116,12 +116,12 @@ func Run(args []string) error {
 		return err
 	}
 
+	defer os.RemoveAll(tmpDir)
+
 	session, err := NewSession(options, tmpDir)
 	if err != nil {
 		return err
 	}
-
-	defer os.RemoveAll(tmpDir)
 
 	if err = session.Run(); err != nil {
 		return err
