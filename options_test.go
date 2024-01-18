@@ -94,10 +94,21 @@ func TestNewOptions(t *testing.T) {
 		SSHArgs:         []string{"-t"},
 	}
 
-	session, err := NewOptions(parsedArgs)
+	options, err := NewOptions(parsedArgs)
 
 	require.NoError(t, err)
-	assert.Equal(t, "host", session.Destination)
-	assert.Equal(t, "login", session.Login)
-	assert.True(t, session.UseEICE)
+	assert.Equal(t, "host", options.Destination)
+	assert.Equal(t, "login", options.Login)
+	assert.True(t, options.UseEICE)
+
+	parsedArgs = ParsedArgs{
+		Options: map[string]string{
+			"--destination-type": "unknown-dst-type",
+		},
+		Destination: "host",
+	}
+
+	_, err = NewOptions(parsedArgs)
+
+	require.Error(t, err)
 }
