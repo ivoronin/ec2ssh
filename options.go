@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os/user"
+	"reflect"
 	"strings"
 )
 
@@ -93,8 +94,16 @@ func stripIPv6Brackets(host string) string {
 	return host
 }
 
+func parseType[T ~int](value string, mapping map[string]T) (T, error) { //nolint: ireturn // #37
+	if value, ok := mapping[value]; ok {
+		return value, nil
+	}
+
+	return 0, fmt.Errorf("%w: unknown type %s", ErrArgParse, value)
+}
+
 func parseDstType(value string) (DstType, error) {
-	dstTypeNames := map[string]DstType{
+	return parseType(value, map[string]DstType{
 		"":            DstTypeAuto,
 		"id":          DstTypeID,
 		"private_ip":  DstTypePrivateIP,
@@ -102,85 +111,58 @@ func parseDstType(value string) (DstType, error) {
 		"ipv6":        DstTypeIPv6,
 		"private_dns": DstTypePrivateDNSName,
 		"name_tag":    DstTypeNameTag,
-	}
-
-	if dstType, ok := dstTypeNames[value]; ok {
-		return dstType, nil
-	}
-
-	return 0, fmt.Errorf("%w: unknown destination type %s", ErrArgParse, value)
+	})
 }
 
 func parseAddrType(value string) (AddrType, error) {
-	addrTypeNames := map[string]AddrType{
+	return parseType(value, map[string]AddrType{
 		"":        AddrTypeAuto,
 		"private": AddrTypePrivate,
 		"public":  AddrTypePublic,
 		"ipv6":    AddrTypeIPv6,
-	}
-
-	if addrType, ok := addrTypeNames[value]; ok {
-		return addrType, nil
-	}
-
-	return 0, fmt.Errorf("%w: unknown address type %s", ErrArgParse, value)
+	})
 }
 
-func mapOptionsToVariables(options *Options, parsedArgs ParsedArgs) {
-	for option, variable := range map[string]*string{
-		"--region":      &options.Region,
-		"--profile":     &options.Profile,
-		"--eice-id":     &options.EICEID,
-		"--destination": &options.Destination,
-		"-i":            &options.IdentityFile,
-		"-l":            &options.Login,
-		"-p":            &options.Port,
-	} {
-		if value, ok := parsedArgs.Options[option]; ok && *variable == "" {
-			*variable = value
-		}
-	}
-}
-
-func setOptionsFromParsedArgs(options *Options, parsedArgs ParsedArgs) error {
-	mapOptionsToVariables(options, parsedArgs)
-
-	if _, ok := parsedArgs.Options["--use-eice"]; ok {
-		options.UseEICE = true
-	}
-
-	if _, ok := parsedArgs.Options["--no-send-keys"]; ok {
-		options.NoSendKeys = true
-	}
-
-	if _, ok := parsedArgs.Options["--debug"]; ok {
-		options.Debug = true
-	}
-
+func (options *Options) populateFromParsedArgsOptions(argsOptions map[string]string) error {
 	var err error
 
-	options.DstType, err = parseDstType(parsedArgs.Options["--destination-type"])
-	if err != nil {
-		return err
+	for option, variablePtr := range map[string]any{
+		"--region":           &options.Region,
+		"--profile":          &options.Profile,
+		"--eice-id":          &options.EICEID,
+		"--destination":      &options.Destination,
+		"-i":                 &options.IdentityFile,
+		"-l":                 &options.Login,
+		"-p":                 &options.Port,
+		"--use-eice":         &options.UseEICE,
+		"--no-send-keys":     &options.NoSendKeys,
+		"--debug":            &options.Debug,
+		"--destination-type": &options.DstType,
+		"--address-type":     &options.AddrType,
+	} {
+		/* check if argument is not present or option is already set */
+		value, ok := argsOptions[option]
+		if !ok || !reflect.ValueOf(variablePtr).Elem().IsZero() {
+			continue
+		}
+
+		switch variable := variablePtr.(type) {
+		case *string:
+			*variable = value
+		case *bool:
+			*variable = true
+		case *DstType:
+			*variable, err = parseDstType(value)
+		case *AddrType:
+			*variable, err = parseAddrType(value)
+		default:
+			panic(fmt.Sprintf("unknown option type %T", variable))
+		}
+
+		if err != nil {
+			return err
+		}
 	}
-
-	options.AddrType, err = parseAddrType(parsedArgs.Options["--address-type"])
-	if err != nil {
-		return err
-	}
-
-	options.UseEICE = options.UseEICE || options.EICEID != ""
-
-	return nil
-}
-
-func setDefaultLogin(options *Options) error {
-	user, err := user.Current()
-	if err != nil {
-		return err
-	}
-
-	options.Login = user.Username
 
 	return nil
 }
@@ -192,20 +174,24 @@ func NewOptions(parsedArgs ParsedArgs) (Options, error) {
 		Destination:     host,
 		Login:           login,
 		Port:            port,
-		DstType:         DstTypeAuto,
-		AddrType:        AddrTypeAuto,
 		CommandWithArgs: parsedArgs.CommandWithArgs,
 		SSHArgs:         parsedArgs.SSHArgs,
 	}
 
-	if err := setOptionsFromParsedArgs(&options, parsedArgs); err != nil {
+	err := options.populateFromParsedArgsOptions(parsedArgs.Options)
+	if err != nil {
 		return Options{}, err
 	}
 
+	options.UseEICE = options.UseEICE || options.EICEID != ""
+
 	if options.Login == "" {
-		if err := setDefaultLogin(&options); err != nil {
+		user, err := user.Current()
+		if err != nil {
 			return Options{}, err
 		}
+
+		options.Login = user.Username
 	}
 
 	return options, nil
