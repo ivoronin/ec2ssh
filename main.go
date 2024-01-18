@@ -33,6 +33,9 @@ DNS name, or name tag, using ephemeral SSH keys.
   Example - Connect to an instance using its private DNS name via an EICE tunnel:
      $ ec2ssh --use-eice ip-10-0-0-1
 
+  Example - Use any SSH options and arguments as usual:
+     $ ec2ssh --use-eice -L 8888:127.0.0.1:8888 -N -i ~/.ssh/id_rsa_alt -o VisualHostKey=Yes app01
+
 Options:
   --region <string>
      Use the specified AWS region (env AWS_REGION, AWS_DEFAULT_REGION).
