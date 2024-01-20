@@ -50,11 +50,10 @@ func parseSSHDestination(destination string) (string, string, string) {
 
 	if strings.HasPrefix(destination, "ssh://") {
 		login, host, port = parseSSHURL(destination)
+		host = stripIPv6Brackets(host)
 	} else {
 		login, host = parseLoginHost(destination)
 	}
-
-	host = stripIPv6Brackets(host)
 
 	return login, host, port
 }
