@@ -56,7 +56,7 @@ func TestParseSSHDestionation(t *testing.T) {
 	login, host, port = parseSSHDestination("[fec1::1]")
 
 	assert.Equal(t, "", login)
-	assert.Equal(t, "fec1::1", host)
+	assert.Equal(t, "[fec1::1]", host)
 	assert.Equal(t, "", port)
 
 	/* Non-URL like destination */
