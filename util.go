@@ -14,6 +14,8 @@ var ErrNoAddress = errors.New("no address found")
 
 func GuessDestinationType(dst string) DstType {
 	switch {
+	case strings.HasSuffix(dst, ".ec2.internal"), strings.HasSuffix(dst, ".compute.internal"):
+		return DstTypePrivateDNSName
 	case strings.HasPrefix(dst, "i-"):
 		return DstTypeID
 	case strings.HasPrefix(dst, "ip-"):
@@ -55,8 +57,11 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 	case DstTypeIPv6:
 		filterName = "ipv6-address"
 	case DstTypePrivateDNSName:
-		destination += ".*" /* e.g. ip-10-0-0-1.* */
 		filterName = "private-dns-name"
+
+		if !strings.Contains(destination, ".") {
+			destination += ".*" /* e.g. ip-10-0-0-1.* */
+		}
 	case DstTypeNameTag:
 		filterName = "tag:Name"
 	case DstTypeAuto:
@@ -65,9 +70,7 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 		panic(dstType)
 	}
 
-	instance, err := awsutil.GetInstanceByFilter(filterName, destination)
-
-	return instance, err
+	return awsutil.GetInstanceByFilter(filterName, destination)
 }
 
 func GetInstanceAddr(instance types.Instance, addrType AddrType) (string, error) {

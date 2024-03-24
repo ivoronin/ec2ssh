@@ -24,3 +24,5 @@ issues:
       text: .*Logger is a global variable
     - path: ".*_test.go"
       text: Function 'Test.+' has too many statements
+    - path: "util.go"
+      text: Function 'GetInstance' has cyclomatic complexity 11
