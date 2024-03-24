@@ -28,7 +28,7 @@ func (s *Session) buildSSHArgs() []string {
 		}
 	}
 
-	appendIfSet("%s", s.proxyCommand)
+	appendIfSet("-oProxyCommand=%s", s.proxyCommand)
 	appendIfSet("-l%s", s.options.Login)
 	appendIfSet("-p%s", s.options.Port)
 	appendIfSet("-i%s", s.privateKeyPath)
@@ -74,7 +74,7 @@ func (s *Session) setupDestinationAddr() error {
 
 	if s.options.UseEICE {
 		s.destinationAddr = *s.instance.InstanceId
-		s.proxyCommand = fmt.Sprintf("-oProxyCommand=%s --wscat", os.Args[0])
+		s.proxyCommand = fmt.Sprintf("%s --wscat", os.Args[0])
 	} else {
 		s.destinationAddr, err = GetInstanceAddr(s.instance, s.options.AddrType)
 	}

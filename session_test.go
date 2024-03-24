@@ -20,11 +20,13 @@ func TestBuildSSHArgs(t *testing.T) {
 			InstanceId: aws.String("instance-id"),
 		},
 		destinationAddr: "192.168.0.1",
+		proxyCommand:    "proxy-command",
 		privateKeyPath:  "/path/to/private/key",
 	}
 
 	sshArgs := session.buildSSHArgs()
 	assert.Equal(t, []string{
+		"-oProxyCommand=proxy-command",
 		"-llogin",
 		"-p2222",
 		"-i/path/to/private/key",
