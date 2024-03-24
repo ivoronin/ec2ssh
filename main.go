@@ -143,7 +143,6 @@ func main() {
 		}
 	} else {
 		/* Run in normal mode otherwise */
-
 		if err := Run(os.Args[1:]); err != nil {
 			switch {
 			case errors.Is(err, ErrHelp):
