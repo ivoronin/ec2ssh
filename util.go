@@ -14,12 +14,12 @@ var ErrNoAddress = errors.New("no address found")
 
 func GuessDestinationType(dst string) DstType {
 	switch {
-	case strings.HasSuffix(dst, ".ec2.internal"), strings.HasSuffix(dst, ".compute.internal"):
+	case strings.HasPrefix(dst, "ip-"),
+		strings.HasSuffix(dst, ".ec2.internal"),
+		strings.HasSuffix(dst, ".compute.internal"):
 		return DstTypePrivateDNSName
 	case strings.HasPrefix(dst, "i-"):
 		return DstTypeID
-	case strings.HasPrefix(dst, "ip-"):
-		return DstTypePrivateDNSName
 	case net.ParseIP(dst) != nil:
 		addr := net.ParseIP(dst)
 		if addr.To4() != nil {
