@@ -1,5 +1,6 @@
 # EC2 SSH Connection Tool
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/ivoronin/ec2ssh)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ivoronin/ec2ssh)](https://goreportcard.com/report/github.com/ivoronin/ec2ssh)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/ivoronin/ec2ssh/main)
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/ivoronin/ec2ssh/goreleaser.yml)
 ![GitHub top language](https://img.shields.io/github/languages/top/ivoronin/ec2ssh)
