@@ -26,4 +26,4 @@ issues:
     - path: ".*_test.go"
       text: Function 'Test.+' has too many statements
     - path: "util.go"
-      text: Function 'GetInstance' has cyclomatic complexity 11
+      text: calculated cyclomatic complexity for function GetInstance is 11
