@@ -15,6 +15,7 @@ linters:
     - interfacer
     - deadcode
     - exhaustivestruct
+    - perfsprint
 
 issues:
   exclude-rules:
