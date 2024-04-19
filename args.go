@@ -21,6 +21,7 @@ type ParsedArgs struct {
 
 func parseLongOption(args []string, idx int, parsedArgs *ParsedArgs) (int, error) {
 	consumedLongOptionsWithArguments := []string{
+		"--list-columns",
 		"--region",
 		"--profile",
 		"--destination-type",
@@ -28,6 +29,7 @@ func parseLongOption(args []string, idx int, parsedArgs *ParsedArgs) (int, error
 		"--eice-id",
 	}
 	consumedLongOptionsWithoutArguments := []string{
+		"--list",
 		"--no-send-keys",
 		"--use-eice",
 		"--debug",

@@ -44,6 +44,25 @@ func GetInstanceByFilter(filterName, filterValue string) (types.Instance, error)
 	return instance, nil
 }
 
+func ListInstances() ([]types.Instance, error) {
+	DebugLogger.Printf("listing all instances")
+
+	input := &ec2.DescribeInstancesInput{}
+
+	result, err := awsEC2Client.DescribeInstances(context.TODO(), input)
+	if err != nil {
+		return nil, err
+	}
+
+	var instances []types.Instance
+
+	for _, reservation := range result.Reservations {
+		instances = append(instances, reservation.Instances...)
+	}
+
+	return instances, nil
+}
+
 func getFirstMatchingInstance(input *ec2.DescribeInstancesInput) (types.Instance, error) {
 	result, err := awsEC2Client.DescribeInstances(context.TODO(), input)
 	if err != nil {

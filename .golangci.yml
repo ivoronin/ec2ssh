@@ -16,13 +16,10 @@ linters:
     - deadcode
     - exhaustivestruct
     - perfsprint
+    - gochecknoglobals
 
 issues:
   exclude-rules:
-    - path: awsutil
-      text: aws.+ is a global variable
-    - path: .*
-      text: .*Logger is a global variable
     - path: ".*_test.go"
       text: Function 'Test.+' has too many statements
     - path: "util.go"
