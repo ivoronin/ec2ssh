@@ -110,3 +110,17 @@ func GetInstanceAddr(instance types.Instance, addrType AddrType) (string, error)
 
 	return *addr, nil
 }
+
+func GetInstanceName(instance types.Instance) *string {
+	return getInstanceTagValue(instance, "Name")
+}
+
+func getInstanceTagValue(instance types.Instance, tagKey string) *string {
+	for _, tag := range instance.Tags {
+		if *tag.Key == tagKey {
+			return tag.Value
+		}
+	}
+
+	return nil
+}

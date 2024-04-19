@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/user"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -43,6 +44,8 @@ type Options struct {
 	Port            string
 	Login           string
 	IdentityFile    string
+	DoList          bool
+	ListColumns     string
 }
 
 func parseSSHDestination(destination string) (string, string, string) {
@@ -138,6 +141,8 @@ func (options *Options) populateFromParsedArgsOptions(argsOptions map[string]str
 		"--debug":            &options.Debug,
 		"--destination-type": &options.DstType,
 		"--address-type":     &options.AddrType,
+		"--list":             &options.DoList,
+		"--list-columns":     &options.ListColumns,
 	} {
 		/* check if argument is not present or option is already set */
 		value, ok := argsOptions[option]
@@ -166,6 +171,36 @@ func (options *Options) populateFromParsedArgsOptions(argsOptions map[string]str
 	return nil
 }
 
+func validateListOptions(options map[string]string) error {
+	allowedListOptions := [...]string{
+		"--list-columns",
+		"--region",
+		"--profile",
+		"--list",
+	}
+	listOnlyOptions := [...]string{
+		"--list-columns",
+	}
+
+	if _, ok := options["--list"]; !ok {
+		for option := range options {
+			if slices.Contains(listOnlyOptions[:], option) {
+				return fmt.Errorf("%w: option %s is only allowed when using --list", ErrArgParse, listOnlyOptions[0])
+			}
+		}
+
+		return nil
+	}
+
+	for option := range options {
+		if !slices.Contains(allowedListOptions[:], option) {
+			return fmt.Errorf("%w: option %s is not allowed when using --list", ErrArgParse, option)
+		}
+	}
+
+	return nil
+}
+
 func NewOptions(parsedArgs ParsedArgs) (Options, error) {
 	login, host, port := parseSSHDestination(parsedArgs.Destination)
 
@@ -177,7 +212,12 @@ func NewOptions(parsedArgs ParsedArgs) (Options, error) {
 		SSHArgs:         parsedArgs.SSHArgs,
 	}
 
-	err := options.populateFromParsedArgsOptions(parsedArgs.Options)
+	err := validateListOptions(parsedArgs.Options)
+	if err != nil {
+		return Options{}, err
+	}
+
+	err = options.populateFromParsedArgsOptions(parsedArgs.Options)
 	if err != nil {
 		return Options{}, err
 	}

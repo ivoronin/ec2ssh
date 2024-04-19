@@ -101,10 +101,6 @@ func Run(args []string) error {
 		return err
 	}
 
-	if options.Destination == "" {
-		return fmt.Errorf("%w: missing destination", ErrArgParse)
-	}
-
 	if options.Debug {
 		EnableDebug()
 		awsutil.EnableDebug()
@@ -112,6 +108,14 @@ func Run(args []string) error {
 
 	if err := awsutil.Init(options.Region, options.Profile); err != nil {
 		return err
+	}
+
+	if options.DoList {
+		return List(options)
+	}
+
+	if options.Destination == "" {
+		return fmt.Errorf("%w: missing destination", ErrArgParse)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "ec2ssh")
