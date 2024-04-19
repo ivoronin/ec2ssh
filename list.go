@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	allowedListColumns = [...]string{"ID", "NAME", "STATE", "PRIVATE-IP", "PUBLIC-IP", "IPV6", "PRIVATE-DNS", "PUBLIC-DNS"}
+	allowedListColumns = [...]string{"ID", "NAME", "STATE", "TYPE", "PRIVATE-IP", "PUBLIC-IP", "IPV6", "PRIVATE-DNS", "PUBLIC-DNS"}
 	defaultListColumns = "ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP"
 )
 
@@ -52,10 +52,12 @@ func List(options Options) error {
 
 	for _, instance := range instances {
 		state := string(instance.State.Name)
+		typ := string(instance.InstanceType)
 		values := map[string]*string{
 			"ID":          instance.InstanceId,
 			"NAME":        GetInstanceName(instance),
 			"STATE":       &state,
+			"TYPE":        &typ,
 			"PRIVATE-IP":  instance.PrivateIpAddress,
 			"PUBLIC-IP":   instance.PublicIpAddress,
 			"IPV6":        instance.Ipv6Address,
