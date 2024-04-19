@@ -11,7 +11,10 @@ import (
 )
 
 var (
-	allowedListColumns = [...]string{"ID", "NAME", "STATE", "TYPE", "PRIVATE-IP", "PUBLIC-IP", "IPV6", "PRIVATE-DNS", "PUBLIC-DNS"}
+	allowedListColumns = [...]string{
+		"ID", "NAME", "STATE", "TYPE", "PRIVATE-IP",
+		"PUBLIC-IP", "IPV6", "PRIVATE-DNS", "PUBLIC-DNS",
+	}
 	defaultListColumns = "ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP"
 )
 

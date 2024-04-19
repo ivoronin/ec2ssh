@@ -45,6 +45,14 @@ Options:
      Use the specified AWS profile (env AWS_PROFILE).
      Defaults to using the AWS SDK configuration.
 
+  --list
+     List instances in the region and exit.
+
+  --list-columns <columns>
+     Specify columns to display in the list output.
+     Defaults to ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP
+     Available columns: ID,NAME,STATE,TYPE,PRIVATE-IP,PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
+
   --use-eice
      Use EC2 Instance Connect Endpoint (EICE) to connect to the instance.
      Default is false. Ignores --address-type, private address is always used.
