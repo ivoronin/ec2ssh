@@ -1,3 +1,4 @@
 ec2ssh
 .task
 dist
+coverage.txt
