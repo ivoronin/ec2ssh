@@ -24,7 +24,7 @@ func GetInstanceByID(instanceID string) (types.Instance, error) {
 	return instance, nil
 }
 
-func GetInstanceByFilter(filterName, filterValue string) (types.Instance, error) {
+func GetRunningInstanceByFilter(filterName, filterValue string) (types.Instance, error) {
 	DebugLogger.Printf("searching for instance by %s=%s", filterName, filterValue)
 
 	input := &ec2.DescribeInstancesInput{
@@ -33,12 +33,16 @@ func GetInstanceByFilter(filterName, filterValue string) (types.Instance, error)
 				Name:   aws.String(filterName),
 				Values: []string{filterValue},
 			},
+			{
+				Name:   aws.String("instance-state-name"),
+				Values: []string{"running"},
+			},
 		},
 	}
 
 	instance, err := getFirstMatchingInstance(input)
 	if err != nil {
-		return types.Instance{}, fmt.Errorf("unable to find an instance with %s=%s: %w", filterName, filterValue, err)
+		return types.Instance{}, fmt.Errorf("unable to find a runnning instance with %s=%s: %w", filterName, filterValue, err)
 	}
 
 	return instance, nil

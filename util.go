@@ -70,7 +70,7 @@ func GetInstance(dstType DstType, destination string) (types.Instance, error) {
 		panic(dstType)
 	}
 
-	return awsutil.GetInstanceByFilter(filterName, destination)
+	return awsutil.GetRunningInstanceByFilter(filterName, destination)
 }
 
 func GetInstanceAddr(instance types.Instance, addrType AddrType) (string, error) {
