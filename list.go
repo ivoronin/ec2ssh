@@ -12,7 +12,7 @@ import (
 
 var (
 	allowedListColumns = [...]string{
-		"ID", "NAME", "STATE", "TYPE", "PRIVATE-IP",
+		"ID", "NAME", "STATE", "TYPE", "AZ", "PRIVATE-IP",
 		"PUBLIC-IP", "IPV6", "PRIVATE-DNS", "PUBLIC-DNS",
 	}
 	defaultListColumns = "ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP"
@@ -61,6 +61,7 @@ func List(options Options) error {
 			"NAME":        GetInstanceName(instance),
 			"STATE":       &state,
 			"TYPE":        &typ,
+			"AZ":          instance.Placement.AvailabilityZone,
 			"PRIVATE-IP":  instance.PrivateIpAddress,
 			"PUBLIC-IP":   instance.PublicIpAddress,
 			"IPV6":        instance.Ipv6Address,
