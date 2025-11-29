@@ -1,24 +1,27 @@
-package main
+package app
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"slices"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/ivoronin/ec2ssh/awsutil"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/ivoronin/ec2ssh/internal/ec2"
 )
 
 var (
-	allowedListColumns = [...]string{
+	allowedListColumns = []string{
 		"ID", "NAME", "STATE", "TYPE", "AZ", "PRIVATE-IP",
 		"PUBLIC-IP", "IPV6", "PRIVATE-DNS", "PUBLIC-DNS",
 	}
 	defaultListColumns = "ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP"
 )
 
-func parseRequestedColumns(requestedColumns string) ([]string, error) {
+const listPadding = 2
+
+func parseListColumns(requestedColumns string) ([]string, error) {
 	if requestedColumns == "" {
 		requestedColumns = defaultListColumns
 	}
@@ -29,28 +32,16 @@ func parseRequestedColumns(requestedColumns string) ([]string, error) {
 	columns := strings.Split(requestedColumns, ",")
 
 	for _, column := range columns {
-		if !slices.Contains(allowedListColumns[:], column) {
-			return nil, fmt.Errorf("%w: invalid column %s", ErrArgParse, column)
+		if !slices.Contains(allowedListColumns, column) {
+			return nil, fmt.Errorf("invalid column %s", column)
 		}
 	}
 
 	return columns, nil
 }
 
-const listPadding = 2
-
-func List(options Options) error {
-	columns, err := parseRequestedColumns(options.ListColumns)
-	if err != nil {
-		return err
-	}
-
-	instances, err := awsutil.ListInstances()
-	if err != nil {
-		return fmt.Errorf("unable to list instances: %w", err)
-	}
-
-	writer := tabwriter.NewWriter(os.Stdout, 0, 1, listPadding, ' ', 0)
+func writeInstanceList(w io.Writer, instances []types.Instance, columns []string) error {
+	writer := tabwriter.NewWriter(w, 0, 1, listPadding, ' ', 0)
 	fmt.Fprintln(writer, strings.Join(columns, "\t"))
 
 	for _, instance := range instances {
@@ -58,7 +49,7 @@ func List(options Options) error {
 		typ := string(instance.InstanceType)
 		values := map[string]*string{
 			"ID":          instance.InstanceId,
-			"NAME":        GetInstanceName(instance),
+			"NAME":        ec2.GetInstanceName(instance),
 			"STATE":       &state,
 			"TYPE":        &typ,
 			"AZ":          instance.Placement.AvailabilityZone,

@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"errors"
@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	ErrArgParse = errors.New("error parsing arguments")
-	ErrHelp     = errors.New("help requested")
+	ErrParse = errors.New("error parsing arguments")
+	ErrHelp  = errors.New("help requested")
 )
 
 type ParsedArgs struct {
@@ -53,7 +53,7 @@ func parseLongOption(args []string, idx int, parsedArgs *ParsedArgs) (int, error
 		if !includesValue {
 			/* value is in the next argument */
 			if idx+1 >= len(args) {
-				return idx, fmt.Errorf("%w: missing value for %s", ErrArgParse, arg)
+				return idx, fmt.Errorf("%w: missing value for %s", ErrParse, arg)
 			}
 
 			value = args[idx+1]
@@ -68,7 +68,7 @@ func parseLongOption(args []string, idx int, parsedArgs *ParsedArgs) (int, error
 	}
 
 	/* SSH doesn't support long options, so we error out here */
-	return idx, fmt.Errorf("%w: unknown option %s", ErrArgParse, arg)
+	return idx, fmt.Errorf("%w: unknown option %s", ErrParse, arg)
 }
 
 func parseShortOption(args []string, idx int, parsedArgs *ParsedArgs) (int, error) {
@@ -100,7 +100,7 @@ func parseShortOption(args []string, idx int, parsedArgs *ParsedArgs) (int, erro
 		} else {
 			/* value is in the next argument */
 			if idx+1 >= len(args) {
-				return idx, fmt.Errorf("%w: missing value for %s", ErrArgParse, args[idx])
+				return idx, fmt.Errorf("%w: missing value for %s", ErrParse, args[idx])
 			}
 
 			value = args[idx+1]

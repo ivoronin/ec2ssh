@@ -1,4 +1,4 @@
-ec2ssh
+/ec2ssh
 .task
 dist
 coverage.txt

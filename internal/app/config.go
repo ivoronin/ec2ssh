@@ -1,37 +1,19 @@
-package main
+package app
 
 import (
 	"fmt"
 	"os/user"
 	"reflect"
 	"slices"
-	"strings"
+
+	"github.com/ivoronin/ec2ssh/internal/cli"
+	"github.com/ivoronin/ec2ssh/internal/ec2"
 )
 
-type DstType int
-
-const (
-	DstTypeAuto DstType = iota
-	DstTypeID
-	DstTypePrivateIP
-	DstTypePublicIP
-	DstTypeIPv6
-	DstTypePrivateDNSName
-	DstTypeNameTag
-)
-
-type AddrType int
-
-const (
-	AddrTypeAuto AddrType = iota
-	AddrTypePrivate
-	AddrTypePublic
-	AddrTypeIPv6
-)
-
+// Options holds the parsed configuration for an ec2ssh session.
 type Options struct {
-	DstType         DstType
-	AddrType        AddrType
+	DstType         ec2.DstType
+	AddrType        ec2.AddrType
 	Region          string
 	Profile         string
 	EICEID          string
@@ -48,80 +30,32 @@ type Options struct {
 	ListColumns     string
 }
 
-func parseSSHDestination(destination string) (string, string, string) {
-	var login, host, port string
-
-	if strings.HasPrefix(destination, "ssh://") {
-		login, host, port = parseSSHURL(destination)
-		host = stripIPv6Brackets(host)
-	} else {
-		login, host = parseLoginHost(destination)
-	}
-
-	return login, host, port
-}
-
-func parseSSHURL(url string) (string, string, string) {
-	loginhostport := strings.TrimPrefix(url, "ssh://")
-	login, hostport := parseLoginHost(loginhostport)
-	host, port := parseHostPort(hostport)
-
-	return login, host, port
-}
-
-func parseLoginHost(loginhost string) (string, string) {
-	atIdx := strings.LastIndex(loginhost, "@")
-	if atIdx != -1 {
-		return loginhost[:atIdx], loginhost[atIdx+1:]
-	}
-
-	return "", loginhost
-}
-
-func parseHostPort(hostport string) (string, string) {
-	colonIdx := strings.LastIndex(hostport, ":")
-	/* handle square brackets around IPv6 addresses */
-	if colonIdx != -1 && strings.LastIndex(hostport, "]") < colonIdx {
-		return hostport[:colonIdx], hostport[colonIdx+1:]
-	}
-
-	return hostport, ""
-}
-
-func stripIPv6Brackets(host string) string {
-	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
-		return host[1 : len(host)-1]
-	}
-
-	return host
-}
-
 func parseType[T ~int](value string, mapping map[string]T) (T, error) { //nolint: ireturn // #37
 	if value, ok := mapping[value]; ok {
 		return value, nil
 	}
 
-	return 0, fmt.Errorf("%w: unknown type %s", ErrArgParse, value)
+	return 0, fmt.Errorf("%w: unknown type %s", cli.ErrParse, value)
 }
 
-func parseDstType(value string) (DstType, error) {
-	return parseType(value, map[string]DstType{
-		"":            DstTypeAuto,
-		"id":          DstTypeID,
-		"private_ip":  DstTypePrivateIP,
-		"public_ip":   DstTypePublicIP,
-		"ipv6":        DstTypeIPv6,
-		"private_dns": DstTypePrivateDNSName,
-		"name_tag":    DstTypeNameTag,
+func parseDstType(value string) (ec2.DstType, error) {
+	return parseType(value, map[string]ec2.DstType{
+		"":            ec2.DstTypeAuto,
+		"id":          ec2.DstTypeID,
+		"private_ip":  ec2.DstTypePrivateIP,
+		"public_ip":   ec2.DstTypePublicIP,
+		"ipv6":        ec2.DstTypeIPv6,
+		"private_dns": ec2.DstTypePrivateDNSName,
+		"name_tag":    ec2.DstTypeNameTag,
 	})
 }
 
-func parseAddrType(value string) (AddrType, error) {
-	return parseType(value, map[string]AddrType{
-		"":        AddrTypeAuto,
-		"private": AddrTypePrivate,
-		"public":  AddrTypePublic,
-		"ipv6":    AddrTypeIPv6,
+func parseAddrType(value string) (ec2.AddrType, error) {
+	return parseType(value, map[string]ec2.AddrType{
+		"":        ec2.AddrTypeAuto,
+		"private": ec2.AddrTypePrivate,
+		"public":  ec2.AddrTypePublic,
+		"ipv6":    ec2.AddrTypeIPv6,
 	})
 }
 
@@ -144,7 +78,7 @@ func (options *Options) populateFromParsedArgsOptions(argsOptions map[string]str
 		"--list":             &options.DoList,
 		"--list-columns":     &options.ListColumns,
 	} {
-		/* check if argument is not present or option is already set */
+		// check if argument is not present or option is already set
 		value, ok := argsOptions[option]
 		if !ok || !reflect.ValueOf(variablePtr).Elem().IsZero() {
 			continue
@@ -155,9 +89,9 @@ func (options *Options) populateFromParsedArgsOptions(argsOptions map[string]str
 			*variable = value
 		case *bool:
 			*variable = true
-		case *DstType:
+		case *ec2.DstType:
 			*variable, err = parseDstType(value)
-		case *AddrType:
+		case *ec2.AddrType:
 			*variable, err = parseAddrType(value)
 		default:
 			panic(fmt.Sprintf("unknown option type %T", variable))
@@ -185,7 +119,7 @@ func validateListOptions(options map[string]string) error {
 	if _, ok := options["--list"]; !ok {
 		for option := range options {
 			if slices.Contains(listOnlyOptions[:], option) {
-				return fmt.Errorf("%w: option %s is only allowed when using --list", ErrArgParse, listOnlyOptions[0])
+				return fmt.Errorf("%w: option %s is only allowed when using --list", cli.ErrParse, listOnlyOptions[0])
 			}
 		}
 
@@ -194,15 +128,16 @@ func validateListOptions(options map[string]string) error {
 
 	for option := range options {
 		if !slices.Contains(allowedListOptions[:], option) {
-			return fmt.Errorf("%w: option %s is not allowed when using --list", ErrArgParse, option)
+			return fmt.Errorf("%w: option %s is not allowed when using --list", cli.ErrParse, option)
 		}
 	}
 
 	return nil
 }
 
-func NewOptions(parsedArgs ParsedArgs) (Options, error) {
-	login, host, port := parseSSHDestination(parsedArgs.Destination)
+// NewOptions creates Options from parsed CLI arguments.
+func NewOptions(parsedArgs cli.ParsedArgs) (Options, error) {
+	login, host, port := cli.ParseSSHDestination(parsedArgs.Destination)
 
 	options := Options{
 		Destination:     host,

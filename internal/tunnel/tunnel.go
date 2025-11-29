@@ -1,4 +1,4 @@
-package wscat
+package tunnel
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ func pipe(src io.Reader, dst io.Writer, waitGroup *sync.WaitGroup) {
 	waitGroup.Done()
 }
 
+// Run starts a WebSocket tunnel, piping stdin/stdout through the connection.
 func Run(uri string) error {
 	webSocket, err := NewWebSocket(uri)
 	if err != nil {
@@ -24,7 +25,7 @@ func Run(uri string) error {
 
 	var waitGroup sync.WaitGroup
 
-	waitGroup.Add(2) //nolint:gomnd
+	waitGroup.Add(2) //nolint:mnd
 
 	go pipe(webSocket.Reader(), os.Stdout, &waitGroup)
 	go pipe(os.Stdin, webSocket.Writer(), &waitGroup)

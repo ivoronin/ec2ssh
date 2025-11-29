@@ -1,4 +1,4 @@
-package wscat
+package tunnel
 
 import (
 	"errors"
@@ -9,11 +9,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Websocket struct {
+// WebSocket wraps a gorilla websocket connection with io.Reader/Writer interfaces.
+type WebSocket struct {
 	conn *websocket.Conn
 }
 
-func NewWebSocket(uri string) (*Websocket, error) {
+// NewWebSocket dials the given URI and returns a WebSocket wrapper.
+func NewWebSocket(uri string) (*WebSocket, error) {
 	conn, resp, err := websocket.DefaultDialer.Dial(uri, nil)
 	if err != nil {
 		if errors.Is(err, websocket.ErrBadHandshake) {
@@ -23,28 +25,31 @@ func NewWebSocket(uri string) (*Websocket, error) {
 		return nil, err
 	}
 
-	return &Websocket{conn}, nil
+	return &WebSocket{conn}, nil
 }
 
-func (w *Websocket) Close() {
+// Close closes the underlying WebSocket connection.
+func (w *WebSocket) Close() {
 	w.conn.Close()
 }
 
-func (w *Websocket) Reader() io.Reader {
-	return &WebsocketReader{conn: w.conn}
+// Reader returns an io.Reader that reads from the WebSocket.
+func (w *WebSocket) Reader() io.Reader {
+	return &websocketReader{conn: w.conn}
 }
 
-func (w *Websocket) Writer() io.Writer {
-	return &WebsocketWriter{w.conn}
+// Writer returns an io.Writer that writes to the WebSocket.
+func (w *WebSocket) Writer() io.Writer {
+	return &websocketWriter{w.conn}
 }
 
-type WebsocketReader struct {
+type websocketReader struct {
 	conn   *websocket.Conn
 	buffer []byte
 	mu     sync.Mutex // protects buffer
 }
 
-func (r *WebsocketReader) Read(buf []byte) (int, error) {
+func (r *websocketReader) Read(buf []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -69,11 +74,11 @@ func (r *WebsocketReader) Read(buf []byte) (int, error) {
 	return n, nil
 }
 
-type WebsocketWriter struct {
+type websocketWriter struct {
 	conn *websocket.Conn
 }
 
-func (w *WebsocketWriter) Write(buf []byte) (int, error) {
+func (w *websocketWriter) Write(buf []byte) (int, error) {
 	err := w.conn.WriteMessage(websocket.BinaryMessage, buf)
 	if err != nil {
 		return 0, err

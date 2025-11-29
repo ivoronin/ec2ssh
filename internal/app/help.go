@@ -1,24 +1,7 @@
-package main
+package app
 
-import (
-	"errors"
-	"fmt"
-	"io"
-	"log"
-	"os"
-
-	"github.com/ivoronin/ec2ssh/awsutil"
-	"github.com/ivoronin/ec2ssh/wscat"
-)
-
-func FatalError(err error) {
-	fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
-	os.Exit(1)
-}
-
-var DebugLogger = log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-
-const helpText = `Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
+// HelpText contains the usage documentation for ec2ssh.
+const HelpText = `Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
 
 Connect to an EC2 instance directly using SSH or via the EC2 Instance Connect
 Endpoint (EICE), by the instance ID, private, public, or IPv6 address, private
@@ -84,86 +67,3 @@ Options:
      Specify the destination for connection. Can be one of: instance ID,
      private, public or IPv6 IP address, private DNS name, or name tag.
 `
-
-func Usage(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
-	}
-
-	fmt.Fprint(os.Stderr, helpText)
-	os.Exit(1)
-}
-
-func EnableDebug() {
-	DebugLogger.SetOutput(os.Stderr)
-}
-
-func Run(args []string) error {
-	parsedArgs, err := ParseArgs(args)
-	if err != nil {
-		return err
-	}
-
-	options, err := NewOptions(parsedArgs)
-	if err != nil {
-		return err
-	}
-
-	if options.Debug {
-		EnableDebug()
-		awsutil.EnableDebug()
-	}
-
-	if err := awsutil.Init(options.Region, options.Profile); err != nil {
-		return err
-	}
-
-	if options.DoList {
-		return List(options)
-	}
-
-	if options.Destination == "" {
-		return fmt.Errorf("%w: missing destination", ErrArgParse)
-	}
-
-	tmpDir, err := os.MkdirTemp("", "ec2ssh")
-	if err != nil {
-		return err
-	}
-
-	defer os.RemoveAll(tmpDir)
-
-	session, err := NewSession(options, tmpDir)
-	if err != nil {
-		return err
-	}
-
-	if err = session.Run(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func main() {
-	tunnelURI := os.Getenv("EC2SSH_TUNNEL_URI")
-	if len(os.Args) == 2 && os.Args[1] == "--wscat" && tunnelURI != "" {
-		/* Run in socat mode */
-		err := wscat.Run(tunnelURI)
-		if err != nil {
-			FatalError(err)
-		}
-	} else {
-		/* Run in normal mode otherwise */
-		if err := Run(os.Args[1:]); err != nil {
-			switch {
-			case errors.Is(err, ErrHelp):
-				Usage(nil)
-			case errors.Is(err, ErrArgParse):
-				Usage(err)
-			default:
-				FatalError(err)
-			}
-		}
-	}
-}

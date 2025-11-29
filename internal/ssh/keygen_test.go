@@ -1,4 +1,4 @@
-package main
+package ssh
 
 import (
 	"os"
@@ -15,12 +15,12 @@ func TestSSHKey(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	privateKeyPath, publicKey1, err := GenerateSSHKeypair(tmpDir)
+	privateKeyPath, publicKey1, err := GenerateKeypair(tmpDir)
 	require.NoError(t, err)
 	assert.FileExists(t, privateKeyPath)
 	assert.NotEmpty(t, privateKeyPath)
 
-	publicKey2, err := GetSSHPublicKey(privateKeyPath)
+	publicKey2, err := GetPublicKey(privateKeyPath)
 	require.NoError(t, err)
 	assert.NotEmpty(t, publicKey2)
 
