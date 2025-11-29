@@ -42,7 +42,7 @@ func parseListColumns(requestedColumns string) ([]string, error) {
 
 func writeInstanceList(w io.Writer, instances []types.Instance, columns []string) error {
 	writer := tabwriter.NewWriter(w, 0, 1, listPadding, ' ', 0)
-	fmt.Fprintln(writer, strings.Join(columns, "\t"))
+	_, _ = fmt.Fprintln(writer, strings.Join(columns, "\t"))
 
 	for _, instance := range instances {
 		state := string(instance.State.Name)
@@ -71,7 +71,7 @@ func writeInstanceList(w io.Writer, instances []types.Instance, columns []string
 			rows = append(rows, value)
 		}
 
-		fmt.Fprintln(writer, strings.Join(rows, "\t"))
+		_, _ = fmt.Fprintln(writer, strings.Join(rows, "\t"))
 	}
 
 	return writer.Flush()

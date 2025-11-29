@@ -1,26 +1,17 @@
+version: "2"
+
 linters:
   enable-all: true
   disable:
+    # Not useful for this project
     - wrapcheck
     - exhaustruct
     - depguard
-    # Deprecated:
-    - golint
-    - structcheck
-    - ifshort
-    - nosnakecase
-    - maligned
-    - scopelint
-    - varcheck
-    - interfacer
-    - deadcode
-    - exhaustivestruct
-    - perfsprint
     - gochecknoglobals
+    - mnd
 
 issues:
   exclude-rules:
     - path: ".*_test.go"
-      text: Function 'Test.+' has too many statements
-    - path: "util.go"
-      text: calculated cyclomatic complexity for function GetInstance is 11
+      linters:
+        - funlen

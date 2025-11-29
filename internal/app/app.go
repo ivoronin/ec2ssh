@@ -46,7 +46,7 @@ func Run(args []string) error {
 		return err
 	}
 
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	session, err := ssh.NewSession(client, options.DstType, options.AddrType, options.Destination,
 		options.Login, options.Port, options.IdentityFile, options.UseEICE, options.EICEID,

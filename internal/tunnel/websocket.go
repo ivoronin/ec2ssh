@@ -30,7 +30,7 @@ func NewWebSocket(uri string) (*WebSocket, error) {
 
 // Close closes the underlying WebSocket connection.
 func (w *WebSocket) Close() {
-	w.conn.Close()
+	_ = w.conn.Close()
 }
 
 // Reader returns an io.Reader that reads from the WebSocket.

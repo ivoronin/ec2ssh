@@ -13,7 +13,7 @@ func TestSSHKey(t *testing.T) {
 
 	tmpDir, err := os.MkdirTemp("", "test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	privateKeyPath, publicKey1, err := GenerateKeypair(tmpDir)
 	require.NoError(t, err)
