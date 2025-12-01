@@ -7,8 +7,11 @@ import (
 
 	"github.com/ivoronin/ec2ssh/internal/app"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/intent"
 	"github.com/ivoronin/ec2ssh/internal/tunnel"
 )
+
+// Note: Help is handled by intent.IntentHelp, not by ErrHelp from option parsing.
 
 func fatalError(err error) {
 	fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
@@ -25,24 +28,37 @@ func usage(err error) {
 }
 
 func main() {
-	tunnelURI := os.Getenv("EC2SSH_TUNNEL_URI")
-	if len(os.Args) == 2 && os.Args[1] == "--wscat" && tunnelURI != "" {
-		// Run in tunnel mode
-		err := tunnel.Run(tunnelURI)
-		if err != nil {
-			fatalError(err)
+	// Resolve intent from binary name and first argument
+	resolvedIntent, args := intent.Resolve(os.Args[0], os.Args[1:])
+
+	var err error
+
+	switch resolvedIntent {
+	case intent.IntentTunnel:
+		tunnelURI := os.Getenv("EC2SSH_TUNNEL_URI")
+		if tunnelURI == "" {
+			fatalError(errors.New("EC2SSH_TUNNEL_URI environment variable not set"))
 		}
-	} else {
-		// Run in normal mode
-		if err := app.Run(os.Args[1:]); err != nil {
-			switch {
-			case errors.Is(err, app.ErrHelp):
-				usage(nil)
-			case errors.Is(err, argsieve.ErrSift), errors.Is(err, app.ErrUsage):
-				usage(err)
-			default:
-				fatalError(err)
-			}
+
+		err = tunnel.Run(tunnelURI)
+	case intent.IntentHelp:
+		usage(nil)
+
+		return
+	case intent.IntentList:
+		err = app.RunList(args)
+	case intent.IntentSSH:
+		err = app.RunSSH(args)
+	default:
+		fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
+	}
+
+	if err != nil {
+		switch {
+		case errors.Is(err, argsieve.ErrSift), errors.Is(err, app.ErrUsage):
+			usage(err)
+		default:
+			fatalError(err)
 		}
 	}
 }

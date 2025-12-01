@@ -1,25 +1,51 @@
 package app
 
 // HelpText contains the usage documentation for ec2ssh.
-const HelpText = `Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
+const HelpText = `Usage: ec2ssh [intent] [options] [destination] [command ...]
+       ec2list [options]
 
-Connect to an EC2 instance directly using SSH or via the EC2 Instance Connect
-Endpoint (EICE), by the instance ID, private, public, or IPv6 address, private
-DNS name, or name tag, using ephemeral SSH keys.
+Connect to EC2 instances via SSH or list available instances.
 
-  Example - Connect to an instance using the instance ID:
+Intents:
+  --ssh       Connect to EC2 instance via SSH (default)
+  --list      List EC2 instances in the region
+  --help, -h  Show this help message
+
+  The intent can also be determined by the binary name:
+    ec2list   equivalent to ec2ssh --list
+
+SSH Examples:
+  Connect to an instance using the instance ID:
      $ ec2ssh -l ec2-user i-0123456789abcdef0
 
-  Example - Connect to an instance using a name tag with the public IP address:
+  Connect to an instance using a name tag with the public IP address:
      $ ec2ssh -p 2222 --address-type public ec2-user@app01
 
-  Example - Connect to an instance using its private DNS name via an EICE tunnel:
+  Connect to an instance using its private DNS name via an EICE tunnel:
      $ ec2ssh --use-eice ip-10-0-0-1
 
-  Example - Use any SSH options and arguments as usual:
-     $ ec2ssh --use-eice -L 8888:127.0.0.1:8888 -N -i ~/.ssh/id_rsa_alt -o VisualHostKey=Yes app01
+  Use any SSH options and arguments as usual:
+     $ ec2ssh --use-eice -L 8888:127.0.0.1:8888 -N -i ~/.ssh/id_rsa_alt app01
 
-Options:
+List Examples:
+  List all instances in the default region:
+     $ ec2ssh --list
+     $ ec2list
+
+  List instances with custom columns:
+     $ ec2list --list-columns ID,NAME,STATE,TYPE
+
+SSH Options:
+  -l <login>
+     Login name for SSH connection.
+
+  -p <port>
+     Port number for SSH connection.
+
+  -i <identity_file>
+     Identity file (private key) for SSH authentication.
+     If not specified, ephemeral keys are generated and sent via EC2 Instance Connect.
+
   --region <string>
      Use the specified AWS region (env AWS_REGION, AWS_DEFAULT_REGION).
      Defaults to using the AWS SDK configuration.
@@ -27,14 +53,6 @@ Options:
   --profile <string>
      Use the specified AWS profile (env AWS_PROFILE).
      Defaults to using the AWS SDK configuration.
-
-  --list
-     List instances in the region and exit.
-
-  --list-columns <columns>
-     Specify columns to display in the list output.
-     Defaults to ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP
-     Available columns: ID,NAME,STATE,TYPE,PRIVATE-IP,PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
 
   --use-eice
      Use EC2 Instance Connect Endpoint (EICE) to connect to the instance.
@@ -60,10 +78,25 @@ Options:
   --debug
      Enable debug logging.
 
-  ssh arguments
-     Specify arguments to pass to SSH.
+  Additional SSH arguments
+     Any unrecognized options are passed through to SSH.
 
   destination
      Specify the destination for connection. Can be one of: instance ID,
      private, public or IPv6 IP address, private DNS name, or name tag.
+
+List Options:
+  --region <string>
+     Use the specified AWS region.
+
+  --profile <string>
+     Use the specified AWS profile.
+
+  --list-columns <columns>
+     Specify columns to display in the list output.
+     Defaults to ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP
+     Available columns: ID,NAME,STATE,TYPE,AZ,PRIVATE-IP,PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
+
+  --debug
+     Enable debug logging.
 `

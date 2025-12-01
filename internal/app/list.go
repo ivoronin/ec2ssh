@@ -3,11 +3,14 @@ package app
 import (
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"slices"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/ec2"
 )
 
@@ -20,6 +23,68 @@ var (
 )
 
 const listPadding = 2
+
+// ListOptions holds the parsed configuration for listing instances.
+type ListOptions struct {
+	Region  string `long:"region"`
+	Profile string `long:"profile"`
+	Columns string `long:"list-columns"`
+	Debug   bool   `long:"debug"`
+}
+
+// NewListOptions creates ListOptions from command-line arguments.
+func NewListOptions(args []string) (*ListOptions, error) {
+	var options ListOptions
+
+	// List intent has no passthrough - all unknown flags are errors
+	sieve := argsieve.New(&options, nil)
+
+	remaining, positional, err := sieve.Sift(args)
+	if err != nil {
+		return nil, err
+	}
+
+	// List doesn't accept positional arguments or unknown flags
+	if len(remaining) > 0 {
+		return nil, fmt.Errorf("%w: unknown option %s", ErrInvalidOption, remaining[0])
+	}
+
+	if len(positional) > 0 {
+		return nil, fmt.Errorf("%w: unexpected argument %s", ErrInvalidOption, positional[0])
+	}
+
+	return &options, nil
+}
+
+// RunList executes the list intent with the given arguments.
+func RunList(args []string) error {
+	options, err := NewListOptions(args)
+	if err != nil {
+		return err
+	}
+
+	columns, err := parseListColumns(options.Columns)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidListColumns, err)
+	}
+
+	logger := log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+	if options.Debug {
+		logger.SetOutput(os.Stderr)
+	}
+
+	client, err := ec2.NewClient(options.Region, options.Profile, logger)
+	if err != nil {
+		return err
+	}
+
+	instances, err := client.ListInstances()
+	if err != nil {
+		return fmt.Errorf("unable to list instances: %w", err)
+	}
+
+	return writeInstanceList(os.Stdout, instances, columns)
+}
 
 func parseListColumns(requestedColumns string) ([]string, error) {
 	if requestedColumns == "" {
@@ -45,14 +110,24 @@ func writeInstanceList(w io.Writer, instances []types.Instance, columns []string
 	_, _ = fmt.Fprintln(writer, strings.Join(columns, "\t"))
 
 	for _, instance := range instances {
-		state := string(instance.State.Name)
+		var state string
+		if instance.State != nil {
+			state = string(instance.State.Name)
+		}
+
 		typ := string(instance.InstanceType)
+
+		var az *string
+		if instance.Placement != nil {
+			az = instance.Placement.AvailabilityZone
+		}
+
 		values := map[string]*string{
 			"ID":          instance.InstanceId,
 			"NAME":        ec2.GetInstanceName(instance),
 			"STATE":       &state,
 			"TYPE":        &typ,
-			"AZ":          instance.Placement.AvailabilityZone,
+			"AZ":          az,
 			"PRIVATE-IP":  instance.PrivateIpAddress,
 			"PUBLIC-IP":   instance.PublicIpAddress,
 			"IPV6":        instance.Ipv6Address,
