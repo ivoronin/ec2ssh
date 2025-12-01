@@ -120,7 +120,7 @@ func TestSift(t *testing.T) {
 			args:        []string{"-ooutput.txt", "--debug"},
 			passthrough: []string{"-o"},
 			wantOpts:    testOptions{Debug: true},
-			wantRemain:  []string{"-o=output.txt"},
+			wantRemain:  []string{"-ooutput.txt"},
 		},
 		{
 			name:        "passthrough short consumes next arg even if flag-like",

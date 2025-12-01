@@ -214,7 +214,7 @@ func (s *Sieve) handleUnknownShort(flag, tail string, next func() (string, bool)
 
 	if isPassthrough {
 		if len(tail) > 0 {
-			s.addRemaining("-" + flag + "=" + tail)
+			s.addRemaining("-" + flag + tail)
 
 			return nil
 		}
