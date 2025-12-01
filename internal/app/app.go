@@ -1,24 +1,31 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
-	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/ec2"
 	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
+
+var (
+	// ErrHelp indicates help was requested (not a real error).
+	ErrHelp = errors.New("help requested")
+	// ErrUsage is the parent error for all usage/CLI errors.
+	ErrUsage              = errors.New("usage error")
+	ErrMissingDestination = fmt.Errorf("%w: missing destination", ErrUsage)
+	ErrInvalidListColumns = fmt.Errorf("%w: invalid list columns", ErrUsage)
+	ErrUnknownType        = fmt.Errorf("%w: unknown type", ErrUsage)
+	ErrInvalidOption      = fmt.Errorf("%w: invalid option", ErrUsage)
+)
+
 // Run executes the main ec2ssh workflow with the given command-line arguments.
 func Run(args []string) error {
-	parsedArgs, err := cli.ParseArgs(args)
-	if err != nil {
-		return err
-	}
-
-	options, err := NewOptions(parsedArgs)
+	options, err := NewOptions(args)
 	if err != nil {
 		return err
 	}
@@ -38,7 +45,7 @@ func Run(args []string) error {
 	}
 
 	if options.Destination == "" {
-		return fmt.Errorf("%w: missing destination", cli.ErrParse)
+		return ErrMissingDestination
 	}
 
 	tmpDir, err := os.MkdirTemp("", "ec2ssh")
@@ -61,7 +68,7 @@ func Run(args []string) error {
 func runList(client *ec2.Client, options Options) error {
 	columns, err := parseListColumns(options.ListColumns)
 	if err != nil {
-		return fmt.Errorf("%w: %v", cli.ErrParse, err)
+		return fmt.Errorf("%w: %v", ErrInvalidListColumns, err)
 	}
 
 	instances, err := client.ListInstances()

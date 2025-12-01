@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/ivoronin/ec2ssh/internal/app"
-	"github.com/ivoronin/ec2ssh/internal/cli"
+	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/tunnel"
 )
 
@@ -36,9 +36,9 @@ func main() {
 		// Run in normal mode
 		if err := app.Run(os.Args[1:]); err != nil {
 			switch {
-			case errors.Is(err, cli.ErrHelp):
+			case errors.Is(err, app.ErrHelp):
 				usage(nil)
-			case errors.Is(err, cli.ErrParse):
+			case errors.Is(err, argsieve.ErrSift), errors.Is(err, app.ErrUsage):
 				usage(err)
 			default:
 				fatalError(err)
