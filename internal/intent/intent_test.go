@@ -142,6 +142,28 @@ func TestResolve(t *testing.T) {
 			wantIntent: IntentSSH,
 			wantArgs:   []string{"host", "--list"},
 		},
+		// SFTP intent
+		{
+			name:       "--sftp override",
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--sftp", "user@host:/path"},
+			wantIntent: IntentSFTP,
+			wantArgs:   []string{"user@host:/path"},
+		},
+		{
+			name:       "ec2sftp binary",
+			binPath:    "/usr/bin/ec2sftp",
+			args:       []string{"user@host"},
+			wantIntent: IntentSFTP,
+			wantArgs:   []string{"user@host"},
+		},
+		{
+			name:       "--sftp overrides ec2list binary",
+			binPath:    "/usr/bin/ec2list",
+			args:       []string{"--sftp", "host"},
+			wantIntent: IntentSFTP,
+			wantArgs:   []string{"host"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -167,6 +189,7 @@ func TestIntent_String(t *testing.T) {
 		{IntentList, "list"},
 		{IntentHelp, "help"},
 		{IntentTunnel, "tunnel"},
+		{IntentSFTP, "sftp"},
 		{Intent(99), "unknown"},
 	}
 

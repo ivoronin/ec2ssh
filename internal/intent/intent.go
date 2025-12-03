@@ -15,6 +15,8 @@ const (
 	IntentHelp
 	// IntentTunnel runs in WebSocket tunnel mode for EICE.
 	IntentTunnel
+	// IntentSFTP transfers files to/from an EC2 instance via SFTP.
+	IntentSFTP
 )
 
 // Resolve determines the intent from the binary name and command-line arguments.
@@ -35,6 +37,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 			return IntentSSH, args[1:]
 		case "--wscat":
 			return IntentTunnel, args[1:]
+		case "--sftp":
+			return IntentSFTP, args[1:]
 		}
 	}
 
@@ -43,6 +47,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 	switch binName {
 	case "ec2list":
 		return IntentList, args
+	case "ec2sftp":
+		return IntentSFTP, args
 	default:
 		// Unknown binary names fall back to SSH (backward compatible)
 		return IntentSSH, args
@@ -60,6 +66,8 @@ func (i Intent) String() string {
 		return "help"
 	case IntentTunnel:
 		return "tunnel"
+	case IntentSFTP:
+		return "sftp"
 	default:
 		return "unknown"
 	}

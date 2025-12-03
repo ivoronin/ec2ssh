@@ -49,3 +49,60 @@ func stripIPv6Brackets(host string) string {
 
 	return host
 }
+
+// ParseSFTPDestination parses an SFTP destination string into login, host, port, and path.
+// Supports formats: user@host:path, host:path, host, sftp://user@host:port/path
+func ParseSFTPDestination(destination string) (login, host, port, path string) {
+	if strings.HasPrefix(destination, "sftp://") {
+		return parseSFTPURL(destination)
+	}
+
+	// user@host:path or host:path
+	login, hostpath := parseLoginHost(destination)
+	host, path = parseHostPath(hostpath)
+
+	return login, host, "", path
+}
+
+func parseSFTPURL(url string) (login, host, port, path string) {
+	// sftp://[user@]host[:port][/path]
+	loginhostportpath := strings.TrimPrefix(url, "sftp://")
+
+	// Split path first (after first /)
+	slashIdx := strings.Index(loginhostportpath, "/")
+	loginhostport := loginhostportpath
+	if slashIdx != -1 {
+		loginhostport = loginhostportpath[:slashIdx]
+		path = loginhostportpath[slashIdx+1:]
+	}
+
+	login, hostport := parseLoginHost(loginhostport)
+	host, port = parseHostPort(hostport)
+	host = stripIPv6Brackets(host)
+
+	return login, host, port, path
+}
+
+func parseHostPath(hostpath string) (string, string) {
+	// For non-URL format, colon separates host:path (not port)
+	// Handle IPv6: [::1]:path
+	if strings.HasPrefix(hostpath, "[") {
+		bracketIdx := strings.Index(hostpath, "]")
+		if bracketIdx != -1 {
+			host := hostpath[1:bracketIdx]
+			rest := hostpath[bracketIdx+1:]
+			if strings.HasPrefix(rest, ":") {
+				return host, rest[1:]
+			}
+
+			return host, ""
+		}
+	}
+
+	colonIdx := strings.Index(hostpath, ":")
+	if colonIdx != -1 {
+		return hostpath[:colonIdx], hostpath[colonIdx+1:]
+	}
+
+	return hostpath, ""
+}

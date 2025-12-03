@@ -13,8 +13,8 @@ import (
 	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
-// SSHOptions holds the parsed configuration for an SSH session.
-type SSHOptions struct {
+// SFTPOptions holds the parsed configuration for an SFTP session.
+type SFTPOptions struct {
 	// Fields populated by argsieve from flags
 	Region       string `long:"region"`
 	Profile      string `long:"profile"`
@@ -22,42 +22,43 @@ type SSHOptions struct {
 	DstTypeStr   string `long:"destination-type"`
 	AddrTypeStr  string `long:"address-type"`
 	IdentityFile string `short:"i"`
-	Login        string `short:"l"`
-	Port         string `short:"p"`
+	Port         string `short:"P"` // SFTP uses uppercase -P for port
 	UseEICE      bool   `long:"use-eice"`
 	NoSendKeys   bool   `long:"no-send-keys"`
 	Debug        bool   `long:"debug"`
 
 	// Fields populated after parsing
-	DstType         ec2.DstType
-	AddrType        ec2.AddrType
-	Destination     string
-	SSHArgs         []string
-	CommandWithArgs []string
+	DstType     ec2.DstType
+	AddrType    ec2.AddrType
+	Destination string
+	Login       string
+	RemotePath  string
+	SFTPArgs    []string
 }
 
-// sshPassthroughWithArg lists SSH short options that take arguments.
-// These are passed through to SSH along with their values.
-var sshPassthroughWithArg = []string{
-	"-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I",
-	"-J", "-L", "-m", "-O", "-o", "-P", "-R", "-S", "-W", "-w",
+// sftpPassthroughWithArg lists SFTP short options that take arguments.
+// These are passed through to SFTP along with their values.
+var sftpPassthroughWithArg = []string{
+	"-B", "-b", "-c", "-D", "-F", "-J",
+	"-l", "-o", "-R", "-S", "-s", "-X",
 }
 
-// NewSSHOptions creates SSHOptions from command-line arguments.
-func NewSSHOptions(args []string) (*SSHOptions, error) {
-	var options SSHOptions
+// NewSFTPOptions creates SFTPOptions from command-line arguments.
+func NewSFTPOptions(args []string) (*SFTPOptions, error) {
+	var options SFTPOptions
 
-	sieve := argsieve.New(&options, sshPassthroughWithArg)
+	sieve := argsieve.New(&options, sftpPassthroughWithArg)
 
 	remaining, positional, err := sieve.Sift(args)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse destination from first positional (may contain user@host:port)
+	// Parse destination from first positional (may contain user@host:path)
 	if len(positional) > 0 {
-		login, host, port := cli.ParseSSHDestination(positional[0])
+		login, host, port, path := cli.ParseSFTPDestination(positional[0])
 		options.Destination = host
+		options.RemotePath = path
 		// Only set from destination if not already set by flags
 		if options.Login == "" {
 			options.Login = login
@@ -67,11 +68,7 @@ func NewSSHOptions(args []string) (*SSHOptions, error) {
 		}
 	}
 
-	options.SSHArgs = remaining
-
-	if len(positional) > 1 {
-		options.CommandWithArgs = positional[1:]
-	}
+	options.SFTPArgs = remaining
 
 	// Parse type strings to enums
 	if err := options.parseTypes(); err != nil {
@@ -95,7 +92,7 @@ func NewSSHOptions(args []string) (*SSHOptions, error) {
 	return &options, nil
 }
 
-func (options *SSHOptions) parseTypes() error {
+func (options *SFTPOptions) parseTypes() error {
 	dstTypes := map[string]ec2.DstType{
 		"":            ec2.DstTypeAuto,
 		"id":          ec2.DstTypeID,
@@ -128,9 +125,9 @@ func (options *SSHOptions) parseTypes() error {
 	return nil
 }
 
-// RunSSH executes the SSH intent with the given arguments.
-func RunSSH(args []string) error {
-	options, err := NewSSHOptions(args)
+// RunSFTP executes the SFTP intent with the given arguments.
+func RunSFTP(args []string) error {
+	options, err := NewSFTPOptions(args)
 	if err != nil {
 		return err
 	}
@@ -156,13 +153,12 @@ func RunSSH(args []string) error {
 
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	session, err := ssh.NewSSHSession(client, options.DstType, options.AddrType, options.Destination,
+	session, err := ssh.NewSFTPSession(client, options.DstType, options.AddrType, options.Destination,
 		options.Login, options.Port, options.IdentityFile, options.UseEICE, options.EICEID,
-		options.NoSendKeys, options.SSHArgs, options.CommandWithArgs, tmpDir, logger)
+		options.NoSendKeys, options.SFTPArgs, options.RemotePath, tmpDir, logger)
 	if err != nil {
 		return err
 	}
 
 	return session.Run()
 }
-

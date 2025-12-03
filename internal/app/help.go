@@ -2,17 +2,20 @@ package app
 
 // HelpText contains the usage documentation for ec2ssh.
 const HelpText = `Usage: ec2ssh [intent] [options] [destination] [command ...]
+       ec2sftp [options] [destination[:path]]
        ec2list [options]
 
-Connect to EC2 instances via SSH or list available instances.
+Connect to EC2 instances via SSH/SFTP or list available instances.
 
 Intents:
   --ssh       Connect to EC2 instance via SSH (default)
+  --sftp      Transfer files to/from EC2 instance via SFTP
   --list      List EC2 instances in the region
   --help, -h  Show this help message
 
   The intent can also be determined by the binary name:
     ec2list   equivalent to ec2ssh --list
+    ec2sftp   equivalent to ec2ssh --sftp
 
 SSH Examples:
   Connect to an instance using the instance ID:
@@ -26,6 +29,14 @@ SSH Examples:
 
   Use any SSH options and arguments as usual:
      $ ec2ssh --use-eice -L 8888:127.0.0.1:8888 -N -i ~/.ssh/id_rsa_alt app01
+
+SFTP Examples:
+  Transfer files to an instance:
+     $ ec2sftp user@app01:/remote/path
+     $ ec2ssh --sftp -P 2222 user@i-0123456789abcdef0
+
+  Use EICE tunnel for SFTP:
+     $ ec2sftp --use-eice user@app01
 
 List Examples:
   List all instances in the default region:
@@ -84,6 +95,28 @@ SSH Options:
   destination
      Specify the destination for connection. Can be one of: instance ID,
      private, public or IPv6 IP address, private DNS name, or name tag.
+
+SFTP Options:
+  -P <port>
+     Port number for SFTP connection. Note: uppercase -P (unlike SSH's -p).
+
+  -i <identity_file>
+     Identity file (private key) for SFTP authentication.
+
+  --region, --profile, --use-eice, --eice-id, --destination-type, --address-type
+     Same as SSH options above.
+
+  --no-send-keys
+     Do not send SSH keys to the instance using EC2 Instance Connect.
+
+  --debug
+     Enable debug logging.
+
+  Additional SFTP arguments
+     Any unrecognized options are passed through to SFTP.
+
+  destination
+     Specify destination as [user@]host[:path] or sftp://[user@]host[:port][/path].
 
 List Options:
   --region <string>
