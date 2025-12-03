@@ -267,3 +267,101 @@ func NewSFTPSession(
 
 	return s, nil
 }
+
+// SCPSession represents an SCP file transfer to/from an EC2 instance.
+type SCPSession struct {
+	baseSession
+	localPath  string
+	remotePath string
+	isUpload   bool
+}
+
+func (s *SCPSession) buildArgs() []string {
+	var args []string
+
+	appendIfSet := func(option, value string) {
+		if value != "" {
+			args = append(args, fmt.Sprintf(option, value))
+		}
+	}
+
+	appendIfSet("-oProxyCommand=%s", s.proxyCommand)
+	appendIfSet("-P%s", s.port) // SCP uses uppercase -P for port
+	appendIfSet("-i%s", s.privateKeyPath)
+
+	args = append(args, fmt.Sprintf("-oHostKeyAlias=%s", *s.instance.InstanceId))
+	args = append(args, s.passArgs...)
+
+	// Build remote spec: login@host:path
+	remoteSpec := s.destinationAddr
+	if s.login != "" {
+		remoteSpec = s.login + "@" + remoteSpec
+	}
+	remoteSpec = remoteSpec + ":" + s.remotePath
+
+	// Order depends on direction
+	if s.isUpload {
+		args = append(args, s.localPath, remoteSpec)
+	} else {
+		args = append(args, remoteSpec, s.localPath)
+	}
+
+	return args
+}
+
+// Run executes the SCP file transfer.
+func (s *SCPSession) Run() error {
+	return s.run("scp", s.buildArgs())
+}
+
+// NewSCPSession creates a new SCP session for file transfer to/from an EC2 instance.
+func NewSCPSession(
+	client *ec2.Client,
+	dstType ec2.DstType,
+	addrType ec2.AddrType,
+	destination string,
+	login string,
+	port string,
+	identityFile string,
+	useEICE bool,
+	eiceID string,
+	noSendKeys bool,
+	scpArgs []string,
+	localPath string,
+	remotePath string,
+	isUpload bool,
+	tmpDir string,
+	logger *log.Logger,
+) (*SCPSession, error) {
+	instance, err := client.GetInstance(dstType, destination)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get instance: %w", err)
+	}
+
+	s := &SCPSession{
+		baseSession: baseSession{
+			client:     client,
+			instance:   instance,
+			login:      login,
+			port:       port,
+			useEICE:    useEICE,
+			eiceID:     eiceID,
+			noSendKeys: noSendKeys,
+			passArgs:   scpArgs,
+			logger:     logger,
+		},
+		localPath:  localPath,
+		remotePath: remotePath,
+		isUpload:   isUpload,
+	}
+
+	if err := s.setupDestinationAddr(addrType); err != nil {
+		return nil, err
+	}
+
+	if err := s.setupSSHKeys(identityFile, tmpDir); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}

@@ -17,6 +17,8 @@ const (
 	IntentTunnel
 	// IntentSFTP transfers files to/from an EC2 instance via SFTP.
 	IntentSFTP
+	// IntentSCP copies files to/from an EC2 instance via SCP.
+	IntentSCP
 )
 
 // Resolve determines the intent from the binary name and command-line arguments.
@@ -39,6 +41,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 			return IntentTunnel, args[1:]
 		case "--sftp":
 			return IntentSFTP, args[1:]
+		case "--scp":
+			return IntentSCP, args[1:]
 		}
 	}
 
@@ -49,6 +53,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 		return IntentList, args
 	case "ec2sftp":
 		return IntentSFTP, args
+	case "ec2scp":
+		return IntentSCP, args
 	default:
 		// Unknown binary names fall back to SSH (backward compatible)
 		return IntentSSH, args
@@ -68,6 +74,8 @@ func (i Intent) String() string {
 		return "tunnel"
 	case IntentSFTP:
 		return "sftp"
+	case IntentSCP:
+		return "scp"
 	default:
 		return "unknown"
 	}

@@ -51,6 +51,8 @@ func main() {
 		err = app.RunSSH(args)
 	case intent.IntentSFTP:
 		err = app.RunSFTP(args)
+	case intent.IntentSCP:
+		err = app.RunSCP(args)
 	default:
 		fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
 	}

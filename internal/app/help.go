@@ -3,19 +3,22 @@ package app
 // HelpText contains the usage documentation for ec2ssh.
 const HelpText = `Usage: ec2ssh [intent] [options] [destination] [command ...]
        ec2sftp [options] [destination[:path]]
+       ec2scp [options] source target
        ec2list [options]
 
-Connect to EC2 instances via SSH/SFTP or list available instances.
+Connect to EC2 instances via SSH/SFTP/SCP or list available instances.
 
 Intents:
   --ssh       Connect to EC2 instance via SSH (default)
   --sftp      Transfer files to/from EC2 instance via SFTP
+  --scp       Copy files to/from EC2 instance via SCP
   --list      List EC2 instances in the region
   --help, -h  Show this help message
 
   The intent can also be determined by the binary name:
     ec2list   equivalent to ec2ssh --list
     ec2sftp   equivalent to ec2ssh --sftp
+    ec2scp    equivalent to ec2ssh --scp
 
 SSH Examples:
   Connect to an instance using the instance ID:
@@ -37,6 +40,18 @@ SFTP Examples:
 
   Use EICE tunnel for SFTP:
      $ ec2sftp --use-eice user@app01
+
+SCP Examples:
+  Copy file from EC2 instance to local:
+     $ ec2scp user@i-0123456789abcdef0:/remote/file.txt ./local/
+     $ ec2scp user@app01:/etc/config.yaml .
+
+  Copy file from local to EC2 instance:
+     $ ec2scp ./local/file.txt user@app01:/remote/path/
+     $ ec2scp -r ./local/dir user@i-0123456789abcdef0:/remote/
+
+  Use EICE tunnel for SCP:
+     $ ec2scp --use-eice ./file.txt user@app01:/path/
 
 List Examples:
   List all instances in the default region:
@@ -117,6 +132,32 @@ SFTP Options:
 
   destination
      Specify destination as [user@]host[:path] or sftp://[user@]host[:port][/path].
+
+SCP Options:
+  -P <port>
+     Port number for SCP connection. Note: uppercase -P (like SFTP).
+
+  -r
+     Recursively copy directories.
+
+  -i <identity_file>
+     Identity file (private key) for SCP authentication.
+
+  --region, --profile, --use-eice, --eice-id, --destination-type, --address-type
+     Same as SSH options above.
+
+  --no-send-keys
+     Do not send SSH keys to the instance using EC2 Instance Connect.
+
+  --debug
+     Enable debug logging.
+
+  Additional SCP arguments
+     Any unrecognized options are passed through to SCP.
+
+  source target
+     Exactly one of source or target must be remote ([user@]host:path).
+     The other must be a local path. Multiple remote sources are not supported.
 
 List Options:
   --region <string>
