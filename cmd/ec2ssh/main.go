@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
@@ -12,35 +13,40 @@ import (
 	"github.com/ivoronin/ec2ssh/internal/tunnel"
 )
 
-func fatalError(err error) {
-	fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
-	os.Exit(1)
+// Runner encapsulates the CLI execution logic for testing.
+type Runner struct {
+	Args         []string                 // Command-line arguments (os.Args)
+	Getenv       func(string) string      // Environment variable getter
+	Stderr       io.Writer                // Error output writer
+	TunnelRunner func(uri string) error   // Tunnel execution function
 }
 
-func usage(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
+// DefaultRunner creates a Runner with production defaults.
+func DefaultRunner() *Runner {
+	return &Runner{
+		Args:         os.Args,
+		Getenv:       os.Getenv,
+		Stderr:       os.Stderr,
+		TunnelRunner: tunnel.Run,
 	}
-
-	fmt.Fprint(os.Stderr, HelpText)
-	os.Exit(1)
 }
 
-func main() {
-	resolvedIntent, args := intent.Resolve(os.Args[0], os.Args[1:])
+// Run executes the CLI and returns an exit code.
+// This method is testable - it doesn't call os.Exit().
+func (r *Runner) Run() int {
+	resolvedIntent, args := intent.Resolve(r.Args[0], r.Args[1:])
 
 	var err error
 
 	switch resolvedIntent {
 	case intent.IntentHelp:
-		usage(nil)
+		return r.usage(nil)
 	case intent.IntentTunnel:
-		tunnelURI := os.Getenv("EC2SSH_TUNNEL_URI")
+		tunnelURI := r.Getenv("EC2SSH_TUNNEL_URI")
 		if tunnelURI == "" {
-			fatalError(errors.New("EC2SSH_TUNNEL_URI environment variable not set"))
+			return r.fatalError(errors.New("EC2SSH_TUNNEL_URI environment variable not set"))
 		}
-
-		err = tunnel.Run(tunnelURI)
+		err = r.TunnelRunner(tunnelURI)
 	case intent.IntentList:
 		err = app.RunList(args)
 	case intent.IntentSSH:
@@ -59,18 +65,37 @@ func main() {
 			err = session.Run()
 		}
 	default:
-		fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
+		return r.fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
 	}
 
 	if err != nil {
 		// Handle subprocess exit codes - propagate them as our exit code
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.ExitCode())
+			return exitErr.ExitCode()
 		} else if errors.Is(err, argsieve.ErrSift) || errors.Is(err, app.ErrUsage) {
-			usage(err)
+			return r.usage(err)
 		} else {
-			fatalError(err)
+			return r.fatalError(err)
 		}
 	}
+
+	return 0
+}
+
+func (r *Runner) fatalError(err error) int {
+	fmt.Fprintf(r.Stderr, "ec2ssh: %v\n", err)
+	return 1
+}
+
+func (r *Runner) usage(err error) int {
+	if err != nil {
+		fmt.Fprintf(r.Stderr, "ec2ssh: %v\n", err)
+	}
+	fmt.Fprint(r.Stderr, HelpText)
+	return 1
+}
+
+func main() {
+	os.Exit(DefaultRunner().Run())
 }

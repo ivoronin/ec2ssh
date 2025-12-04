@@ -164,6 +164,35 @@ func TestResolve(t *testing.T) {
 			wantIntent: IntentSFTP,
 			wantArgs:   []string{"host"},
 		},
+		// SCP intent
+		{
+			name:       "--scp override",
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--scp", "/local/file", "user@host:/remote/path"},
+			wantIntent: IntentSCP,
+			wantArgs:   []string{"/local/file", "user@host:/remote/path"},
+		},
+		{
+			name:       "ec2scp binary",
+			binPath:    "/usr/bin/ec2scp",
+			args:       []string{"/local/file", "user@host:/remote"},
+			wantIntent: IntentSCP,
+			wantArgs:   []string{"/local/file", "user@host:/remote"},
+		},
+		{
+			name:       "--scp overrides ec2list binary",
+			binPath:    "/usr/bin/ec2list",
+			args:       []string{"--scp", "file", "user@host:path"},
+			wantIntent: IntentSCP,
+			wantArgs:   []string{"file", "user@host:path"},
+		},
+		{
+			name:       "ec2scp with flags",
+			binPath:    "/usr/bin/ec2scp",
+			args:       []string{"-r", "--region", "us-west-2", "/local", "host:/remote"},
+			wantIntent: IntentSCP,
+			wantArgs:   []string{"-r", "--region", "us-west-2", "/local", "host:/remote"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -190,6 +219,7 @@ func TestIntent_String(t *testing.T) {
 		{IntentHelp, "help"},
 		{IntentTunnel, "tunnel"},
 		{IntentSFTP, "sftp"},
+		{IntentSCP, "scp"},
 		{Intent(99), "unknown"},
 	}
 

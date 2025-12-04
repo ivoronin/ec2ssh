@@ -13,9 +13,9 @@ import (
 
 // Client wraps AWS SDK clients for EC2 and EC2 Instance Connect operations.
 type Client struct {
-	ec2Client     *ec2.Client
-	connectClient *ec2instanceconnect.Client
-	signer        *signerV4.Signer
+	ec2Client     EC2API
+	connectClient EC2InstanceConnectAPI
+	signer        HTTPRequestSigner
 	credentials   aws.Credentials
 	region        string
 	logger        *log.Logger

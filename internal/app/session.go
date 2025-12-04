@@ -14,6 +14,44 @@ import (
 	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
+// Package-level factory functions for dependency injection in tests.
+// These default to the real implementations but can be overridden in tests.
+var (
+	newEC2Client    = ec2.NewClient
+	generateKeypar  = ssh.GenerateKeypair
+	getPublicKey    = ssh.GetPublicKey
+	executeCommand  = defaultExecuteCommand
+)
+
+// CommandRunner is a function type for executing commands.
+type CommandRunner func(command string, args []string, tunnelURI string, logger *log.Logger) error
+
+// defaultExecuteCommand is the production command executor.
+func defaultExecuteCommand(command string, args []string, tunnelURI string, logger *log.Logger) error {
+	cmd := exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if tunnelURI != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", tunnelURI))
+	}
+
+	logger.Printf("running %s with args: %v", command, args)
+
+	if err := cmd.Run(); err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			logger.Printf("%s exited with code %d", command, exitError.ExitCode())
+		}
+		return err
+	}
+
+	logger.Printf("%s exited with code 0", command)
+	return nil
+}
+
 // baseSession contains common fields for all session types (SSH, SCP, SFTP).
 // Fields are organized by lifecycle stage: CLI flags → parsed values → runtime state.
 type baseSession struct {
@@ -107,13 +145,13 @@ func (s *baseSession) setupSSHKeys(tmpDir string) error {
 	var err error
 
 	if s.IdentityFile == "" {
-		s.privateKeyPath, s.publicKey, err = ssh.GenerateKeypair(tmpDir)
+		s.privateKeyPath, s.publicKey, err = generateKeypar(tmpDir)
 		if err != nil {
 			return fmt.Errorf("unable to generate ephemeral SSH keypair: %w", err)
 		}
 	} else {
 		s.privateKeyPath = s.IdentityFile
-		s.publicKey, err = ssh.GetPublicKey(s.IdentityFile)
+		s.publicKey, err = getPublicKey(s.IdentityFile)
 		if err != nil {
 			return fmt.Errorf("unable to read public key from %s: %w", s.IdentityFile, err)
 		}
@@ -142,33 +180,6 @@ func (s *baseSession) setupTunnel() error {
 	return nil
 }
 
-// executeCommand builds and runs the subprocess with proper environment setup.
-// Returns exec.ExitError if the subprocess exits with non-zero code, allowing
-// the caller to propagate the exit code.
-func (s *baseSession) executeCommand(command string, args []string) error {
-	cmd := exec.Command(command, args...)
-	cmd.Env = os.Environ()
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if s.tunnelURI != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", s.tunnelURI))
-	}
-
-	s.logger.Printf("running %s with args: %v", command, args)
-
-	if err := cmd.Run(); err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
-			s.logger.Printf("%s exited with code %d", command, exitError.ExitCode())
-		}
-		return err
-	}
-
-	s.logger.Printf("%s exited with code 0", command)
-	return nil
-}
 
 // run executes the session command. Called by embedded types.
 // buildArgs is called after setup completes, ensuring runtime fields are populated.
@@ -178,7 +189,7 @@ func (s *baseSession) run(command string, buildArgs func() []string) error {
 
 	// Create EC2 client
 	var err error
-	s.client, err = ec2.NewClient(s.Region, s.Profile, s.logger)
+	s.client, err = newEC2Client(s.Region, s.Profile, s.logger)
 	if err != nil {
 		return err
 	}
@@ -227,5 +238,5 @@ func (s *baseSession) run(command string, buildArgs func() []string) error {
 		}
 	}
 
-	return s.executeCommand(command, buildArgs())
+	return executeCommand(command, buildArgs(), s.tunnelURI, s.logger)
 }
