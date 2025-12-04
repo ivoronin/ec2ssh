@@ -18,7 +18,7 @@ import (
 // These default to the real implementations but can be overridden in tests.
 var (
 	newEC2Client    = ec2.NewClient
-	generateKeypar  = ssh.GenerateKeypair
+	generateKeypair  = ssh.GenerateKeypair
 	getPublicKey    = ssh.GetPublicKey
 	executeCommand  = defaultExecuteCommand
 )
@@ -145,7 +145,7 @@ func (s *baseSession) setupSSHKeys(tmpDir string) error {
 	var err error
 
 	if s.IdentityFile == "" {
-		s.privateKeyPath, s.publicKey, err = generateKeypar(tmpDir)
+		s.privateKeyPath, s.publicKey, err = generateKeypair(tmpDir)
 		if err != nil {
 			return fmt.Errorf("unable to generate ephemeral SSH keypair: %w", err)
 		}

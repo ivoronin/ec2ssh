@@ -48,7 +48,7 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 
 	// Save original functions
 	origNewEC2Client := newEC2Client
-	origGenerateKeypair := generateKeypar
+	origGenerateKeypair := generateKeypair
 	origGetPublicKey := getPublicKey
 	origExecuteCommand := executeCommand
 
@@ -59,7 +59,7 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 		return nil, nil // This won't work as-is
 	}
 
-	generateKeypar = func(tmpDir string) (string, string, error) {
+	generateKeypair = func(tmpDir string) (string, string, error) {
 		return "/tmp/test-key", "ssh-ed25519 AAAA... test-key", nil
 	}
 
@@ -78,7 +78,7 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 
 	return func() {
 		newEC2Client = origNewEC2Client
-		generateKeypar = origGenerateKeypair
+		generateKeypair = origGenerateKeypair
 		getPublicKey = origGetPublicKey
 		executeCommand = origExecuteCommand
 	}
@@ -248,14 +248,14 @@ func TestSFTPSession_BuildArgs_Integration(t *testing.T) {
 }
 
 // TestKeyGeneration tests the key generation factory.
-// Note: Cannot run in parallel - modifies global generateKeypar.
+// Note: Cannot run in parallel - modifies global generateKeypair.
 func TestKeyGeneration(t *testing.T) {
-	// Test with mocked generateKeypar
-	origFunc := generateKeypar
-	defer func() { generateKeypar = origFunc }()
+	// Test with mocked generateKeypair
+	origFunc := generateKeypair
+	defer func() { generateKeypair = origFunc }()
 
 	var calledTmpDir string
-	generateKeypar = func(tmpDir string) (string, string, error) {
+	generateKeypair = func(tmpDir string) (string, string, error) {
 		calledTmpDir = tmpDir
 		return "/mock/private/key", "ssh-ed25519 AAAA... mock", nil
 	}
@@ -294,12 +294,12 @@ func TestKeyGenerationWithIdentityFile(t *testing.T) {
 }
 
 // TestKeyGenerationError tests error handling in key generation.
-// Note: Cannot run in parallel - modifies global generateKeypar.
+// Note: Cannot run in parallel - modifies global generateKeypair.
 func TestKeyGenerationError(t *testing.T) {
-	origFunc := generateKeypar
-	defer func() { generateKeypar = origFunc }()
+	origFunc := generateKeypair
+	defer func() { generateKeypair = origFunc }()
 
-	generateKeypar = func(tmpDir string) (string, string, error) {
+	generateKeypair = func(tmpDir string) (string, string, error) {
 		return "", "", errors.New("key generation failed")
 	}
 
