@@ -65,11 +65,7 @@ go install github.com/ivoronin/ec2ssh@latest
 
 ### From Releases
 
-Download the latest binary for your platform from [GitHub Releases](https://github.com/ivoronin/ec2ssh/releases):
-
-- **macOS**: `ec2ssh_Darwin_x86_64.tar.gz` or `ec2ssh_Darwin_arm64.tar.gz`
-- **Linux**: `ec2ssh_Linux_x86_64.tar.gz` or `ec2ssh_Linux_arm64.tar.gz`
-- **Windows**: `ec2ssh_Windows_x86_64.zip` or `ec2ssh_Windows_arm64.zip`
+Download the latest binary for your platform from [GitHub Releases](https://github.com/ivoronin/ec2ssh/releases).
 
 ### Symlinks
 
