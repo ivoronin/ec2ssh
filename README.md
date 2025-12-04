@@ -8,13 +8,9 @@
 
 **SSH into EC2 instances the easy way.** No more juggling instance IDs, IP lookups, and key management.
 
-```bash
-ec2ssh my-app-server
-```
+![](demo/demo.webp)
 
 That's it. You're connected.
-
-![](demo/demo.webp)
 
 ## Features
 
