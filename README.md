@@ -71,6 +71,18 @@ Download the latest binary for your platform from [GitHub Releases](https://gith
 - **Linux**: `ec2ssh_Linux_x86_64.tar.gz` or `ec2ssh_Linux_arm64.tar.gz`
 - **Windows**: `ec2ssh_Windows_x86_64.zip` or `ec2ssh_Windows_arm64.zip`
 
+### Symlinks
+
+Create symlinks to use `ec2sftp`, `ec2scp`, and `ec2list` as standalone commands:
+
+```bash
+ln -s ec2ssh ec2sftp
+ln -s ec2ssh ec2scp
+ln -s ec2ssh ec2list
+```
+
+The binary auto-detects its intent based on the name it was invoked with.
+
 ## Quick Start
 
 ```bash
