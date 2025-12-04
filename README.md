@@ -57,14 +57,6 @@ ec2ssh handles WebSocket tunnel setup and AWS Signature V4 signing automatically
 
 ## Installation
 
-### Using Go
-
-```bash
-go install github.com/ivoronin/ec2ssh@latest
-```
-
-### From Releases
-
 Download the latest binary for your platform from [GitHub Releases](https://github.com/ivoronin/ec2ssh/releases).
 
 ### Symlinks
