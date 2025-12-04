@@ -248,9 +248,8 @@ func TestSFTPSession_BuildArgs_Integration(t *testing.T) {
 }
 
 // TestKeyGeneration tests the key generation factory.
+// Note: Cannot run in parallel - modifies global generateKeypar.
 func TestKeyGeneration(t *testing.T) {
-	t.Parallel()
-
 	// Test with mocked generateKeypar
 	origFunc := generateKeypar
 	defer func() { generateKeypar = origFunc }()
@@ -271,9 +270,8 @@ func TestKeyGeneration(t *testing.T) {
 }
 
 // TestKeyGenerationWithIdentityFile tests using an existing identity file.
+// Note: Cannot run in parallel - modifies global getPublicKey.
 func TestKeyGenerationWithIdentityFile(t *testing.T) {
-	t.Parallel()
-
 	// Test with mocked getPublicKey
 	origFunc := getPublicKey
 	defer func() { getPublicKey = origFunc }()
@@ -296,9 +294,8 @@ func TestKeyGenerationWithIdentityFile(t *testing.T) {
 }
 
 // TestKeyGenerationError tests error handling in key generation.
+// Note: Cannot run in parallel - modifies global generateKeypar.
 func TestKeyGenerationError(t *testing.T) {
-	t.Parallel()
-
 	origFunc := generateKeypar
 	defer func() { generateKeypar = origFunc }()
 
@@ -314,9 +311,8 @@ func TestKeyGenerationError(t *testing.T) {
 }
 
 // TestGetPublicKeyError tests error handling when reading public key fails.
+// Note: Cannot run in parallel - modifies global getPublicKey.
 func TestGetPublicKeyError(t *testing.T) {
-	t.Parallel()
-
 	origFunc := getPublicKey
 	defer func() { getPublicKey = origFunc }()
 
@@ -334,9 +330,8 @@ func TestGetPublicKeyError(t *testing.T) {
 }
 
 // TestExecuteCommandFactory tests the command execution factory.
+// Note: Cannot run in parallel - modifies global executeCommand.
 func TestExecuteCommandFactory(t *testing.T) {
-	t.Parallel()
-
 	// Save and restore original
 	origFunc := executeCommand
 	defer func() { executeCommand = origFunc }()
@@ -359,9 +354,8 @@ func TestExecuteCommandFactory(t *testing.T) {
 }
 
 // TestExecuteCommandError tests error propagation from command execution.
+// Note: Cannot run in parallel - modifies global executeCommand.
 func TestExecuteCommandError(t *testing.T) {
-	t.Parallel()
-
 	origFunc := executeCommand
 	defer func() { executeCommand = origFunc }()
 
