@@ -1,7 +1,5 @@
 package cli
 
-import "strings"
-
 // SCPOperand represents a parsed SCP operand (source or target).
 type SCPOperand struct {
 	Login    string // Username (if remote)
@@ -89,11 +87,7 @@ func ParseSCPOperand(operand string) SCPOperand {
 // Strips IPv6 brackets if present.
 func parseUserHost(s string) (login, host string) {
 	login, host = parseLoginHost(s)
-
-	// Strip IPv6 brackets from host
-	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
-		host = host[1 : len(host)-1]
-	}
+	host = StripIPv6Brackets(host)
 
 	return login, host
 }

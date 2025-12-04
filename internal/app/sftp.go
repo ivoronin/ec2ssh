@@ -1,39 +1,19 @@
 package app
 
 import (
-	"fmt"
-	"io"
-	"log"
-	"os"
-	"os/user"
-
 	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
-	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
-// SFTPOptions holds the parsed configuration for an SFTP session.
-type SFTPOptions struct {
-	// Fields populated by argsieve from flags
-	Region       string `long:"region"`
-	Profile      string `long:"profile"`
-	EICEID       string `long:"eice-id"`
-	DstTypeStr   string `long:"destination-type"`
-	AddrTypeStr  string `long:"address-type"`
-	IdentityFile string `short:"i"`
-	Port         string `short:"P"` // SFTP uses uppercase -P for port
-	UseEICE      bool   `long:"use-eice"`
-	NoSendKeys   bool   `long:"no-send-keys"`
-	Debug        bool   `long:"debug"`
+// SFTPSession represents an SFTP connection to an EC2 instance.
+type SFTPSession struct {
+	baseSession
 
-	// Fields populated after parsing
-	DstType     ec2.DstType
-	AddrType    ec2.AddrType
-	Destination string
-	Login       string
-	RemotePath  string
-	SFTPArgs    []string
+	// SFTP-specific fields
+	RemotePath string
+
+	// Parsing-only fields (not used at runtime, but must be exported for argsieve)
+	PortFlag string `short:"P"` // SFTP uses uppercase -P for port
 }
 
 // sftpPassthroughWithArg lists SFTP short options that take arguments.
@@ -43,11 +23,11 @@ var sftpPassthroughWithArg = []string{
 	"-l", "-o", "-R", "-S", "-s", "-X",
 }
 
-// NewSFTPOptions creates SFTPOptions from command-line arguments.
-func NewSFTPOptions(args []string) (*SFTPOptions, error) {
-	var options SFTPOptions
+// NewSFTPSession creates an SFTPSession from command-line arguments.
+func NewSFTPSession(args []string) (*SFTPSession, error) {
+	var session SFTPSession
 
-	sieve := argsieve.New(&options, sftpPassthroughWithArg)
+	sieve := argsieve.New(&session, sftpPassthroughWithArg)
 
 	remaining, positional, err := sieve.Sift(args)
 	if err != nil {
@@ -57,108 +37,55 @@ func NewSFTPOptions(args []string) (*SFTPOptions, error) {
 	// Parse destination from first positional (may contain user@host:path)
 	if len(positional) > 0 {
 		login, host, port, path := cli.ParseSFTPDestination(positional[0])
-		options.Destination = host
-		options.RemotePath = path
-		// Only set from destination if not already set by flags
-		if options.Login == "" {
-			options.Login = login
-		}
-		if options.Port == "" {
-			options.Port = port
-		}
+		session.Destination = host
+		session.RemotePath = path
+		session.Login = login
+		session.Port = port
 	}
 
-	options.SFTPArgs = remaining
+	// Flag overrides destination-parsed value
+	if session.PortFlag != "" {
+		session.Port = session.PortFlag
+	}
+
+	session.PassArgs = remaining
 
 	// Parse type strings to enums
-	if err := options.parseTypes(); err != nil {
+	if err := session.ParseTypes(); err != nil {
 		return nil, err
 	}
 
-	// EICE ID implies UseEICE
-	if options.EICEID != "" {
-		options.UseEICE = true
+	// Apply common defaults (EICE ID implies UseEICE, default login)
+	if err := session.ApplyDefaults(); err != nil {
+		return nil, err
 	}
 
-	// Default login to current user
-	if options.Login == "" {
-		u, err := user.Current()
-		if err != nil {
-			return nil, fmt.Errorf("unable to determine current user: %w", err)
-		}
-		options.Login = u.Username
+	if session.Destination == "" {
+		return nil, ErrMissingDestination
 	}
 
-	return &options, nil
+	return &session, nil
 }
 
-func (options *SFTPOptions) parseTypes() error {
-	dstTypes := map[string]ec2.DstType{
-		"":            ec2.DstTypeAuto,
-		"id":          ec2.DstTypeID,
-		"private_ip":  ec2.DstTypePrivateIP,
-		"public_ip":   ec2.DstTypePublicIP,
-		"ipv6":        ec2.DstTypeIPv6,
-		"private_dns": ec2.DstTypePrivateDNSName,
-		"name_tag":    ec2.DstTypeNameTag,
-	}
+func (s *SFTPSession) buildArgs() []string {
+	args := s.baseArgs()
+	args = appendOptArg(args, "-P%s", s.Port) // SFTP uses uppercase -P for port
 
-	dstType, ok := dstTypes[options.DstTypeStr]
-	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnknownType, options.DstTypeStr)
+	// Build destination: [login@]host[:path]
+	var destination string
+	if s.Login != "" {
+		destination = s.Login + "@"
 	}
-	options.DstType = dstType
-
-	addrTypes := map[string]ec2.AddrType{
-		"":        ec2.AddrTypeAuto,
-		"private": ec2.AddrTypePrivate,
-		"public":  ec2.AddrTypePublic,
-		"ipv6":    ec2.AddrTypeIPv6,
+	destination += s.destinationAddr
+	if s.RemotePath != "" {
+		destination += ":" + s.RemotePath
 	}
+	args = append(args, destination)
 
-	addrType, ok := addrTypes[options.AddrTypeStr]
-	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnknownType, options.AddrTypeStr)
-	}
-	options.AddrType = addrType
-
-	return nil
+	return args
 }
 
-// RunSFTP executes the SFTP intent with the given arguments.
-func RunSFTP(args []string) error {
-	options, err := NewSFTPOptions(args)
-	if err != nil {
-		return err
-	}
-
-	if options.Destination == "" {
-		return ErrMissingDestination
-	}
-
-	logger := log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-	if options.Debug {
-		logger.SetOutput(os.Stderr)
-	}
-
-	client, err := ec2.NewClient(options.Region, options.Profile, logger)
-	if err != nil {
-		return err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "ec2ssh")
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	session, err := ssh.NewSFTPSession(client, options.DstType, options.AddrType, options.Destination,
-		options.Login, options.Port, options.IdentityFile, options.UseEICE, options.EICEID,
-		options.NoSendKeys, options.SFTPArgs, options.RemotePath, tmpDir, logger)
-	if err != nil {
-		return err
-	}
-
-	return session.Run()
+// Run executes the SFTP connection.
+func (s *SFTPSession) Run() error {
+	return s.run("sftp", s.buildArgs)
 }

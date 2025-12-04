@@ -7,103 +7,101 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewSSHOptions(t *testing.T) {
+func TestNewSSHSession(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		args        []string
-		wantErr     string // empty means no error expected
-		check       func(t *testing.T, opts *SSHOptions)
+		name    string
+		args    []string
+		wantErr string // empty means no error expected
+		check   func(t *testing.T, session *SSHSession)
 	}{
 		{
 			name: "basic with login and use-eice",
 			args: []string{"-l", "login", "--use-eice", "-t", "host", "command"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "login", opts.Login)
-				assert.True(t, opts.UseEICE)
-				assert.Equal(t, []string{"command"}, opts.CommandWithArgs)
-				assert.Equal(t, []string{"-t"}, opts.SSHArgs)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "login", session.Login)
+				assert.True(t, session.UseEICE)
+				assert.Equal(t, []string{"command"}, session.CommandWithArgs)
+				assert.Equal(t, []string{"-t"}, session.PassArgs)
 			},
 		},
 		{
 			name: "ssh passthrough -L",
 			args: []string{"-L", "8080:localhost:80", "host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, []string{"-L", "8080:localhost:80"}, opts.SSHArgs)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, []string{"-L", "8080:localhost:80"}, session.PassArgs)
 			},
 		},
 		{
 			name: "destination with user@host",
 			args: []string{"user@host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "user", opts.Login)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "user", session.Login)
 			},
 		},
 		{
 			name: "destination ssh:// URL with port",
 			args: []string{"ssh://user@host:2222"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "user", opts.Login)
-				assert.Equal(t, "2222", opts.Port)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "user", session.Login)
+				assert.Equal(t, "2222", session.Port)
 			},
 		},
 		{
 			name: "-l flag overrides user@ in destination",
 			args: []string{"-l", "flaguser", "destuser@host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "flaguser", opts.Login)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "flaguser", session.Login)
 			},
 		},
 		{
 			name: "-p flag overrides port in ssh:// URL",
 			args: []string{"-p", "3333", "ssh://user@host:2222"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "3333", opts.Port)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "3333", session.Port)
 			},
 		},
 		{
 			name: "--eice-id implies --use-eice",
 			args: []string{"--eice-id", "eice-12345678", "host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "eice-12345678", opts.EICEID)
-				assert.True(t, opts.UseEICE)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "eice-12345678", session.EICEID)
+				assert.True(t, session.UseEICE)
 			},
 		},
 		{
 			name: "--no-send-keys",
 			args: []string{"--no-send-keys", "host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.True(t, opts.NoSendKeys)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.True(t, session.NoSendKeys)
 			},
 		},
 		{
 			name: "--debug",
 			args: []string{"--debug", "host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.True(t, opts.Debug)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.True(t, session.Debug)
 			},
 		},
 		{
 			name: "--region and --profile",
 			args: []string{"--region", "us-west-2", "--profile", "myprofile", "host"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Equal(t, "us-west-2", opts.Region)
-				assert.Equal(t, "myprofile", opts.Profile)
+			check: func(t *testing.T, session *SSHSession) {
+				assert.Equal(t, "us-west-2", session.Region)
+				assert.Equal(t, "myprofile", session.Profile)
 			},
 		},
 		{
-			name: "no destination",
-			args: []string{"--use-eice"},
-			check: func(t *testing.T, opts *SSHOptions) {
-				assert.Empty(t, opts.Destination)
-			},
+			name:    "no destination",
+			args:    []string{"--use-eice"},
+			wantErr: "missing destination",
 		},
 		// Address types
 		{
@@ -164,7 +162,7 @@ func TestNewSSHOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			opts, err := NewSSHOptions(tt.args)
+			session, err := NewSSHSession(tt.args)
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -174,7 +172,7 @@ func TestNewSSHOptions(t *testing.T) {
 
 			require.NoError(t, err)
 			if tt.check != nil {
-				tt.check(t, opts)
+				tt.check(t, session)
 			}
 		})
 	}

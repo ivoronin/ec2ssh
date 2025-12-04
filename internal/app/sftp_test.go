@@ -7,41 +7,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewSFTPOptions(t *testing.T) {
+func TestNewSFTPSession(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr string // empty means no error expected
-		check   func(t *testing.T, opts *SFTPOptions)
+		check   func(t *testing.T, session *SFTPSession)
 	}{
 		// Basic forms
 		{
 			name: "basic user@host:path",
 			args: []string{"user@host:/remote/path"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "user", opts.Login)
-				assert.Equal(t, "/remote/path", opts.RemotePath)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "user", session.Login)
+				assert.Equal(t, "/remote/path", session.RemotePath)
 			},
 		},
 		{
 			name: "host only defaults to current user",
 			args: []string{"host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.NotEmpty(t, opts.Login) // defaults to current user
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.NotEmpty(t, session.Login) // defaults to current user
 			},
 		},
 		{
 			name: "sftp:// URL with port and path",
 			args: []string{"sftp://user@host:2222/remote/path"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "user", opts.Login)
-				assert.Equal(t, "2222", opts.Port)
-				assert.Equal(t, "remote/path", opts.RemotePath)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "user", session.Login)
+				assert.Equal(t, "2222", session.Port)
+				assert.Equal(t, "remote/path", session.RemotePath)
 			},
 		},
 
@@ -49,15 +49,15 @@ func TestNewSFTPOptions(t *testing.T) {
 		{
 			name: "-P flag sets port",
 			args: []string{"-P", "3333", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "3333", opts.Port)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "3333", session.Port)
 			},
 		},
 		{
 			name: "-P flag overrides port in sftp:// URL",
 			args: []string{"-P", "3333", "sftp://user@host:2222"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "3333", opts.Port)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "3333", session.Port)
 			},
 		},
 
@@ -65,8 +65,8 @@ func TestNewSFTPOptions(t *testing.T) {
 		{
 			name: "-i flag sets identity file",
 			args: []string{"-i", "/path/to/key", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "/path/to/key", opts.IdentityFile)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "/path/to/key", session.IdentityFile)
 			},
 		},
 
@@ -74,16 +74,16 @@ func TestNewSFTPOptions(t *testing.T) {
 		{
 			name: "--use-eice",
 			args: []string{"--use-eice", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.True(t, opts.UseEICE)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.True(t, session.UseEICE)
 			},
 		},
 		{
 			name: "--eice-id implies --use-eice",
 			args: []string{"--eice-id", "eice-12345678", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "eice-12345678", opts.EICEID)
-				assert.True(t, opts.UseEICE)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "eice-12345678", session.EICEID)
+				assert.True(t, session.UseEICE)
 			},
 		},
 
@@ -91,23 +91,23 @@ func TestNewSFTPOptions(t *testing.T) {
 		{
 			name: "--no-send-keys",
 			args: []string{"--no-send-keys", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.True(t, opts.NoSendKeys)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.True(t, session.NoSendKeys)
 			},
 		},
 		{
 			name: "--debug",
 			args: []string{"--debug", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.True(t, opts.Debug)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.True(t, session.Debug)
 			},
 		},
 		{
 			name: "--region and --profile",
 			args: []string{"--region", "us-west-2", "--profile", "myprofile", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, "us-west-2", opts.Region)
-				assert.Equal(t, "myprofile", opts.Profile)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, "us-west-2", session.Region)
+				assert.Equal(t, "myprofile", session.Profile)
 			},
 		},
 
@@ -115,15 +115,15 @@ func TestNewSFTPOptions(t *testing.T) {
 		{
 			name: "sftp passthrough -B",
 			args: []string{"-B", "32768", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, []string{"-B", "32768"}, opts.SFTPArgs)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, []string{"-B", "32768"}, session.PassArgs)
 			},
 		},
 		{
 			name: "sftp passthrough -o",
 			args: []string{"-o", "StrictHostKeyChecking=no", "user@host"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Equal(t, []string{"-o", "StrictHostKeyChecking=no"}, opts.SFTPArgs)
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.Equal(t, []string{"-o", "StrictHostKeyChecking=no"}, session.PassArgs)
 			},
 		},
 
@@ -166,11 +166,9 @@ func TestNewSFTPOptions(t *testing.T) {
 			wantErr: "missing value",
 		},
 		{
-			name: "no destination",
-			args: []string{"--use-eice"},
-			check: func(t *testing.T, opts *SFTPOptions) {
-				assert.Empty(t, opts.Destination)
-			},
+			name:    "no destination",
+			args:    []string{"--use-eice"},
+			wantErr: "missing destination",
 		},
 	}
 
@@ -178,7 +176,7 @@ func TestNewSFTPOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			opts, err := NewSFTPOptions(tt.args)
+			session, err := NewSFTPSession(tt.args)
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -188,7 +186,7 @@ func TestNewSFTPOptions(t *testing.T) {
 
 			require.NoError(t, err)
 			if tt.check != nil {
-				tt.check(t, opts)
+				tt.check(t, session)
 			}
 		})
 	}

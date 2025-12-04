@@ -2,40 +2,22 @@ package app
 
 import (
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"os/user"
 
 	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
-	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
-// SCPOptions holds the parsed configuration for an SCP session.
-type SCPOptions struct {
-	// Fields populated by argsieve from flags
-	Region       string `long:"region"`
-	Profile      string `long:"profile"`
-	EICEID       string `long:"eice-id"`
-	DstTypeStr   string `long:"destination-type"`
-	AddrTypeStr  string `long:"address-type"`
-	IdentityFile string `short:"i"`
-	Port         string `short:"P"` // SCP uses uppercase -P for port
-	UseEICE      bool   `long:"use-eice"`
-	NoSendKeys   bool   `long:"no-send-keys"`
-	Debug        bool   `long:"debug"`
+// SCPSession represents an SCP file transfer to/from an EC2 instance.
+type SCPSession struct {
+	baseSession
 
-	// Fields populated after parsing
-	DstType     ec2.DstType
-	AddrType    ec2.AddrType
-	Destination string   // EC2 instance identifier
-	Login       string   // Username
-	RemotePath  string   // Path on remote
-	LocalPath   string   // Path on local machine
-	IsUpload    bool     // true = local→remote, false = remote→local
-	SCPArgs     []string // Passthrough args for scp command
+	// SCP-specific fields
+	LocalPath  string
+	RemotePath string
+	IsUpload   bool // true = local→remote, false = remote→local
+
+	// Parsing-only fields (not used at runtime, but must be exported for argsieve)
+	PortFlag string `short:"P"` // SCP uses uppercase -P for port
 }
 
 // scpPassthroughWithArg lists SCP short options that take arguments.
@@ -44,11 +26,11 @@ var scpPassthroughWithArg = []string{
 	"-c", "-F", "-J", "-l", "-o", "-S",
 }
 
-// NewSCPOptions creates SCPOptions from command-line arguments.
-func NewSCPOptions(args []string) (*SCPOptions, error) {
-	var options SCPOptions
+// NewSCPSession creates an SCPSession from command-line arguments.
+func NewSCPSession(args []string) (*SCPSession, error) {
+	var session SCPSession
 
-	sieve := argsieve.New(&options, scpPassthroughWithArg)
+	sieve := argsieve.New(&session, scpPassthroughWithArg)
 
 	remaining, positional, err := sieve.Sift(args)
 	if err != nil {
@@ -61,108 +43,58 @@ func NewSCPOptions(args []string) (*SCPOptions, error) {
 		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
 	}
 
-	options.Destination = parsed.Host
-	options.RemotePath = parsed.RemotePath
-	options.LocalPath = parsed.LocalPath
-	options.IsUpload = parsed.IsUpload
+	session.Destination = parsed.Host
+	session.RemotePath = parsed.RemotePath
+	session.LocalPath = parsed.LocalPath
+	session.IsUpload = parsed.IsUpload
+	session.Login = parsed.Login
 
-	// Only set login from operand if not already set by flags
-	if options.Login == "" {
-		options.Login = parsed.Login
+	// Apply port from flag if provided
+	if session.PortFlag != "" {
+		session.Port = session.PortFlag
 	}
 
-	options.SCPArgs = remaining
+	session.PassArgs = remaining
 
 	// Parse type strings to enums
-	if err := options.parseTypes(); err != nil {
+	if err := session.ParseTypes(); err != nil {
 		return nil, err
 	}
 
-	// EICE ID implies UseEICE
-	if options.EICEID != "" {
-		options.UseEICE = true
+	// Apply common defaults (EICE ID implies UseEICE, default login)
+	if err := session.ApplyDefaults(); err != nil {
+		return nil, err
 	}
 
-	// Default login to current user
-	if options.Login == "" {
-		u, err := user.Current()
-		if err != nil {
-			return nil, fmt.Errorf("unable to determine current user: %w", err)
-		}
-		options.Login = u.Username
+	if session.Destination == "" {
+		return nil, ErrMissingDestination
 	}
 
-	return &options, nil
+	return &session, nil
 }
 
-func (options *SCPOptions) parseTypes() error {
-	dstTypes := map[string]ec2.DstType{
-		"":            ec2.DstTypeAuto,
-		"id":          ec2.DstTypeID,
-		"private_ip":  ec2.DstTypePrivateIP,
-		"public_ip":   ec2.DstTypePublicIP,
-		"ipv6":        ec2.DstTypeIPv6,
-		"private_dns": ec2.DstTypePrivateDNSName,
-		"name_tag":    ec2.DstTypeNameTag,
+func (s *SCPSession) buildArgs() []string {
+	args := s.baseArgs()
+	args = appendOptArg(args, "-P%s", s.Port) // SCP uses uppercase -P for port
+
+	// Build remote spec: [login@]host:path
+	var remoteSpec string
+	if s.Login != "" {
+		remoteSpec = s.Login + "@"
+	}
+	remoteSpec += s.destinationAddr + ":" + s.RemotePath
+
+	// Order depends on direction
+	if s.IsUpload {
+		args = append(args, s.LocalPath, remoteSpec)
+	} else {
+		args = append(args, remoteSpec, s.LocalPath)
 	}
 
-	dstType, ok := dstTypes[options.DstTypeStr]
-	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnknownType, options.DstTypeStr)
-	}
-	options.DstType = dstType
-
-	addrTypes := map[string]ec2.AddrType{
-		"":        ec2.AddrTypeAuto,
-		"private": ec2.AddrTypePrivate,
-		"public":  ec2.AddrTypePublic,
-		"ipv6":    ec2.AddrTypeIPv6,
-	}
-
-	addrType, ok := addrTypes[options.AddrTypeStr]
-	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnknownType, options.AddrTypeStr)
-	}
-	options.AddrType = addrType
-
-	return nil
+	return args
 }
 
-// RunSCP executes the SCP intent with the given arguments.
-func RunSCP(args []string) error {
-	options, err := NewSCPOptions(args)
-	if err != nil {
-		return err
-	}
-
-	if options.Destination == "" {
-		return ErrMissingDestination
-	}
-
-	logger := log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-	if options.Debug {
-		logger.SetOutput(os.Stderr)
-	}
-
-	client, err := ec2.NewClient(options.Region, options.Profile, logger)
-	if err != nil {
-		return err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "ec2ssh")
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	session, err := ssh.NewSCPSession(client, options.DstType, options.AddrType, options.Destination,
-		options.Login, options.Port, options.IdentityFile, options.UseEICE, options.EICEID,
-		options.NoSendKeys, options.SCPArgs, options.LocalPath, options.RemotePath,
-		options.IsUpload, tmpDir, logger)
-	if err != nil {
-		return err
-	}
-
-	return session.Run()
+// Run executes the SCP file transfer.
+func (s *SCPSession) Run() error {
+	return s.run("scp", s.buildArgs)
 }

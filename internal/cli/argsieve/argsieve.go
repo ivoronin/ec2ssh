@@ -65,12 +65,23 @@ func (s *Sieve) extractFields(target any) {
 		panic(fmt.Sprintf("argsieve: target must be a pointer to struct, got %T", target))
 	}
 
-	v = v.Elem()
+	s.extractFieldsFromValue(v.Elem())
+}
+
+// extractFieldsFromValue recursively extracts fields from a struct value,
+// including fields from embedded structs.
+func (s *Sieve) extractFieldsFromValue(v reflect.Value) {
 	t := v.Type()
 
 	for i := 0; i < t.NumField(); i++ {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
+
+		// Recursively process embedded structs
+		if fieldType.Anonymous && fieldType.Type.Kind() == reflect.Struct {
+			s.extractFieldsFromValue(fieldValue)
+			continue
+		}
 
 		short := fieldType.Tag.Get("short")
 		long := fieldType.Tag.Get("long")

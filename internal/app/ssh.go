@@ -1,39 +1,20 @@
 package app
 
 import (
-	"fmt"
-	"io"
-	"log"
-	"os"
-	"os/user"
-
 	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
-	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
-// SSHOptions holds the parsed configuration for an SSH session.
-type SSHOptions struct {
-	// Fields populated by argsieve from flags
-	Region       string `long:"region"`
-	Profile      string `long:"profile"`
-	EICEID       string `long:"eice-id"`
-	DstTypeStr   string `long:"destination-type"`
-	AddrTypeStr  string `long:"address-type"`
-	IdentityFile string `short:"i"`
-	Login        string `short:"l"`
-	Port         string `short:"p"`
-	UseEICE      bool   `long:"use-eice"`
-	NoSendKeys   bool   `long:"no-send-keys"`
-	Debug        bool   `long:"debug"`
+// SSHSession represents an SSH connection to an EC2 instance.
+type SSHSession struct {
+	baseSession
 
-	// Fields populated after parsing
-	DstType         ec2.DstType
-	AddrType        ec2.AddrType
-	Destination     string
-	SSHArgs         []string
+	// SSH-specific fields
 	CommandWithArgs []string
+
+	// Parsing-only fields (not used at runtime, but must be exported for argsieve)
+	LoginFlag string `short:"l"` // SSH uses -l for login
+	PortFlag  string `short:"p"` // SSH uses lowercase -p for port
 }
 
 // sshPassthroughWithArg lists SSH short options that take arguments.
@@ -43,11 +24,11 @@ var sshPassthroughWithArg = []string{
 	"-J", "-L", "-m", "-O", "-o", "-P", "-R", "-S", "-W", "-w",
 }
 
-// NewSSHOptions creates SSHOptions from command-line arguments.
-func NewSSHOptions(args []string) (*SSHOptions, error) {
-	var options SSHOptions
+// NewSSHSession creates an SSHSession from command-line arguments.
+func NewSSHSession(args []string) (*SSHSession, error) {
+	var session SSHSession
 
-	sieve := argsieve.New(&options, sshPassthroughWithArg)
+	sieve := argsieve.New(&session, sshPassthroughWithArg)
 
 	remaining, positional, err := sieve.Sift(args)
 	if err != nil {
@@ -57,112 +38,57 @@ func NewSSHOptions(args []string) (*SSHOptions, error) {
 	// Parse destination from first positional (may contain user@host:port)
 	if len(positional) > 0 {
 		login, host, port := cli.ParseSSHDestination(positional[0])
-		options.Destination = host
-		// Only set from destination if not already set by flags
-		if options.Login == "" {
-			options.Login = login
-		}
-		if options.Port == "" {
-			options.Port = port
-		}
+		session.Destination = host
+		session.Login = login
+		session.Port = port
 	}
 
-	options.SSHArgs = remaining
+	// Flags override destination-parsed values
+	if session.LoginFlag != "" {
+		session.Login = session.LoginFlag
+	}
+	if session.PortFlag != "" {
+		session.Port = session.PortFlag
+	}
+
+	session.PassArgs = remaining
 
 	if len(positional) > 1 {
-		options.CommandWithArgs = positional[1:]
+		session.CommandWithArgs = positional[1:]
 	}
 
 	// Parse type strings to enums
-	if err := options.parseTypes(); err != nil {
+	if err := session.ParseTypes(); err != nil {
 		return nil, err
 	}
 
-	// EICE ID implies UseEICE
-	if options.EICEID != "" {
-		options.UseEICE = true
+	// Apply common defaults (EICE ID implies UseEICE, default login)
+	if err := session.ApplyDefaults(); err != nil {
+		return nil, err
 	}
 
-	// Default login to current user
-	if options.Login == "" {
-		u, err := user.Current()
-		if err != nil {
-			return nil, fmt.Errorf("unable to determine current user: %w", err)
-		}
-		options.Login = u.Username
+	if session.Destination == "" {
+		return nil, ErrMissingDestination
 	}
 
-	return &options, nil
+	return &session, nil
 }
 
-func (options *SSHOptions) parseTypes() error {
-	dstTypes := map[string]ec2.DstType{
-		"":            ec2.DstTypeAuto,
-		"id":          ec2.DstTypeID,
-		"private_ip":  ec2.DstTypePrivateIP,
-		"public_ip":   ec2.DstTypePublicIP,
-		"ipv6":        ec2.DstTypeIPv6,
-		"private_dns": ec2.DstTypePrivateDNSName,
-		"name_tag":    ec2.DstTypeNameTag,
+func (s *SSHSession) buildArgs() []string {
+	args := s.baseArgs()
+	args = appendOptArg(args, "-l%s", s.Login)
+	args = appendOptArg(args, "-p%s", s.Port)
+	args = append(args, s.destinationAddr)
+
+	if len(s.CommandWithArgs) > 0 {
+		args = append(args, "--")
+		args = append(args, s.CommandWithArgs...)
 	}
 
-	dstType, ok := dstTypes[options.DstTypeStr]
-	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnknownType, options.DstTypeStr)
-	}
-	options.DstType = dstType
-
-	addrTypes := map[string]ec2.AddrType{
-		"":        ec2.AddrTypeAuto,
-		"private": ec2.AddrTypePrivate,
-		"public":  ec2.AddrTypePublic,
-		"ipv6":    ec2.AddrTypeIPv6,
-	}
-
-	addrType, ok := addrTypes[options.AddrTypeStr]
-	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnknownType, options.AddrTypeStr)
-	}
-	options.AddrType = addrType
-
-	return nil
+	return args
 }
 
-// RunSSH executes the SSH intent with the given arguments.
-func RunSSH(args []string) error {
-	options, err := NewSSHOptions(args)
-	if err != nil {
-		return err
-	}
-
-	if options.Destination == "" {
-		return ErrMissingDestination
-	}
-
-	logger := log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-	if options.Debug {
-		logger.SetOutput(os.Stderr)
-	}
-
-	client, err := ec2.NewClient(options.Region, options.Profile, logger)
-	if err != nil {
-		return err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "ec2ssh")
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	session, err := ssh.NewSSHSession(client, options.DstType, options.AddrType, options.Destination,
-		options.Login, options.Port, options.IdentityFile, options.UseEICE, options.EICEID,
-		options.NoSendKeys, options.SSHArgs, options.CommandWithArgs, tmpDir, logger)
-	if err != nil {
-		return err
-	}
-
-	return session.Run()
+// Run executes the SSH connection.
+func (s *SSHSession) Run() error {
+	return s.run("ssh", s.buildArgs)
 }
-

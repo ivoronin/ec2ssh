@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/ivoronin/ec2ssh/internal/app"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/intent"
 	"github.com/ivoronin/ec2ssh/internal/tunnel"
 )
-
-// Note: Help is handled by intent.IntentHelp, not by ErrHelp from option parsing.
 
 func fatalError(err error) {
 	fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
@@ -28,12 +27,13 @@ func usage(err error) {
 }
 
 func main() {
-	// Resolve intent from binary name and first argument
 	resolvedIntent, args := intent.Resolve(os.Args[0], os.Args[1:])
 
 	var err error
 
 	switch resolvedIntent {
+	case intent.IntentHelp:
+		usage(nil)
 	case intent.IntentTunnel:
 		tunnelURI := os.Getenv("EC2SSH_TUNNEL_URI")
 		if tunnelURI == "" {
@@ -41,27 +41,35 @@ func main() {
 		}
 
 		err = tunnel.Run(tunnelURI)
-	case intent.IntentHelp:
-		usage(nil)
-
-		return
 	case intent.IntentList:
 		err = app.RunList(args)
 	case intent.IntentSSH:
-		err = app.RunSSH(args)
+		var session *app.SSHSession
+		if session, err = app.NewSSHSession(args); err == nil {
+			err = session.Run()
+		}
 	case intent.IntentSFTP:
-		err = app.RunSFTP(args)
+		var session *app.SFTPSession
+		if session, err = app.NewSFTPSession(args); err == nil {
+			err = session.Run()
+		}
 	case intent.IntentSCP:
-		err = app.RunSCP(args)
+		var session *app.SCPSession
+		if session, err = app.NewSCPSession(args); err == nil {
+			err = session.Run()
+		}
 	default:
 		fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
 	}
 
 	if err != nil {
-		switch {
-		case errors.Is(err, argsieve.ErrSift), errors.Is(err, app.ErrUsage):
+		// Handle subprocess exit codes - propagate them as our exit code
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		} else if errors.Is(err, argsieve.ErrSift) || errors.Is(err, app.ErrUsage) {
 			usage(err)
-		default:
+		} else {
 			fatalError(err)
 		}
 	}

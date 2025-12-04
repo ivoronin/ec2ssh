@@ -7,7 +7,7 @@ import "strings"
 func ParseSSHDestination(destination string) (login, host, port string) {
 	if strings.HasPrefix(destination, "ssh://") {
 		login, host, port = parseSSHURL(destination)
-		host = stripIPv6Brackets(host)
+		host = StripIPv6Brackets(host)
 	} else {
 		login, host = parseLoginHost(destination)
 	}
@@ -42,7 +42,9 @@ func parseHostPort(hostport string) (string, string) {
 	return hostport, ""
 }
 
-func stripIPv6Brackets(host string) string {
+// StripIPv6Brackets removes surrounding brackets from an IPv6 address.
+// Returns the original string if no brackets are present.
+func StripIPv6Brackets(host string) string {
 	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
 		return host[1 : len(host)-1]
 	}
@@ -78,7 +80,7 @@ func parseSFTPURL(url string) (login, host, port, path string) {
 
 	login, hostport := parseLoginHost(loginhostport)
 	host, port = parseHostPort(hostport)
-	host = stripIPv6Brackets(host)
+	host = StripIPv6Brackets(host)
 
 	return login, host, port, path
 }

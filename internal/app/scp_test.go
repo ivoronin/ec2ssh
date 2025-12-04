@@ -7,36 +7,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewSCPOptions(t *testing.T) {
+func TestNewSCPSession(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr string // empty means no error expected
-		check   func(t *testing.T, opts *SCPOptions)
+		check   func(t *testing.T, session *SCPSession)
 	}{
 		// Download cases
 		{
 			name: "download basic",
 			args: []string{"user@host:/remote/file.txt", "./local/"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "user", opts.Login)
-				assert.Equal(t, "/remote/file.txt", opts.RemotePath)
-				assert.Equal(t, "./local/", opts.LocalPath)
-				assert.False(t, opts.IsUpload)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "user", session.Login)
+				assert.Equal(t, "/remote/file.txt", session.RemotePath)
+				assert.Equal(t, "./local/", session.LocalPath)
+				assert.False(t, session.IsUpload)
 			},
 		},
 		{
 			name: "download with instance ID",
 			args: []string{"ec2-user@i-0123456789abcdef0:/var/log/app.log", "/tmp/"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "i-0123456789abcdef0", opts.Destination)
-				assert.Equal(t, "ec2-user", opts.Login)
-				assert.Equal(t, "/var/log/app.log", opts.RemotePath)
-				assert.Equal(t, "/tmp/", opts.LocalPath)
-				assert.False(t, opts.IsUpload)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "i-0123456789abcdef0", session.Destination)
+				assert.Equal(t, "ec2-user", session.Login)
+				assert.Equal(t, "/var/log/app.log", session.RemotePath)
+				assert.Equal(t, "/tmp/", session.LocalPath)
+				assert.False(t, session.IsUpload)
 			},
 		},
 
@@ -44,23 +44,23 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "upload basic",
 			args: []string{"./local/file.txt", "user@host:/remote/path/"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "user", opts.Login)
-				assert.Equal(t, "/remote/path/", opts.RemotePath)
-				assert.Equal(t, "./local/file.txt", opts.LocalPath)
-				assert.True(t, opts.IsUpload)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "user", session.Login)
+				assert.Equal(t, "/remote/path/", session.RemotePath)
+				assert.Equal(t, "./local/file.txt", session.LocalPath)
+				assert.True(t, session.IsUpload)
 			},
 		},
 		{
 			name: "upload to name tag",
 			args: []string{"/etc/config.yaml", "ubuntu@web-prod:/etc/app/"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "web-prod", opts.Destination)
-				assert.Equal(t, "ubuntu", opts.Login)
-				assert.Equal(t, "/etc/app/", opts.RemotePath)
-				assert.Equal(t, "/etc/config.yaml", opts.LocalPath)
-				assert.True(t, opts.IsUpload)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "web-prod", session.Destination)
+				assert.Equal(t, "ubuntu", session.Login)
+				assert.Equal(t, "/etc/app/", session.RemotePath)
+				assert.Equal(t, "/etc/config.yaml", session.LocalPath)
+				assert.True(t, session.IsUpload)
 			},
 		},
 
@@ -68,8 +68,8 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "-P flag sets port",
 			args: []string{"-P", "2222", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "2222", opts.Port)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "2222", session.Port)
 			},
 		},
 
@@ -77,8 +77,8 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "-i flag sets identity file",
 			args: []string{"-i", "/path/to/key", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "/path/to/key", opts.IdentityFile)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "/path/to/key", session.IdentityFile)
 			},
 		},
 
@@ -86,16 +86,16 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "--use-eice",
 			args: []string{"--use-eice", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.True(t, opts.UseEICE)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.True(t, session.UseEICE)
 			},
 		},
 		{
 			name: "--eice-id implies --use-eice",
 			args: []string{"--eice-id", "eice-12345678", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "eice-12345678", opts.EICEID)
-				assert.True(t, opts.UseEICE)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "eice-12345678", session.EICEID)
+				assert.True(t, session.UseEICE)
 			},
 		},
 
@@ -103,23 +103,23 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "--no-send-keys",
 			args: []string{"--no-send-keys", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.True(t, opts.NoSendKeys)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.True(t, session.NoSendKeys)
 			},
 		},
 		{
 			name: "--debug",
 			args: []string{"--debug", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.True(t, opts.Debug)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.True(t, session.Debug)
 			},
 		},
 		{
 			name: "--region and --profile",
 			args: []string{"--region", "us-west-2", "--profile", "myprofile", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "us-west-2", opts.Region)
-				assert.Equal(t, "myprofile", opts.Profile)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "us-west-2", session.Region)
+				assert.Equal(t, "myprofile", session.Profile)
 			},
 		},
 
@@ -127,15 +127,15 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "scp passthrough -o",
 			args: []string{"-o", "StrictHostKeyChecking=no", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, []string{"-o", "StrictHostKeyChecking=no"}, opts.SCPArgs)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, []string{"-o", "StrictHostKeyChecking=no"}, session.PassArgs)
 			},
 		},
 		{
 			name: "scp passthrough -r (recursive)",
 			args: []string{"-r", "user@host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Contains(t, opts.SCPArgs, "-r")
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Contains(t, session.PassArgs, "-r")
 			},
 		},
 
@@ -195,19 +195,19 @@ func TestNewSCPOptions(t *testing.T) {
 		{
 			name: "local file with colon in name (dot prefix)",
 			args: []string{"./file:with:colons", "host:/remote"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "./file:with:colons", opts.LocalPath)
-				assert.Equal(t, "host", opts.Destination)
-				assert.Equal(t, "/remote", opts.RemotePath)
-				assert.True(t, opts.IsUpload)
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "./file:with:colons", session.LocalPath)
+				assert.Equal(t, "host", session.Destination)
+				assert.Equal(t, "/remote", session.RemotePath)
+				assert.True(t, session.IsUpload)
 			},
 		},
 		{
 			name: "remote without user defaults to current user",
 			args: []string{"host:/path", "./local"},
-			check: func(t *testing.T, opts *SCPOptions) {
-				assert.Equal(t, "host", opts.Destination)
-				assert.NotEmpty(t, opts.Login) // defaults to current user
+			check: func(t *testing.T, session *SCPSession) {
+				assert.Equal(t, "host", session.Destination)
+				assert.NotEmpty(t, session.Login) // defaults to current user
 			},
 		},
 	}
@@ -216,7 +216,7 @@ func TestNewSCPOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			opts, err := NewSCPOptions(tt.args)
+			session, err := NewSCPSession(tt.args)
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -226,7 +226,7 @@ func TestNewSCPOptions(t *testing.T) {
 
 			require.NoError(t, err)
 			if tt.check != nil {
-				tt.check(t, opts)
+				tt.check(t, session)
 			}
 		})
 	}
