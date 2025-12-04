@@ -92,71 +92,45 @@ ec2ssh -L 8080:localhost:8080 my-app-server
 
 ## Usage
 ```
-Usage: ec2ssh [ec2ssh options] [ssh arguments] destination [command [argument ...]]
+Usage: ec2ssh [intent] [options] [user@]destination [command]
+       ec2sftp [options] [user@]destination[:path]
+       ec2scp [options] source target
+       ec2list [options]
 
-Connect to an EC2 instance directly using SSH or via the EC2 Instance Connect
-Endpoint (EICE), by the instance ID, private, public, or IPv6 address, private
-DNS name, or name tag, using ephemeral SSH keys.
+Intents (first argument or inferred from binary name ec2sftp/ec2scp/ec2list):
+  --ssh (default), --sftp, --scp, --list, --help
 
-  Example - Connect to an instance using the instance ID:
-     $ ec2ssh -l ec2-user i-0123456789abcdef0
+AWS Options:
+  --region <region>       AWS region (default: SDK config)
+  --profile <profile>     AWS profile (default: SDK config)
 
-  Example - Connect to an instance using a name tag with the public IP address:
-     $ ec2ssh -p 2222 --address-type public ec2-user@app01
+Connection Options:
+  --use-eice              Use EC2 Instance Connect Endpoint (default: false)
+  --eice-id <id>          EICE ID (implies --use-eice, default: autodetect by VPC/subnet)
+  --destination-type <t>  How to interpret destination (default: auto)
+                          Values: id|private_ip|public_ip|ipv6|private_dns|name_tag
+  --address-type <type>   Address for connection (default: auto)
+                          Values: private|public|ipv6
+  --no-send-keys          Skip sending SSH keys via EC2 Instance Connect (default: false)
 
-  Example - Connect to an instance using its private DNS name via an EICE tunnel:
-     $ ec2ssh --use-eice ip-10-0-0-1
+List Options:
+  --list-columns <cols>   Columns to display
+                          Default: ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP
+                          Available: ID,NAME,STATE,TYPE,AZ,PRIVATE-IP,
+                                     PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
 
-  Example - Use any SSH options and arguments as usual:
-     $ ec2ssh --use-eice -L 8888:127.0.0.1:8888 -N -i ~/.ssh/id_rsa_alt -o VisualHostKey=Yes app01
+Other:
+  --debug                 Enable debug logging (default: false)
 
-Options:
-  --region <string>
-     Use the specified AWS region (env AWS_REGION, AWS_DEFAULT_REGION).
-     Defaults to using the AWS SDK configuration.
+Examples:
+  ec2ssh ec2-user@i-0123456789abcdef0
+  ec2ssh --use-eice -L 8080:localhost:80 ubuntu@my-web-server
+  ec2sftp -P 2222 user@app01:/var/log
+  ec2scp -r --region us-west-2 ./logs admin@10.0.1.5:/backup/
+  ec2list --profile prod --list-columns ID,NAME,STATE
 
-  --profile <string>
-     Use the specified AWS profile (env AWS_PROFILE).
-     Defaults to using the AWS SDK configuration.
-
-  --list
-     List instances in the region and exit.
-
-  --list-columns <columns>
-     Specify columns to display in the list output.
-     Defaults to ID,NAME,STATE,PRIVATE-IP,PUBLIC-IP
-     Available columns: ID,NAME,STATE,TYPE,PRIVATE-IP,PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
-
-  --use-eice
-     Use EC2 Instance Connect Endpoint (EICE) to connect to the instance.
-     Default is false. Ignores --address-type, private address is always used.
-
-  --eice-id <string>
-     Specifies the EC2 Instance Connect Endpoint (EICE) ID to use.
-     Defaults to autodetection based on the instance's VPC and subnet.
-     Automatically implies --use-eice.
-
-  --destination-type <id|private_ip|public_ip|ipv6|private_dns|name_tag>
-     Specify the destination type for instance search.
-     Defaults to automatically detecting the type based on the destination.
-     First matched instance will be used for connection.
-
-  --address-type <private|public|ipv6>
-     Specify the address type for connecting to the instance.
-     Defaults to use the first available address from the list: private, public, ipv6.
-
-  --no-send-keys
-     Do not send SSH keys to the instance using EC2 Instance Connect.
-
-  --debug
-     Enable debug logging.
-
-  ssh arguments
-     Specify arguments to pass to SSH.
-
-  destination
-     Specify the destination for connection. Can be one of: instance ID,
-     private, public or IPv6 IP address, private DNS name, or name tag.
+All standard ssh/sftp/scp options are supported and passed through to the
+underlying command.
 ```
 
 ## Configuration

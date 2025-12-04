@@ -22,7 +22,7 @@ func usage(err error) {
 		fmt.Fprintf(os.Stderr, "ec2ssh: %v\n", err)
 	}
 
-	fmt.Fprint(os.Stderr, app.HelpText)
+	fmt.Fprint(os.Stderr, HelpText)
 	os.Exit(1)
 }
 
