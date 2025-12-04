@@ -16,44 +16,48 @@ That's it. You're connected.
 
 ![](demo/demo.webp)
 
-## Why ec2ssh?
-
-Connecting to EC2 instances the traditional way is painful:
-
-```bash
-# The old way: 5 commands, mass frustration
-INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=my-app" \
-  --query 'Reservations[0].Instances[0].InstanceId' --output text)
-IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID \
-  --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-ssh-keygen -t ed25519 -f /tmp/key -N ""
-aws ec2-instance-connect send-ssh-public-key --instance-id $INSTANCE_ID \
-  --instance-os-user ec2-user --ssh-public-key file:///tmp/key.pub
-ssh -i /tmp/key ec2-user@$IP  # Quick! Before the 60-second key expires!
-```
-
-**ec2ssh** reduces this to a single command:
-
-```bash
-ec2ssh my-app
-```
-
-| Feature | Raw AWS CLI | ec2ssh |
-|---------|-------------|--------|
-| Commands needed | 5+ | 1 |
-| Instance lookup by name | Complex `--query` syntax | Just use the name |
-| SSH key management | Manual generate/push/cleanup | Automatic ephemeral keys |
-| Private instances (EICE) | WebSocket setup, manual signing | `--use-eice` flag |
-| IP auto-detection | Manual query + decision | Smart priority selection |
-| SSH option passthrough | Separate command | Full compatibility |
-
 ## Features
 
-- **Smart Instance Discovery** - Find instances by ID, name tag, private/public IP, IPv6, or DNS name
-- **Zero Key Management** - Generates ephemeral ed25519 keys per session, auto-cleaned after use
-- **Private Instance Access** - One flag (`--use-eice`) for EC2 Instance Connect Endpoint tunneling
-- **Full SSH Compatibility** - All your favorite SSH options work: `-L`, `-D`, `-J`, `-o`, and more
-- **Quick Instance Listing** - See all your instances with `--list`
+### 🔍 Smart Instance Discovery
+
+Connect using whatever identifier you have - no more digging through the AWS console:
+
+| Identifier | Example |
+|------------|---------|
+| Instance ID | `ec2ssh i-0123456789abcdef0` |
+| Name tag | `ec2ssh my-app-server` |
+| Private IP | `ec2ssh 10.0.1.50` |
+| Public IP | `ec2ssh 54.123.45.67` |
+| IPv6 | `ec2ssh 2600:1f18:...` |
+| Private DNS | `ec2ssh ip-10-0-1-50.ec2.internal` |
+
+ec2ssh auto-detects the identifier type, or specify explicitly with `--destination-type`.
+
+### 🔑 Ephemeral SSH Keys via EC2 Instance Connect
+
+No more managing SSH keys. For each session ec2ssh:
+
+1. Generates a fresh ed25519 keypair
+2. Pushes the public key to the instance via EC2 Instance Connect API
+3. Connects using the private key
+4. Cleans up keys after disconnection
+
+**Security**: Keys are valid for only 60 seconds on the instance. No SSH keys are stored permanently - maximum security, zero maintenance.
+
+### 🚇 Private Instance Access via EICE
+
+Reach instances in private subnets without bastion hosts or VPNs:
+
+```bash
+ec2ssh --use-eice my-private-server
+```
+
+ec2ssh handles WebSocket tunnel setup and AWS Signature V4 signing automatically. EICE endpoint is auto-detected based on instance VPC/subnet.
+
+### 📋 Additional Features
+
+- **Full SSH/SFTP/SCP Compatibility** - All options pass through: `-L`, `-D`, `-J`, `-o`, and more
+- **Quick Instance Listing** - See all instances with `ec2list` or `--list`
 
 ## Installation
 
@@ -184,13 +188,6 @@ For private instance access via EICE (`--use-eice`), add:
   "Resource": "*"
 }
 ```
-
-## Security
-
-- **Ephemeral Keys**: ec2ssh generates a fresh ed25519 keypair for each session, stored in a temporary directory and automatically cleaned up
-- **60-Second Window**: Keys pushed via EC2 Instance Connect are only valid for 60 seconds on the instance
-- **EICE Tunnel Signing**: WebSocket tunnels use AWS Signature V4 with 60-second expiry
-- **No Persistent Keys**: No SSH keys are stored permanently by ec2ssh
 
 ## License
 
