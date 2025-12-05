@@ -13,6 +13,9 @@ import (
 	"github.com/ivoronin/ec2ssh/internal/tunnel"
 )
 
+// version is set at build time via ldflags.
+var version = "dev"
+
 // Runner encapsulates the CLI execution logic for testing.
 type Runner struct {
 	Args         []string                 // Command-line arguments (os.Args)
@@ -39,6 +42,9 @@ func (r *Runner) Run() int {
 	var err error
 
 	switch resolvedIntent {
+	case intent.IntentVersion:
+		fmt.Println(version)
+		return 0
 	case intent.IntentHelp:
 		return r.usage(nil)
 	case intent.IntentTunnel:

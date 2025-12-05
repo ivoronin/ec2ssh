@@ -19,6 +19,8 @@ const (
 	IntentSFTP
 	// IntentSCP copies files to/from an EC2 instance via SCP.
 	IntentSCP
+	// IntentVersion displays the version and exits.
+	IntentVersion
 )
 
 // Resolve determines the intent from the binary name and command-line arguments.
@@ -43,6 +45,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 			return IntentSFTP, args[1:]
 		case "--scp":
 			return IntentSCP, args[1:]
+		case "--version":
+			return IntentVersion, args[1:]
 		}
 	}
 
@@ -76,6 +80,8 @@ func (i Intent) String() string {
 		return "sftp"
 	case IntentSCP:
 		return "scp"
+	case IntentVersion:
+		return "version"
 	default:
 		return "unknown"
 	}

@@ -193,6 +193,14 @@ func TestResolve(t *testing.T) {
 			wantIntent: IntentSCP,
 			wantArgs:   []string{"-r", "--region", "us-west-2", "/local", "host:/remote"},
 		},
+		// Version intent
+		{
+			name:       "--version flag",
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--version"},
+			wantIntent: IntentVersion,
+			wantArgs:   []string{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -220,6 +228,7 @@ func TestIntent_String(t *testing.T) {
 		{IntentTunnel, "tunnel"},
 		{IntentSFTP, "sftp"},
 		{IntentSCP, "scp"},
+		{IntentVersion, "version"},
 		{Intent(99), "unknown"},
 	}
 

@@ -7,7 +7,7 @@ const HelpText = `Usage: ec2ssh [intent] [options] [user@]destination [command]
        ec2list [options]
 
 Intents (first argument or inferred from binary name ec2sftp/ec2scp/ec2list):
-  --ssh (default), --sftp, --scp, --list, --help
+  --ssh (default), --sftp, --scp, --list, --help, --version
 
 AWS Options:
   --region <region>       AWS region (default: SDK config)
