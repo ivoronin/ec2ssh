@@ -54,13 +54,13 @@ homebrew_casks:
     hooks:
       post:
         install: |
-          ln -sf "#{HOMEBREW_PREFIX}/bin/ec2ssh" "#{HOMEBREW_PREFIX}/bin/ec2scp"
-          ln -sf "#{HOMEBREW_PREFIX}/bin/ec2ssh" "#{HOMEBREW_PREFIX}/bin/ec2sftp"
-          ln -sf "#{HOMEBREW_PREFIX}/bin/ec2ssh" "#{HOMEBREW_PREFIX}/bin/ec2list"
+          system_command "ln", args: ["-sf", "#{HOMEBREW_PREFIX}/bin/ec2ssh", "#{HOMEBREW_PREFIX}/bin/ec2scp"]
+          system_command "ln", args: ["-sf", "#{HOMEBREW_PREFIX}/bin/ec2ssh", "#{HOMEBREW_PREFIX}/bin/ec2sftp"]
+          system_command "ln", args: ["-sf", "#{HOMEBREW_PREFIX}/bin/ec2ssh", "#{HOMEBREW_PREFIX}/bin/ec2list"]
         uninstall: |
-          rm -f "#{HOMEBREW_PREFIX}/bin/ec2scp"
-          rm -f "#{HOMEBREW_PREFIX}/bin/ec2sftp"
-          rm -f "#{HOMEBREW_PREFIX}/bin/ec2list"
+          system_command "rm", args: ["-f", "#{HOMEBREW_PREFIX}/bin/ec2scp"]
+          system_command "rm", args: ["-f", "#{HOMEBREW_PREFIX}/bin/ec2sftp"]
+          system_command "rm", args: ["-f", "#{HOMEBREW_PREFIX}/bin/ec2list"]
 
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
