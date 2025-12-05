@@ -42,17 +42,37 @@ func (r *Runner) Run() int {
 	var err error
 
 	switch resolvedIntent {
+	case intent.IntentHelp:
+		return r.usage(nil)
 	case intent.IntentVersion:
 		fmt.Println(version)
 		return 0
-	case intent.IntentHelp:
-		return r.usage(nil)
-	case intent.IntentTunnel:
+	case intent.IntentSSH:
+		var session *app.SSHSession
+		if session, err = app.NewSSHSession(args); err == nil {
+			err = session.Run()
+		}
+	case intent.IntentSCP:
+		var session *app.SCPSession
+		if session, err = app.NewSCPSession(args); err == nil {
+			err = session.Run()
+		}
+	case intent.IntentSFTP:
+		var session *app.SFTPSession
+		if session, err = app.NewSFTPSession(args); err == nil {
+			err = session.Run()
+		}
+	case intent.IntentEICETunnel:
 		tunnelConfig := r.Getenv("EC2SSH_TUNNEL_CONFIG")
 		if tunnelConfig == "" {
 			return r.fatalError(errors.New("EC2SSH_TUNNEL_CONFIG environment variable not set"))
 		}
 		err = r.TunnelRunner(tunnelConfig)
+	case intent.IntentSSMSession:
+		var session *app.SSMSession
+		if session, err = app.NewSSMSession(args); err == nil {
+			err = session.Run()
+		}
 	case intent.IntentSSMTunnel:
 		tunnelConfig := r.Getenv("EC2SSH_TUNNEL_CONFIG")
 		if tunnelConfig == "" {
@@ -61,26 +81,6 @@ func (r *Runner) Run() int {
 		err = tunnel.RunSSM(tunnelConfig)
 	case intent.IntentList:
 		err = app.RunList(args)
-	case intent.IntentSSH:
-		var session *app.SSHSession
-		if session, err = app.NewSSHSession(args); err == nil {
-			err = session.Run()
-		}
-	case intent.IntentSFTP:
-		var session *app.SFTPSession
-		if session, err = app.NewSFTPSession(args); err == nil {
-			err = session.Run()
-		}
-	case intent.IntentSCP:
-		var session *app.SCPSession
-		if session, err = app.NewSCPSession(args); err == nil {
-			err = session.Run()
-		}
-	case intent.IntentSSMSession:
-		var session *app.SSMSession
-		if session, err = app.NewSSMSession(args); err == nil {
-			err = session.Run()
-		}
 	default:
 		return r.fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
 	}

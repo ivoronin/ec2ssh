@@ -50,7 +50,7 @@ func TestRunner_Tunnel_Success(t *testing.T) {
 	stderr := &bytes.Buffer{}
 
 	runner := &Runner{
-		Args: []string{"ec2ssh", "--wscat"},
+		Args: []string{"ec2ssh", "--eice-tunnel"},
 		Getenv: func(key string) string {
 			if key == "EC2SSH_TUNNEL_CONFIG" {
 				return "wss://test.tunnel.uri"
@@ -77,7 +77,7 @@ func TestRunner_Tunnel_MissingEnvVar(t *testing.T) {
 	stderr := &bytes.Buffer{}
 
 	runner := &Runner{
-		Args: []string{"ec2ssh", "--wscat"},
+		Args: []string{"ec2ssh", "--eice-tunnel"},
 		Getenv: func(key string) string {
 			return "" // No environment variable set
 		},
@@ -96,7 +96,7 @@ func TestRunner_Tunnel_Error(t *testing.T) {
 	stderr := &bytes.Buffer{}
 
 	runner := &Runner{
-		Args: []string{"ec2ssh", "--wscat"},
+		Args: []string{"ec2ssh", "--eice-tunnel"},
 		Getenv: func(key string) string {
 			if key == "EC2SSH_TUNNEL_CONFIG" {
 				return "wss://test.uri"

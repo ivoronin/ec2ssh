@@ -90,10 +90,10 @@ func TestResolve(t *testing.T) {
 			wantArgs:   []string{},
 		},
 		{
-			name:       "--wscat tunnel",
+			name:       "--eice-tunnel",
 			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--wscat"},
-			wantIntent: IntentTunnel,
+			args:       []string{"--eice-tunnel"},
+			wantIntent: IntentEICETunnel,
 			wantArgs:   []string{},
 		},
 
@@ -255,7 +255,7 @@ func TestIntent_String(t *testing.T) {
 		{IntentSSH, "ssh"},
 		{IntentList, "list"},
 		{IntentHelp, "help"},
-		{IntentTunnel, "tunnel"},
+		{IntentEICETunnel, "eice-tunnel"},
 		{IntentSFTP, "sftp"},
 		{IntentSCP, "scp"},
 		{IntentVersion, "version"},

@@ -178,7 +178,7 @@ func (s *baseSession) sendSSHPublicKey() error {
 
 // setupTunnel configures EICE: overrides destination address, sets proxy command, and creates tunnel URI.
 func (s *baseSession) setupTunnel() error {
-	s.proxyCommand = fmt.Sprintf("%s --wscat", os.Args[0])
+	s.proxyCommand = fmt.Sprintf("%s --eice-tunnel", os.Args[0])
 
 	tunnelURI, err := s.client.CreateEICETunnelURI(s.instance, s.Port, s.EICEID)
 	if err != nil {

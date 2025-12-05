@@ -92,9 +92,9 @@ func TestBaseArgs(t *testing.T) {
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
-				proxyCommand: "ec2ssh --wscat",
+				proxyCommand: "ec2ssh --eice-tunnel",
 			},
-			want: []string{"-oProxyCommand=ec2ssh --wscat", "-oHostKeyAlias=i-0123456789abcdef0"},
+			want: []string{"-oProxyCommand=ec2ssh --eice-tunnel", "-oHostKeyAlias=i-0123456789abcdef0"},
 		},
 		{
 			name: "with passthrough args",
@@ -112,11 +112,11 @@ func TestBaseArgs(t *testing.T) {
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
-				proxyCommand:   "ec2ssh --wscat",
+				proxyCommand:   "ec2ssh --eice-tunnel",
 				privateKeyPath: "/tmp/key",
 				PassArgs:       []string{"-t"},
 			},
-			want: []string{"-oProxyCommand=ec2ssh --wscat", "-i/tmp/key", "-oHostKeyAlias=i-0123456789abcdef0", "-t"},
+			want: []string{"-oProxyCommand=ec2ssh --eice-tunnel", "-i/tmp/key", "-oHostKeyAlias=i-0123456789abcdef0", "-t"},
 		},
 	}
 
@@ -189,10 +189,10 @@ func TestSSHSessionBuildArgs(t *testing.T) {
 					},
 					destinationAddr: "i-0123456789abcdef0",
 					Login:           "ec2-user",
-					proxyCommand:    "ec2ssh --wscat",
+					proxyCommand:    "ec2ssh --eice-tunnel",
 				},
 			},
-			want: []string{"-oProxyCommand=ec2ssh --wscat", "-oHostKeyAlias=i-0123456789abcdef0", "-lec2-user", "i-0123456789abcdef0"},
+			want: []string{"-oProxyCommand=ec2ssh --eice-tunnel", "-oHostKeyAlias=i-0123456789abcdef0", "-lec2-user", "i-0123456789abcdef0"},
 		},
 	}
 
