@@ -6,15 +6,64 @@
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/ivoronin/ec2ssh/goreleaser.yml)
 ![GitHub top language](https://img.shields.io/github/languages/top/ivoronin/ec2ssh)
 
-**SSH into EC2 instances the easy way.** No more juggling instance IDs, IP lookups, and key management.
+**The Swiss Army knife for EC2 instance access.** SSH, SCP, SFTP, and SSM - one tool, zero configuration.
+
+> Stop juggling instance IDs, managing SSH keys, and maintaining bastion hosts.
+> ec2ssh gives you secure access to any EC2 instance in seconds.
 
 ![](demo/demo.webp)
 
-That's it. You're connected.
+## Why ec2ssh?
+
+| Challenge | Traditional Approach | ec2ssh |
+|-----------|---------------------|--------|
+| Finding instances | Copy instance ID from AWS console | Use name tag, IP, or DNS directly |
+| SSH key management | Distribute, rotate, revoke keys across teams | Ephemeral keys - auto-generated, 60s lifetime |
+| Private instance access | Maintain bastion hosts and VPNs | Built-in EICE and SSM tunneling |
+| Multiple protocols | Juggle separate tools for SSH/SCP/SFTP | One binary, multiple modes |
+| Dependencies | Python, Ruby, or Node runtimes | Single Go binary, zero dependencies |
+
+## At a Glance
+
+| Capability | Command |
+|------------|---------|
+| SSH to instance | `ec2ssh my-server` |
+| SCP file transfer | `ec2scp ./file.txt ec2-user@my-server:/tmp/` |
+| SFTP session | `ec2sftp my-server` |
+| SSM shell (no SSH) | `ec2ssm my-server` |
+| List all instances | `ec2list` or `ec2ssh --list` |
+| Private instance via EICE | `ec2ssh --use-eice my-private-server` |
+| Private instance via SSM | `ec2ssh --use-ssm my-private-server` |
+| Port forwarding | `ec2ssh -L 8080:localhost:80 my-server` |
 
 ## Features
 
-### 🔍 Smart Instance Discovery
+### Connection Methods
+
+ec2ssh supports four ways to reach your instances:
+
+| Method | Command | Use Case | Requirements |
+|--------|---------|----------|--------------|
+| **Direct SSH** | `ec2ssh` | Public instances or within VPC | Network connectivity to instance |
+| **EICE Tunnel** | `ec2ssh --use-eice` | Private instances via EC2 Instance Connect Endpoint | EICE endpoint in VPC |
+| **SSM Tunnel** | `ec2ssh --use-ssm` | SSH over Systems Manager tunnel | SSM Agent on instance |
+| **SSM Shell** | `ec2ssm` | Direct shell via SSM (no SSH) | SSM Agent on instance |
+
+```bash
+# Direct SSH (public instance or same VPC)
+ec2ssh my-public-server
+
+# SSH via EC2 Instance Connect Endpoint (private subnet)
+ec2ssh --use-eice my-private-server
+
+# SSH via SSM tunnel (no inbound ports required)
+ec2ssh --use-ssm my-private-server
+
+# Direct SSM shell session - no SSH at all
+ec2ssm my-instance
+```
+
+### Smart Instance Discovery
 
 Connect using whatever identifier you have - no more digging through the AWS console:
 
@@ -29,45 +78,34 @@ Connect using whatever identifier you have - no more digging through the AWS con
 
 ec2ssh auto-detects the identifier type, or specify explicitly with `--destination-type`.
 
-### 🔑 Ephemeral SSH Keys via EC2 Instance Connect
+### Ephemeral SSH Keys
 
 No more managing SSH keys. For each session ec2ssh:
 
 1. Generates a fresh ed25519 keypair
 2. Pushes the public key to the instance via EC2 Instance Connect API
 3. Connects using the private key
-4. Cleans up keys after disconnection
+4. Cleans up after disconnection
 
-**Security**: Keys are valid for only 60 seconds on the instance. No SSH keys are stored permanently - maximum security, zero maintenance.
+**Security**: Keys are valid for only 60 seconds on the instance. No SSH keys stored permanently - maximum security, zero maintenance.
 
-### 🚇 Private Instance Access via EICE or SSM
+### Full SSH Compatibility
 
-Reach instances in private subnets without bastion hosts or VPNs:
-
-```bash
-# Via EC2 Instance Connect Endpoint
-ec2ssh --use-eice my-private-server
-
-# Via SSM Session Manager
-ec2ssh --use-ssm my-private-server
-```
-
-**EICE**: WebSocket tunnel with AWS Signature V4 signing. Endpoint auto-detected by VPC/subnet.
-
-**SSM**: Tunnels through SSM Session Manager. No inbound ports required, IAM-based access control, CloudTrail audit logging.
-
-### 🖥️ SSM Shell Sessions
-
-Start an interactive shell via SSM Session Manager (no SSH required):
+All standard SSH/SCP/SFTP options pass through unchanged:
 
 ```bash
-ec2ssm my-instance
+# Port forwarding (access RDS through EC2)
+ec2ssh -L 3306:my-rds.cluster.us-east-1.rds.amazonaws.com:3306 my-server
+
+# Remote port forwarding
+ec2ssh -R 8080:localhost:3000 my-server
+
+# Jump host
+ec2ssh -J bastion my-private-server
+
+# Custom SSH options
+ec2ssh -o StrictHostKeyChecking=no my-server
 ```
-
-### 📋 Additional Features
-
-- **Full SSH/SFTP/SCP Compatibility** - All options pass through: `-L`, `-D`, `-J`, `-o`, and more
-- **Quick Instance Listing** - See all instances with `ec2list` or `--list`
 
 ## Installation
 
@@ -83,43 +121,82 @@ Download the latest binary for your platform from [GitHub Releases](https://gith
 
 ### Symlinks
 
-Create symlinks to use `ec2sftp`, `ec2scp`, `ec2ssm`, and `ec2list` as standalone commands:
+The binary auto-detects its mode based on the name it was invoked with. Create symlinks to use standalone commands:
 
 ```bash
-ln -s ec2ssh ec2sftp
 ln -s ec2ssh ec2scp
+ln -s ec2ssh ec2sftp
 ln -s ec2ssh ec2ssm
 ln -s ec2ssh ec2list
 ```
 
-The binary auto-detects its intent based on the name it was invoked with.
+## Configuration
 
-## Quick Start
+### AWS Credentials
+
+ec2ssh uses the standard AWS SDK credential chain:
 
 ```bash
-# Connect by instance name tag
-ec2ssh my-app-server
+# Option 1: AWS CLI configuration
+aws configure
 
-# Connect by instance ID
-ec2ssh i-0123456789abcdef0
+# Option 2: Environment variables
+export AWS_ACCESS_KEY_ID=your_access_key
+export AWS_SECRET_ACCESS_KEY=your_secret_key
+export AWS_DEFAULT_REGION=us-east-1
 
-# Connect to a private instance via EICE tunnel
-ec2ssh --use-eice my-private-server
-
-# Connect to a private instance via SSM tunnel
-ec2ssh --use-ssm my-private-server
-
-# Start SSM shell session (no SSH)
-ec2ssm my-instance
-
-# List all instances in the region
-ec2ssh --list
-
-# Use with standard SSH options
-ec2ssh -L 8080:localhost:8080 my-app-server
+# Option 3: AWS Profile
+export AWS_PROFILE=my-profile
+# or use --profile flag
+ec2ssh --profile my-profile my-instance
 ```
 
-## Usage
+### Required IAM Permissions
+
+**Basic usage** (SSH/SCP/SFTP):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "ec2:DescribeInstances",
+      "ec2-instance-connect:SendSSHPublicKey"
+    ],
+    "Resource": "*"
+  }]
+}
+```
+
+**EICE tunneling** (`--use-eice`) - add:
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "ec2:DescribeInstanceConnectEndpoints",
+    "ec2-instance-connect:OpenTunnel"
+  ],
+  "Resource": "*"
+}
+```
+
+**SSM access** (`--use-ssm` or `ec2ssm`) - add:
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "ssm:StartSession",
+    "ssm:TerminateSession"
+  ],
+  "Resource": "*"
+}
+```
+
+## Usage Reference
+
+<details>
+<summary><strong>Full command reference (click to expand)</strong></summary>
+
 ```
 Usage: ec2ssh [options] [user@]destination [command]
        ec2scp [options] source target
@@ -166,70 +243,17 @@ Examples:
 All standard ssh/scp/sftp options are passed through to the underlying command.
 ```
 
-## Configuration
+</details>
 
-### AWS Credentials
+## Compared to Alternatives
 
-ec2ssh uses the standard AWS SDK credential chain. Configure using any of:
+ec2ssh combines capabilities that typically require multiple tools:
 
-```bash
-# Option 1: AWS CLI configuration
-aws configure
+- **vs. AWS CLI `ssh`**: Adds SCP, SFTP, SSM shell, instance listing, smart discovery by name/IP
+- **vs. aws-gate**: Single Go binary (no Python), EICE support, full SSH option passthrough
+- **vs. aws-ssm-tools**: Native Go, EICE support, ephemeral keys built-in
 
-# Option 2: Environment variables
-export AWS_ACCESS_KEY_ID=your_access_key
-export AWS_SECRET_ACCESS_KEY=your_secret_key
-export AWS_DEFAULT_REGION=us-east-1
-
-# Option 3: AWS Profile
-export AWS_PROFILE=my-profile
-# or use --profile flag
-ec2ssh --profile my-profile my-instance
-```
-
-### Required IAM Permissions
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeInstances",
-        "ec2-instance-connect:SendSSHPublicKey"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-For private instance access via EICE (`--use-eice`), add:
-
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "ec2:DescribeInstanceConnectEndpoints",
-    "ec2-instance-connect:OpenTunnel"
-  ],
-  "Resource": "*"
-}
-```
-
-For SSM access (`--use-ssm` or `ec2ssm`), add:
-
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "ssm:StartSession",
-    "ssm:TerminateSession"
-  ],
-  "Resource": "*"
-}
-```
+**One tool. All scenarios. Zero dependencies.**
 
 ## Acknowledgments
 
