@@ -37,7 +37,6 @@ jobs:
           args: release --clean ${{ env.GORELEASER_FLAGS }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:

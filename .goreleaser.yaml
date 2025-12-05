@@ -40,27 +40,5 @@ changelog:
       - '^docs:'
       - '^test:'
 
-homebrew_casks:
-  - repository:
-      owner: ivoronin
-      name: homebrew-ivoronin
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Casks
-    homepage: https://github.com/ivoronin/ec2ssh
-    description: Simplify SSH connections to AWS EC2 instances
-    license: GPL-3.0-only
-    binaries:
-      - ec2ssh
-    hooks:
-      post:
-        install: |
-          system_command "ln", args: ["-sf", "#{HOMEBREW_PREFIX}/bin/ec2ssh", "#{HOMEBREW_PREFIX}/bin/ec2scp"]
-          system_command "ln", args: ["-sf", "#{HOMEBREW_PREFIX}/bin/ec2ssh", "#{HOMEBREW_PREFIX}/bin/ec2sftp"]
-          system_command "ln", args: ["-sf", "#{HOMEBREW_PREFIX}/bin/ec2ssh", "#{HOMEBREW_PREFIX}/bin/ec2list"]
-        uninstall: |
-          system_command "rm", args: ["-f", "#{HOMEBREW_PREFIX}/bin/ec2scp"]
-          system_command "rm", args: ["-f", "#{HOMEBREW_PREFIX}/bin/ec2sftp"]
-          system_command "rm", args: ["-f", "#{HOMEBREW_PREFIX}/bin/ec2list"]
-
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
