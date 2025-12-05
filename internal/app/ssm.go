@@ -5,9 +5,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
+	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/mmmorris1975/ssm-session-client/ssmclient"
 )
 
@@ -20,7 +21,7 @@ type SSMSession struct {
 	Debug      bool   `long:"debug"`
 
 	// Parsed values
-	DstType     ec2.DstType
+	DstType     ec2client.DstType
 	Destination string
 
 	// Runtime
@@ -65,8 +66,14 @@ func (s *SSMSession) Run() error {
 		s.logger.SetOutput(os.Stderr)
 	}
 
+	// Load AWS config
+	cfg, err := awsclient.LoadConfig(s.Region, s.Profile, s.logger)
+	if err != nil {
+		return err
+	}
+
 	// Create EC2 client to resolve instance
-	client, err := newEC2Client(s.Region, s.Profile, s.logger)
+	client, err := newEC2Client(cfg, s.logger)
 	if err != nil {
 		return err
 	}
@@ -83,6 +90,6 @@ func (s *SSMSession) Run() error {
 
 	s.logger.Printf("starting SSM session to instance %s", *instance.InstanceId)
 
-	// Start SSM shell session using the client's AWS config
-	return ssmclient.ShellSession(client.Config(), *instance.InstanceId)
+	// Start SSM shell session using the AWS config
+	return ssmclient.ShellSession(cfg, *instance.InstanceId)
 }

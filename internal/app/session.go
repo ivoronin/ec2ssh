@@ -10,15 +10,17 @@ import (
 	"os/user"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
+	"github.com/ivoronin/ec2ssh/internal/awsclient"
+	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
 // Package-level factory functions for dependency injection in tests.
 // These default to the real implementations but can be overridden in tests.
 var (
-	newEC2Client    = ec2.NewClient
-	generateKeypair  = ssh.GenerateKeypair
+	loadAWSConfig   = awsclient.LoadConfig
+	newEC2Client    = ec2client.NewClient
+	generateKeypair = ssh.GenerateKeypair
 	getPublicKey    = ssh.GetPublicKey
 	executeCommand  = defaultExecuteCommand
 )
@@ -68,15 +70,15 @@ type baseSession struct {
 	Debug        bool   `long:"debug"`
 
 	// --- Parsed Session Parameters (set after argument parsing) ---
-	DstType     ec2.DstType  // Parsed from DstTypeStr
-	AddrType    ec2.AddrType // Parsed from AddrTypeStr
+	DstType     ec2client.DstType  // Parsed from DstTypeStr
+	AddrType    ec2client.AddrType // Parsed from AddrTypeStr
 	Login       string       // SSH login user
 	Destination string       // EC2 instance identifier (ID, IP, DNS, or name tag)
 	Port        string       // SSH/SFTP/SCP port
 	PassArgs    []string     // Passthrough args for the underlying command
 
 	// --- Runtime State (set during run()) ---
-	client          *ec2.Client    // EC2 API client
+	client          *ec2client.Client // EC2 API client
 	instance        types.Instance // Resolved EC2 instance
 	destinationAddr string         // Resolved connection address
 	privateKeyPath  string         // Path to SSH private key
@@ -207,9 +209,14 @@ func (s *baseSession) run(command string, buildArgs func() []string) error {
 	// Initialize logger
 	s.initLogger()
 
+	// Load AWS config
+	cfg, err := loadAWSConfig(s.Region, s.Profile, s.logger)
+	if err != nil {
+		return err
+	}
+
 	// Create EC2 client
-	var err error
-	s.client, err = newEC2Client(s.Region, s.Profile, s.logger)
+	s.client, err = newEC2Client(cfg, s.logger)
 	if err != nil {
 		return err
 	}
@@ -257,7 +264,7 @@ func (s *baseSession) run(command string, buildArgs func() []string) error {
 			return err
 		}
 	} else {
-		s.destinationAddr, err = ec2.GetInstanceAddr(s.instance, s.AddrType)
+		s.destinationAddr, err = ec2client.GetInstanceAddr(s.instance, s.AddrType)
 		if err != nil {
 			return err
 		}

@@ -7,10 +7,15 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
+	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// mockLoadAWSConfig is a test helper that returns a zero-value aws.Config.
+func mockLoadAWSConfig(region, profile string, logger *log.Logger) (aws.Config, error) {
+	return aws.Config{}, nil
+}
 
 // Test fixtures and mock helpers
 
@@ -23,7 +28,7 @@ type mockEC2Client struct {
 	tunnelErr    error
 }
 
-func (m *mockEC2Client) GetInstance(dstType ec2.DstType, destination string) (types.Instance, error) {
+func (m *mockEC2Client) GetInstance(dstType ec2client.DstType, destination string) (types.Instance, error) {
 	return m.instance, m.instanceErr
 }
 
@@ -47,14 +52,17 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 	t.Helper()
 
 	// Save original functions
+	origLoadAWSConfig := loadAWSConfig
 	origNewEC2Client := newEC2Client
 	origGenerateKeypair := generateKeypair
 	origGetPublicKey := getPublicKey
 	origExecuteCommand := executeCommand
 
 	// Replace with mocks
-	newEC2Client = func(region, profile string, logger *log.Logger) (*ec2.Client, error) {
-		// We can't return our mock directly since it's not *ec2.Client
+	loadAWSConfig = mockLoadAWSConfig
+
+	newEC2Client = func(cfg aws.Config, logger *log.Logger) (*ec2client.Client, error) {
+		// We can't return our mock directly since it's not *ec2client.Client
 		// Instead, we'll need to use a different approach - see note below
 		return nil, nil // This won't work as-is
 	}
@@ -77,6 +85,7 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 	}
 
 	return func() {
+		loadAWSConfig = origLoadAWSConfig
 		newEC2Client = origNewEC2Client
 		generateKeypair = origGenerateKeypair
 		getPublicKey = origGetPublicKey
@@ -84,7 +93,7 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 	}
 }
 
-// Note: The current design uses *ec2.Client directly in baseSession.
+// Note: The current design uses *ec2client.Client directly in baseSession.
 // To fully test run(), we'd need to either:
 // 1. Change baseSession.client to an interface type
 // 2. Or test at a higher level (e.g., through the CLI)
@@ -404,29 +413,29 @@ func TestSessionParseTypes_Valid(t *testing.T) {
 		name        string
 		dstTypeStr  string
 		addrTypeStr string
-		wantDst     ec2.DstType
-		wantAddr    ec2.AddrType
+		wantDst     ec2client.DstType
+		wantAddr    ec2client.AddrType
 	}{
 		{
 			name:        "auto types",
 			dstTypeStr:  "",
 			addrTypeStr: "",
-			wantDst:     ec2.DstTypeAuto,
-			wantAddr:    ec2.AddrTypeAuto,
+			wantDst:     ec2client.DstTypeAuto,
+			wantAddr:    ec2client.AddrTypeAuto,
 		},
 		{
 			name:        "explicit instance ID",
 			dstTypeStr:  "id",
 			addrTypeStr: "private",
-			wantDst:     ec2.DstTypeID,
-			wantAddr:    ec2.AddrTypePrivate,
+			wantDst:     ec2client.DstTypeID,
+			wantAddr:    ec2client.AddrTypePrivate,
 		},
 		{
 			name:        "private IP address",
 			dstTypeStr:  "private_ip",
 			addrTypeStr: "public",
-			wantDst:     ec2.DstTypePrivateIP,
-			wantAddr:    ec2.AddrTypePublic,
+			wantDst:     ec2client.DstTypePrivateIP,
+			wantAddr:    ec2client.AddrTypePublic,
 		},
 	}
 

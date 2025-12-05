@@ -1,11 +1,10 @@
 package tunnel
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/mmmorris1975/ssm-session-client/ssmclient"
 )
 
@@ -31,16 +30,8 @@ func RunSSM(tunnelInfo string) error {
 		profile = parts[3]
 	}
 
-	// Build AWS config
-	optFns := make([]func(*config.LoadOptions) error, 0)
-	if region != "" {
-		optFns = append(optFns, config.WithRegion(region))
-	}
-	if profile != "" {
-		optFns = append(optFns, config.WithSharedConfigProfile(profile))
-	}
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(), optFns...)
+	// Load AWS config
+	cfg, err := awsclient.LoadConfig(region, profile, nil)
 	if err != nil {
 		return err
 	}

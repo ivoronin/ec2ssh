@@ -10,8 +10,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
-	"github.com/ivoronin/ec2ssh/internal/ec2"
+	"github.com/ivoronin/ec2ssh/internal/ec2client"
 )
 
 var (
@@ -73,7 +74,12 @@ func RunList(args []string) error {
 		logger.SetOutput(os.Stderr)
 	}
 
-	client, err := ec2.NewClient(options.Region, options.Profile, logger)
+	cfg, err := awsclient.LoadConfig(options.Region, options.Profile, logger)
+	if err != nil {
+		return err
+	}
+
+	client, err := ec2client.NewClient(cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -124,7 +130,7 @@ func writeInstanceList(w io.Writer, instances []types.Instance, columns []string
 
 		values := map[string]*string{
 			"ID":          instance.InstanceId,
-			"NAME":        ec2.GetInstanceName(instance),
+			"NAME":        ec2client.GetInstanceName(instance),
 			"STATE":       &state,
 			"TYPE":        &typ,
 			"AZ":          az,
