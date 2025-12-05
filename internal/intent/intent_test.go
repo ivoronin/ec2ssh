@@ -201,6 +201,28 @@ func TestResolve(t *testing.T) {
 			wantIntent: IntentVersion,
 			wantArgs:   []string{},
 		},
+		// SSM intent
+		{
+			name:       "--ssm flag",
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--ssm", "my-instance"},
+			wantIntent: IntentSSM,
+			wantArgs:   []string{"my-instance"},
+		},
+		{
+			name:       "ec2ssm binary",
+			binPath:    "/usr/bin/ec2ssm",
+			args:       []string{"my-instance"},
+			wantIntent: IntentSSM,
+			wantArgs:   []string{"my-instance"},
+		},
+		{
+			name:       "ec2ssm with profile and region",
+			binPath:    "/usr/bin/ec2ssm",
+			args:       []string{"--profile", "prod", "--region", "us-west-2", "i-123"},
+			wantIntent: IntentSSM,
+			wantArgs:   []string{"--profile", "prod", "--region", "us-west-2", "i-123"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -229,6 +251,7 @@ func TestIntent_String(t *testing.T) {
 		{IntentSFTP, "sftp"},
 		{IntentSCP, "scp"},
 		{IntentVersion, "version"},
+		{IntentSSM, "ssm"},
 		{Intent(99), "unknown"},
 	}
 

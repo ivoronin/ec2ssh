@@ -13,6 +13,7 @@ import (
 
 // Client wraps AWS SDK clients for EC2 and EC2 Instance Connect operations.
 type Client struct {
+	cfg           aws.Config
 	ec2Client     EC2API
 	connectClient EC2InstanceConnectAPI
 	signer        HTTPRequestSigner
@@ -47,6 +48,7 @@ func NewClient(region, profile string, logger *log.Logger) (*Client, error) {
 	}
 
 	return &Client{
+		cfg:           cfg,
 		ec2Client:     ec2.NewFromConfig(cfg),
 		connectClient: ec2instanceconnect.NewFromConfig(cfg),
 		signer:        signerV4.NewSigner(),
@@ -54,6 +56,11 @@ func NewClient(region, profile string, logger *log.Logger) (*Client, error) {
 		region:        cfg.Region,
 		logger:        logger,
 	}, nil
+}
+
+// Config returns the AWS config used by this client.
+func (c *Client) Config() aws.Config {
+	return c.cfg
 }
 
 // Region returns the AWS region this client is configured for.

@@ -4,10 +4,11 @@ package main
 const HelpText = `Usage: ec2ssh [intent] [options] [user@]destination [command]
        ec2sftp [options] [user@]destination[:path]
        ec2scp [options] source target
+       ec2ssm [options] destination
        ec2list [options]
 
-Intents (first argument or inferred from binary name ec2sftp/ec2scp/ec2list):
-  --ssh (default), --sftp, --scp, --list, --help, --version
+Intents (first argument or inferred from binary name ec2sftp/ec2scp/ec2ssm/ec2list):
+  --ssh (default), --sftp, --scp, --ssm, --list, --help, --version
 
 AWS Options:
   --region <region>       AWS region (default: SDK config)

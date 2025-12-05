@@ -70,6 +70,11 @@ func (r *Runner) Run() int {
 		if session, err = app.NewSCPSession(args); err == nil {
 			err = session.Run()
 		}
+	case intent.IntentSSM:
+		var session *app.SSMSession
+		if session, err = app.NewSSMSession(args); err == nil {
+			err = session.Run()
+		}
 	default:
 		return r.fatalError(fmt.Errorf("unhandled intent: %v", resolvedIntent))
 	}

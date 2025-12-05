@@ -21,6 +21,8 @@ const (
 	IntentSCP
 	// IntentVersion displays the version and exits.
 	IntentVersion
+	// IntentSSM starts an SSM Session Manager shell.
+	IntentSSM
 )
 
 // Resolve determines the intent from the binary name and command-line arguments.
@@ -47,6 +49,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 			return IntentSCP, args[1:]
 		case "--version":
 			return IntentVersion, args[1:]
+		case "--ssm":
+			return IntentSSM, args[1:]
 		}
 	}
 
@@ -59,6 +63,8 @@ func Resolve(binPath string, args []string) (Intent, []string) {
 		return IntentSFTP, args
 	case "ec2scp":
 		return IntentSCP, args
+	case "ec2ssm":
+		return IntentSSM, args
 	default:
 		// Unknown binary names fall back to SSH (backward compatible)
 		return IntentSSH, args
@@ -82,6 +88,8 @@ func (i Intent) String() string {
 		return "scp"
 	case IntentVersion:
 		return "version"
+	case IntentSSM:
+		return "ssm"
 	default:
 		return "unknown"
 	}
