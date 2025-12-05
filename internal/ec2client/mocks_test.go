@@ -138,15 +138,6 @@ func withNameTag(name string) func(*types.Instance) {
 	}
 }
 
-// withState sets the instance state.
-func withState(state types.InstanceStateName) func(*types.Instance) {
-	return func(i *types.Instance) {
-		i.State = &types.InstanceState{
-			Name: state,
-		}
-	}
-}
-
 // makeEICE creates a test EC2 Instance Connect Endpoint.
 func makeEICE(id, dnsName, vpcID, subnetID string) types.Ec2InstanceConnectEndpoint {
 	return types.Ec2InstanceConnectEndpoint{

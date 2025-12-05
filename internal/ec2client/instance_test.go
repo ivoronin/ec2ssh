@@ -1,7 +1,6 @@
 package ec2client
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -435,9 +434,4 @@ func TestGetInstance(t *testing.T) {
 			mockEC2.AssertExpectations(t)
 		})
 	}
-}
-
-// Helper to assert context passed correctly
-func assertContextPassed(t *testing.T, ctx context.Context) bool {
-	return ctx != nil
 }

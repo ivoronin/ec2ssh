@@ -12,93 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockLoadAWSConfig is a test helper that returns a zero-value aws.Config.
-func mockLoadAWSConfig(region, profile string, logger *log.Logger) (aws.Config, error) {
-	return aws.Config{}, nil
-}
-
-// Test fixtures and mock helpers
-
-// mockEC2Client creates a mock EC2 client for testing.
-type mockEC2Client struct {
-	instance     types.Instance
-	instanceErr  error
-	sendKeyErr   error
-	tunnelConfig string
-	tunnelErr    error
-}
-
-func (m *mockEC2Client) GetInstance(dstType ec2client.DstType, destination string) (types.Instance, error) {
-	return m.instance, m.instanceErr
-}
-
-func (m *mockEC2Client) SendSSHPublicKey(instance types.Instance, login, publicKey string) error {
-	return m.sendKeyErr
-}
-
-func (m *mockEC2Client) CreateEICETunnelURI(instance types.Instance, port, eiceID string) (string, error) {
-	return m.tunnelConfig, m.tunnelErr
-}
-
 // capturedCommand stores the command and args passed to executeCommand.
 type capturedCommand struct {
 	command      string
 	args         []string
 	tunnelConfig string
 }
-
-// setupTestMocks configures test mocks and returns a cleanup function.
-func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedCommand) func() {
-	t.Helper()
-
-	// Save original functions
-	origLoadAWSConfig := loadAWSConfig
-	origNewEC2Client := newEC2Client
-	origGenerateKeypair := generateKeypair
-	origGetPublicKey := getPublicKey
-	origExecuteCommand := executeCommand
-
-	// Replace with mocks
-	loadAWSConfig = mockLoadAWSConfig
-
-	newEC2Client = func(cfg aws.Config, logger *log.Logger) (*ec2client.Client, error) {
-		// We can't return our mock directly since it's not *ec2client.Client
-		// Instead, we'll need to use a different approach - see note below
-		return nil, nil // This won't work as-is
-	}
-
-	generateKeypair = func(tmpDir string) (string, string, error) {
-		return "/tmp/test-key", "ssh-ed25519 AAAA... test-key", nil
-	}
-
-	getPublicKey = func(identityFile string) (string, error) {
-		return "ssh-ed25519 AAAA... test-key", nil
-	}
-
-	executeCommand = func(command string, args []string, tunnelConfig string, logger *log.Logger) error {
-		if capture != nil {
-			capture.command = command
-			capture.args = args
-			capture.tunnelConfig = tunnelConfig
-		}
-		return nil
-	}
-
-	return func() {
-		loadAWSConfig = origLoadAWSConfig
-		newEC2Client = origNewEC2Client
-		generateKeypair = origGenerateKeypair
-		getPublicKey = origGetPublicKey
-		executeCommand = origExecuteCommand
-	}
-}
-
-// Note: The current design uses *ec2client.Client directly in baseSession.
-// To fully test run(), we'd need to either:
-// 1. Change baseSession.client to an interface type
-// 2. Or test at a higher level (e.g., through the CLI)
-//
-// For now, we'll test the components we can mock: key generation and command execution.
 
 // TestSSHSession_BuildArgs_Integration tests the full arg building with realistic scenarios.
 func TestSSHSession_BuildArgs_Integration(t *testing.T) {
