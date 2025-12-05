@@ -91,6 +91,18 @@ func TestNewSSHSession(t *testing.T) {
 			},
 		},
 		{
+			name: "--use-ssm",
+			args: []string{"--use-ssm", "host"},
+			check: func(t *testing.T, session *SSHSession) {
+				assert.True(t, session.UseSSM)
+			},
+		},
+		{
+			name:    "--use-eice and --use-ssm are mutually exclusive",
+			args:    []string{"--use-eice", "--use-ssm", "host"},
+			wantErr: "mutually exclusive",
+		},
+		{
 			name: "--region and --profile",
 			args: []string{"--region", "us-west-2", "--profile", "myprofile", "host"},
 			check: func(t *testing.T, session *SSHSession) {

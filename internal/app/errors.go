@@ -13,4 +13,5 @@ var (
 	ErrInvalidListColumns = fmt.Errorf("%w: invalid list columns", ErrUsage)
 	ErrUnknownType        = fmt.Errorf("%w: unknown type", ErrUsage)
 	ErrInvalidOption      = fmt.Errorf("%w: invalid option", ErrUsage)
+	ErrExclusiveOptions   = fmt.Errorf("%w: mutually exclusive options", ErrUsage)
 )

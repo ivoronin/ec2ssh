@@ -40,15 +40,29 @@ No more managing SSH keys. For each session ec2ssh:
 
 **Security**: Keys are valid for only 60 seconds on the instance. No SSH keys are stored permanently - maximum security, zero maintenance.
 
-### 🚇 Private Instance Access via EICE
+### 🚇 Private Instance Access via EICE or SSM
 
 Reach instances in private subnets without bastion hosts or VPNs:
 
 ```bash
+# Via EC2 Instance Connect Endpoint
 ec2ssh --use-eice my-private-server
+
+# Via SSM Session Manager
+ec2ssh --use-ssm my-private-server
 ```
 
-ec2ssh handles WebSocket tunnel setup and AWS Signature V4 signing automatically. EICE endpoint is auto-detected based on instance VPC/subnet.
+**EICE**: WebSocket tunnel with AWS Signature V4 signing. Endpoint auto-detected by VPC/subnet.
+
+**SSM**: Tunnels through SSM Session Manager. No inbound ports required, IAM-based access control, CloudTrail audit logging.
+
+### 🖥️ SSM Shell Sessions
+
+Start an interactive shell via SSM Session Manager (no SSH required):
+
+```bash
+ec2ssm my-instance
+```
 
 ### 📋 Additional Features
 
@@ -69,11 +83,12 @@ Download the latest binary for your platform from [GitHub Releases](https://gith
 
 ### Symlinks
 
-Create symlinks to use `ec2sftp`, `ec2scp`, and `ec2list` as standalone commands:
+Create symlinks to use `ec2sftp`, `ec2scp`, `ec2ssm`, and `ec2list` as standalone commands:
 
 ```bash
 ln -s ec2ssh ec2sftp
 ln -s ec2ssh ec2scp
+ln -s ec2ssh ec2ssm
 ln -s ec2ssh ec2list
 ```
 
@@ -91,6 +106,12 @@ ec2ssh i-0123456789abcdef0
 # Connect to a private instance via EICE tunnel
 ec2ssh --use-eice my-private-server
 
+# Connect to a private instance via SSM tunnel
+ec2ssh --use-ssm my-private-server
+
+# Start SSM shell session (no SSH)
+ec2ssm my-instance
+
 # List all instances in the region
 ec2ssh --list
 
@@ -103,10 +124,11 @@ ec2ssh -L 8080:localhost:8080 my-app-server
 Usage: ec2ssh [intent] [options] [user@]destination [command]
        ec2sftp [options] [user@]destination[:path]
        ec2scp [options] source target
+       ec2ssm [options] destination
        ec2list [options]
 
-Intents (first argument or inferred from binary name ec2sftp/ec2scp/ec2list):
-  --ssh (default), --sftp, --scp, --list, --help
+Intents (first argument or inferred from binary name ec2sftp/ec2scp/ec2ssm/ec2list):
+  --ssh (default), --sftp, --scp, --ssm, --list, --help, --version
 
 AWS Options:
   --region <region>       AWS region (default: SDK config)
@@ -114,6 +136,7 @@ AWS Options:
 
 Connection Options:
   --use-eice              Use EC2 Instance Connect Endpoint (default: false)
+  --use-ssm               Use SSM Session Manager for tunneling (default: false)
   --eice-id <id>          EICE ID (implies --use-eice, default: autodetect by VPC/subnet)
   --destination-type <t>  How to interpret destination (default: auto)
                           Values: id|private_ip|public_ip|ipv6|private_dns|name_tag
@@ -192,6 +215,23 @@ For private instance access via EICE (`--use-eice`), add:
   "Resource": "*"
 }
 ```
+
+For SSM access (`--use-ssm` or `ec2ssm`), add:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "ssm:StartSession",
+    "ssm:TerminateSession"
+  ],
+  "Resource": "*"
+}
+```
+
+## Acknowledgments
+
+- [ssm-session-client](https://github.com/mmmorris1975/ssm-session-client) - Pure Go implementation of SSM session protocol
 
 ## License
 

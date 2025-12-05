@@ -24,18 +24,18 @@ var (
 )
 
 // CommandRunner is a function type for executing commands.
-type CommandRunner func(command string, args []string, tunnelURI string, logger *log.Logger) error
+type CommandRunner func(command string, args []string, tunnelConfig string, logger *log.Logger) error
 
 // defaultExecuteCommand is the production command executor.
-func defaultExecuteCommand(command string, args []string, tunnelURI string, logger *log.Logger) error {
+func defaultExecuteCommand(command string, args []string, tunnelConfig string, logger *log.Logger) error {
 	cmd := exec.Command(command, args...)
 	cmd.Env = os.Environ()
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if tunnelURI != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("EC2SSH_TUNNEL_URI=%s", tunnelURI))
+	if tunnelConfig != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("EC2SSH_TUNNEL_CONFIG=%s", tunnelConfig))
 	}
 
 	logger.Printf("running %s with args: %v", command, args)
@@ -63,6 +63,7 @@ type baseSession struct {
 	AddrTypeStr  string `long:"address-type"`
 	IdentityFile string `short:"i"`
 	UseEICE      bool   `long:"use-eice"`
+	UseSSM       bool   `long:"use-ssm"`
 	NoSendKeys   bool   `long:"no-send-keys"`
 	Debug        bool   `long:"debug"`
 
@@ -80,8 +81,8 @@ type baseSession struct {
 	destinationAddr string         // Resolved connection address
 	privateKeyPath  string         // Path to SSH private key
 	publicKey       string         // SSH public key content
-	proxyCommand    string         // ProxyCommand for EICE tunneling
-	tunnelURI       string         // EICE tunnel URI
+	proxyCommand    string         // ProxyCommand for EICE/SSM tunneling
+	tunnelConfig    string         // Tunnel configuration (EICE URI or SSM connection info)
 	logger          *log.Logger    // Debug logger
 }
 
@@ -120,6 +121,11 @@ func (s *baseSession) ParseTypes() error {
 func (s *baseSession) ApplyDefaults() error {
 	if s.EICEID != "" {
 		s.UseEICE = true
+	}
+
+	// Validate mutually exclusive options
+	if s.UseEICE && s.UseSSM {
+		return fmt.Errorf("%w: --use-eice and --use-ssm", ErrExclusiveOptions)
 	}
 
 	if s.Login == "" {
@@ -176,7 +182,21 @@ func (s *baseSession) setupTunnel() error {
 	if err != nil {
 		return fmt.Errorf("unable to setup EICE tunnel: %w", err)
 	}
-	s.tunnelURI = tunnelURI
+	s.tunnelConfig = tunnelURI
+	return nil
+}
+
+// setupSSMTunnel configures SSM tunnel: sets proxy command and tunnel config for SSM port forwarding.
+func (s *baseSession) setupSSMTunnel() error {
+	s.proxyCommand = fmt.Sprintf("%s --ssm-tunnel", os.Args[0])
+
+	// Build tunnel config with instance ID, port, region, and profile
+	// Format: instanceID:port:region:profile
+	port := s.Port
+	if port == "" {
+		port = "22"
+	}
+	s.tunnelConfig = fmt.Sprintf("%s:%s:%s:%s", *s.instance.InstanceId, port, s.Region, s.Profile)
 	return nil
 }
 
@@ -225,10 +245,15 @@ func (s *baseSession) run(command string, buildArgs func() []string) error {
 		}
 	}
 
-	// Setup destination address and EICE tunnel
+	// Setup destination address and tunnel (EICE or SSM)
 	if s.UseEICE {
 		s.destinationAddr = *s.instance.InstanceId
 		if err := s.setupTunnel(); err != nil {
+			return err
+		}
+	} else if s.UseSSM {
+		s.destinationAddr = *s.instance.InstanceId
+		if err := s.setupSSMTunnel(); err != nil {
 			return err
 		}
 	} else {
@@ -238,5 +263,5 @@ func (s *baseSession) run(command string, buildArgs func() []string) error {
 		}
 	}
 
-	return executeCommand(command, buildArgs(), s.tunnelURI, s.logger)
+	return executeCommand(command, buildArgs(), s.tunnelConfig, s.logger)
 }

@@ -48,11 +48,17 @@ func (r *Runner) Run() int {
 	case intent.IntentHelp:
 		return r.usage(nil)
 	case intent.IntentTunnel:
-		tunnelURI := r.Getenv("EC2SSH_TUNNEL_URI")
-		if tunnelURI == "" {
-			return r.fatalError(errors.New("EC2SSH_TUNNEL_URI environment variable not set"))
+		tunnelConfig := r.Getenv("EC2SSH_TUNNEL_CONFIG")
+		if tunnelConfig == "" {
+			return r.fatalError(errors.New("EC2SSH_TUNNEL_CONFIG environment variable not set"))
 		}
-		err = r.TunnelRunner(tunnelURI)
+		err = r.TunnelRunner(tunnelConfig)
+	case intent.IntentSSMTunnel:
+		tunnelConfig := r.Getenv("EC2SSH_TUNNEL_CONFIG")
+		if tunnelConfig == "" {
+			return r.fatalError(errors.New("EC2SSH_TUNNEL_CONFIG environment variable not set"))
+		}
+		err = tunnel.RunSSM(tunnelConfig)
 	case intent.IntentList:
 		err = app.RunList(args)
 	case intent.IntentSSH:
@@ -70,7 +76,7 @@ func (r *Runner) Run() int {
 		if session, err = app.NewSCPSession(args); err == nil {
 			err = session.Run()
 		}
-	case intent.IntentSSM:
+	case intent.IntentSSMSession:
 		var session *app.SSMSession
 		if session, err = app.NewSSMSession(args); err == nil {
 			err = session.Run()

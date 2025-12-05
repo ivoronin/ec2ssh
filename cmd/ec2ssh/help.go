@@ -16,6 +16,7 @@ AWS Options:
 
 Connection Options:
   --use-eice              Use EC2 Instance Connect Endpoint (default: false)
+  --use-ssm               Use SSM Session Manager for tunneling (default: false)
   --eice-id <id>          EICE ID (implies --use-eice, default: autodetect by VPC/subnet)
   --destination-type <t>  How to interpret destination (default: auto)
                           Values: id|private_ip|public_ip|ipv6|private_dns|name_tag

@@ -206,21 +206,29 @@ func TestResolve(t *testing.T) {
 			name:       "--ssm flag",
 			binPath:    "/usr/bin/ec2ssh",
 			args:       []string{"--ssm", "my-instance"},
-			wantIntent: IntentSSM,
+			wantIntent: IntentSSMSession,
 			wantArgs:   []string{"my-instance"},
+		},
+		// SSM tunnel intent
+		{
+			name:       "--ssm-tunnel flag",
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--ssm-tunnel"},
+			wantIntent: IntentSSMTunnel,
+			wantArgs:   []string{},
 		},
 		{
 			name:       "ec2ssm binary",
 			binPath:    "/usr/bin/ec2ssm",
 			args:       []string{"my-instance"},
-			wantIntent: IntentSSM,
+			wantIntent: IntentSSMSession,
 			wantArgs:   []string{"my-instance"},
 		},
 		{
 			name:       "ec2ssm with profile and region",
 			binPath:    "/usr/bin/ec2ssm",
 			args:       []string{"--profile", "prod", "--region", "us-west-2", "i-123"},
-			wantIntent: IntentSSM,
+			wantIntent: IntentSSMSession,
 			wantArgs:   []string{"--profile", "prod", "--region", "us-west-2", "i-123"},
 		},
 	}
@@ -251,7 +259,8 @@ func TestIntent_String(t *testing.T) {
 		{IntentSFTP, "sftp"},
 		{IntentSCP, "scp"},
 		{IntentVersion, "version"},
-		{IntentSSM, "ssm"},
+		{IntentSSMSession, "ssm"},
+		{IntentSSMTunnel, "ssm-tunnel"},
 		{Intent(99), "unknown"},
 	}
 

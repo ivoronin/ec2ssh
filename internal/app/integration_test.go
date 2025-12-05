@@ -16,11 +16,11 @@ import (
 
 // mockEC2Client creates a mock EC2 client for testing.
 type mockEC2Client struct {
-	instance    types.Instance
-	instanceErr error
-	sendKeyErr  error
-	tunnelURI   string
-	tunnelErr   error
+	instance     types.Instance
+	instanceErr  error
+	sendKeyErr   error
+	tunnelConfig string
+	tunnelErr    error
 }
 
 func (m *mockEC2Client) GetInstance(dstType ec2.DstType, destination string) (types.Instance, error) {
@@ -32,14 +32,14 @@ func (m *mockEC2Client) SendSSHPublicKey(instance types.Instance, login, publicK
 }
 
 func (m *mockEC2Client) CreateEICETunnelURI(instance types.Instance, port, eiceID string) (string, error) {
-	return m.tunnelURI, m.tunnelErr
+	return m.tunnelConfig, m.tunnelErr
 }
 
 // capturedCommand stores the command and args passed to executeCommand.
 type capturedCommand struct {
-	command   string
-	args      []string
-	tunnelURI string
+	command      string
+	args         []string
+	tunnelConfig string
 }
 
 // setupTestMocks configures test mocks and returns a cleanup function.
@@ -67,11 +67,11 @@ func setupTestMocks(t *testing.T, client *mockEC2Client, capture *capturedComman
 		return "ssh-ed25519 AAAA... test-key", nil
 	}
 
-	executeCommand = func(command string, args []string, tunnelURI string, logger *log.Logger) error {
+	executeCommand = func(command string, args []string, tunnelConfig string, logger *log.Logger) error {
 		if capture != nil {
 			capture.command = command
 			capture.args = args
-			capture.tunnelURI = tunnelURI
+			capture.tunnelConfig = tunnelConfig
 		}
 		return nil
 	}
@@ -337,10 +337,10 @@ func TestExecuteCommandFactory(t *testing.T) {
 	defer func() { executeCommand = origFunc }()
 
 	var captured capturedCommand
-	executeCommand = func(command string, args []string, tunnelURI string, logger *log.Logger) error {
+	executeCommand = func(command string, args []string, tunnelConfig string, logger *log.Logger) error {
 		captured.command = command
 		captured.args = args
-		captured.tunnelURI = tunnelURI
+		captured.tunnelConfig = tunnelConfig
 		return nil
 	}
 
@@ -350,7 +350,7 @@ func TestExecuteCommandFactory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ssh", captured.command)
 	assert.Equal(t, []string{"-v", "host"}, captured.args)
-	assert.Equal(t, "wss://tunnel.uri", captured.tunnelURI)
+	assert.Equal(t, "wss://tunnel.uri", captured.tunnelConfig)
 }
 
 // TestExecuteCommandError tests error propagation from command execution.
@@ -360,7 +360,7 @@ func TestExecuteCommandError(t *testing.T) {
 	defer func() { executeCommand = origFunc }()
 
 	expectedErr := errors.New("command failed")
-	executeCommand = func(command string, args []string, tunnelURI string, logger *log.Logger) error {
+	executeCommand = func(command string, args []string, tunnelConfig string, logger *log.Logger) error {
 		return expectedErr
 	}
 

@@ -115,6 +115,13 @@ func TestNewSCPSession(t *testing.T) {
 			},
 		},
 		{
+			name: "--use-ssm",
+			args: []string{"--use-ssm", "user@host:/path", "./local"},
+			check: func(t *testing.T, session *SCPSession) {
+				assert.True(t, session.UseSSM)
+			},
+		},
+		{
 			name: "--region and --profile",
 			args: []string{"--region", "us-west-2", "--profile", "myprofile", "user@host:/path", "./local"},
 			check: func(t *testing.T, session *SCPSession) {

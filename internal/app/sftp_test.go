@@ -103,6 +103,13 @@ func TestNewSFTPSession(t *testing.T) {
 			},
 		},
 		{
+			name: "--use-ssm",
+			args: []string{"--use-ssm", "user@host"},
+			check: func(t *testing.T, session *SFTPSession) {
+				assert.True(t, session.UseSSM)
+			},
+		},
+		{
 			name: "--region and --profile",
 			args: []string{"--region", "us-west-2", "--profile", "myprofile", "user@host"},
 			check: func(t *testing.T, session *SFTPSession) {
