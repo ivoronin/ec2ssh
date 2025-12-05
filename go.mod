@@ -1,6 +1,6 @@
 module github.com/ivoronin/ec2ssh
 
-go 1.23
+go 1.25
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.38.1
