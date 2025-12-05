@@ -44,6 +44,7 @@ homebrew_casks:
   - repository:
       owner: ivoronin
       name: homebrew-ivoronin
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Casks
     homepage: https://github.com/ivoronin/ec2ssh
     description: Simplify SSH connections to AWS EC2 instances
