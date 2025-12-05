@@ -57,6 +57,15 @@ ec2ssh handles WebSocket tunnel setup and AWS Signature V4 signing automatically
 
 ## Installation
 
+### Homebrew (macOS)
+
+```bash
+brew tap ivoronin/ivoronin
+brew install ec2ssh
+```
+
+### Binary Download
+
 Download the latest binary for your platform from [GitHub Releases](https://github.com/ivoronin/ec2ssh/releases).
 
 ### Symlinks
