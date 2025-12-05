@@ -42,6 +42,21 @@ changelog:
       - '^docs:'
       - '^test:'
 
+brews:
+  - repository:
+      owner: ivoronin
+      name: homebrew-ivoronin
+    directory: Formula
+    homepage: https://github.com/ivoronin/ec2ssh
+    description: Simplify SSH connections to AWS EC2 instances
+    license: GPL-3.0-only
+    extra_install: |-
+      bin.install_symlink "ec2ssh" => "ec2scp"
+      bin.install_symlink "ec2ssh" => "ec2sftp"
+      bin.install_symlink "ec2ssh" => "ec2list"
+    test: |
+      assert_match "ec2ssh", shell_output("#{bin}/ec2ssh --help", 2)
+
 # The lines beneath this are called `modelines`. See `:help modeline`
 # Feel free to remove those if you don't want/use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json

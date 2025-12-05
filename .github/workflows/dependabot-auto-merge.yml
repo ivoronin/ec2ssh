@@ -1,0 +1,57 @@
+name: Dependabot auto-merge
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Enable auto-merge for Dependabot PRs
+        run: gh pr merge --auto --squash "$PR_NUMBER"
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-tagging
+      cancel-in-progress: false
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.merged == true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create and push calver tag
+        run: |
+          set -euo pipefail
+          BASE_TAG=$(date +%Y.%m.%d)
+          EXISTING=$(git tag -l "${BASE_TAG}*" | sort -V | tail -1)
+          if [ -z "$EXISTING" ]; then
+            TAG="$BASE_TAG"
+          elif [ "$EXISTING" = "$BASE_TAG" ]; then
+            TAG="${BASE_TAG}.1"
+          else
+            SUFFIX="${EXISTING#${BASE_TAG}.}"
+            TAG="${BASE_TAG}.$((SUFFIX + 1))"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
