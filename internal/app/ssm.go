@@ -8,7 +8,7 @@ import (
 
 	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/ivoronin/ec2ssh/internal/cli"
-	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/mmmorris1975/ssm-session-client/ssmclient"
 )

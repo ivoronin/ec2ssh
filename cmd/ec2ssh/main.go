@@ -8,7 +8,7 @@ import (
 	"os/exec"
 
 	"github.com/ivoronin/ec2ssh/internal/app"
-	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/intent"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ivoronin/ec2ssh/internal/cli"
-	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/argsieve"
 )
 
 // SFTPSession represents an SFTP connection to an EC2 instance.
