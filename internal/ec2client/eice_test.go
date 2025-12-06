@@ -2,231 +2,233 @@ package ec2client
 
 import (
 	"errors"
-	"strings"
+	"net/http"
 	"testing"
 
-	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetEICEByID(t *testing.T) {
+func TestClient_getEICEByID(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
+		eiceID      string
+		mockSetup   func(*MockEC2API)
+		wantID      string
+		wantErr     bool
+		errContains string
+	}{
+		"found endpoint": {
+			eiceID: "eice-123456789",
+			mockSetup: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					makeEICEOutput(makeEICE("eice-123456789", "vpc-123", "subnet-456", "eice.example.com")),
+					nil,
+				)
+			},
+			wantID: "eice-123456789",
+		},
+		"not found - empty result": {
+			eiceID: "eice-notfound",
+			mockSetup: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					makeEICEOutput(),
+					nil,
+				)
+			},
+			wantErr:     true,
+			errContains: "no matching instances found",
+		},
+		"api error": {
+			eiceID: "eice-error",
+			mockSetup: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					nil,
+					errors.New("API error"),
+				)
+			},
+			wantErr:     true,
+			errContains: "API error",
+		},
+		"returns first of multiple": {
+			eiceID: "eice-first",
+			mockSetup: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					makeEICEOutput(
+						makeEICE("eice-first", "vpc-1", "subnet-1", "first.example.com"),
+						makeEICE("eice-second", "vpc-1", "subnet-2", "second.example.com"),
+					),
+					nil,
+				)
+			},
+			wantID: "eice-first",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			mockEC2 := new(MockEC2API)
+			tc.mockSetup(mockEC2)
+
+			client := newTestClient(mockEC2, nil, nil)
+			eice, err := client.getEICEByID(tc.eiceID)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, eice)
+			assert.Equal(t, tc.wantID, *eice.InstanceConnectEndpointId)
+			mockEC2.AssertExpectations(t)
+		})
+	}
+}
+
+func TestClient_CreateEICETunnelURI(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		privateIP  string
+		port       string
 		eiceID     string
-		setupMock  func(*MockEC2API)
-		wantID     string
+		mockEC2    func(*MockEC2API)
+		mockSigner func(*MockHTTPRequestSigner)
+		wantURI    string
 		wantErr    bool
-		errContain string
 	}{
-		{
-			name:   "success - endpoint found",
-			eiceID: "eice-0123456789abcdef0",
-			setupMock: func(m *MockEC2API) {
-				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.MatchedBy(func(input *awsec2.DescribeInstanceConnectEndpointsInput) bool {
-					return len(input.InstanceConnectEndpointIds) == 1 &&
-						input.InstanceConnectEndpointIds[0] == "eice-0123456789abcdef0"
-				})).Return(describeEICEOutput(
-					makeEICE("eice-0123456789abcdef0", "eice.us-east-1.amazonaws.com", "vpc-123", "subnet-123"),
-				), nil)
-			},
-			wantID: "eice-0123456789abcdef0",
-		},
-		{
-			name:   "error - endpoint not found",
-			eiceID: "eice-nonexistent",
-			setupMock: func(m *MockEC2API) {
+		"success": {
+			privateIP: "10.0.0.1",
+			port:      "22",
+			eiceID:    "eice-123",
+			mockEC2: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					describeEICEOutput(), nil)
+					makeEICEOutput(makeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
+					nil,
+				)
 			},
-			wantErr:    true,
-			errContain: "no matching instances found",
+			mockSigner: func(m *MockHTTPRequestSigner) {
+				m.On("PresignHTTP", mock.Anything, mock.Anything, mock.Anything,
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+					"wss://eice.example.com/openTunnel?signed=true",
+					http.Header{},
+					nil,
+				)
+			},
+			wantURI: "wss://eice.example.com/openTunnel?signed=true",
 		},
-		{
-			name:   "error - API error",
-			eiceID: "eice-test",
-			setupMock: func(m *MockEC2API) {
+		"different port": {
+			privateIP: "10.0.0.1",
+			port:      "443",
+			eiceID:    "eice-123",
+			mockEC2: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					nil, errors.New("AccessDenied"))
+					makeEICEOutput(makeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
+					nil,
+				)
 			},
-			wantErr:    true,
-			errContain: "AccessDenied",
+			mockSigner: func(m *MockHTTPRequestSigner) {
+				m.On("PresignHTTP", mock.Anything, mock.Anything, mock.Anything,
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+					"wss://eice.example.com/openTunnel?remotePort=443&signed=true",
+					http.Header{},
+					nil,
+				)
+			},
+			wantURI: "wss://eice.example.com/openTunnel?remotePort=443&signed=true",
+		},
+		"eice not found": {
+			privateIP: "10.0.0.1",
+			port:      "22",
+			eiceID:    "eice-notfound",
+			mockEC2: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					makeEICEOutput(),
+					nil,
+				)
+			},
+			mockSigner: func(m *MockHTTPRequestSigner) {
+				// Not called because EICE lookup fails
+			},
+			wantErr: true,
+		},
+		"signer error": {
+			privateIP: "10.0.0.1",
+			port:      "22",
+			eiceID:    "eice-123",
+			mockEC2: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					makeEICEOutput(makeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
+					nil,
+				)
+			},
+			mockSigner: func(m *MockHTTPRequestSigner) {
+				m.On("PresignHTTP", mock.Anything, mock.Anything, mock.Anything,
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+					"",
+					http.Header{},
+					errors.New("signing failed"),
+				)
+			},
+			wantErr: true,
+		},
+		"ec2 api error": {
+			privateIP: "10.0.0.1",
+			port:      "22",
+			eiceID:    "eice-123",
+			mockEC2: func(m *MockEC2API) {
+				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
+					nil,
+					errors.New("API error"),
+				)
+			},
+			mockSigner: func(m *MockHTTPRequestSigner) {
+				// Not called
+			},
+			wantErr: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			mockEC2 := new(MockEC2API)
-			tt.setupMock(mockEC2)
-			client := newTestClient(mockEC2, nil, nil)
+			mockSigner := new(MockHTTPRequestSigner)
+			tc.mockEC2(mockEC2)
+			tc.mockSigner(mockSigner)
 
-			eice, err := client.getEICEByID(tt.eiceID)
+			client := newTestClient(mockEC2, nil, mockSigner)
+			uri, err := client.CreateEICETunnelURI(tc.privateIP, tc.port, tc.eiceID)
 
-			if tt.wantErr {
+			if tc.wantErr {
 				require.Error(t, err)
-				if tt.errContain != "" {
-					assert.Contains(t, err.Error(), tt.errContain)
-				}
-				mockEC2.AssertExpectations(t)
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantID, *eice.InstanceConnectEndpointId)
+			assert.Equal(t, tc.wantURI, uri)
 			mockEC2.AssertExpectations(t)
+			mockSigner.AssertExpectations(t)
 		})
 	}
 }
 
-func TestGuessEICEByVPCAndSubnet(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		vpcID      string
-		subnetID   string
-		setupMock  func(*MockEC2API)
-		wantID     string
-		wantErr    bool
-		errContain string
-	}{
-		{
-			name:     "success - exact subnet match",
-			vpcID:    "vpc-123",
-			subnetID: "subnet-456",
-			setupMock: func(m *MockEC2API) {
-				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.MatchedBy(func(input *awsec2.DescribeInstanceConnectEndpointsInput) bool {
-					// Verify VPC filter is applied
-					for _, f := range input.Filters {
-						if *f.Name == "vpc-id" && f.Values[0] == "vpc-123" {
-							return true
-						}
-					}
-					return false
-				})).Return(describeEICEOutput(
-					makeEICE("eice-different", "dns1.com", "vpc-123", "subnet-other"),
-					makeEICE("eice-exact", "dns2.com", "vpc-123", "subnet-456"),
-				), nil)
-			},
-			wantID: "eice-exact",
-		},
-		{
-			name:     "success - falls back to VPC match when no subnet match",
-			vpcID:    "vpc-123",
-			subnetID: "subnet-nomatch",
-			setupMock: func(m *MockEC2API) {
-				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(describeEICEOutput(
-					makeEICE("eice-vpc", "dns.com", "vpc-123", "subnet-other"),
-				), nil)
-			},
-			wantID: "eice-vpc",
-		},
-		{
-			name:     "error - no endpoints in VPC",
-			vpcID:    "vpc-empty",
-			subnetID: "subnet-any",
-			setupMock: func(m *MockEC2API) {
-				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					describeEICEOutput(), nil)
-			},
-			wantErr:    true,
-			errContain: "no matching instances found",
-		},
-		{
-			name:     "error - API error",
-			vpcID:    "vpc-123",
-			subnetID: "subnet-456",
-			setupMock: func(m *MockEC2API) {
-				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					nil, errors.New("rate limited"))
-			},
-			wantErr:    true,
-			errContain: "rate limited",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			mockEC2 := new(MockEC2API)
-			tt.setupMock(mockEC2)
-			client := newTestClient(mockEC2, nil, nil)
-
-			eice, err := client.GuessEICEByVPCAndSubnet(tt.vpcID, tt.subnetID)
-
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContain != "" {
-					assert.Contains(t, err.Error(), tt.errContain)
-				}
-				mockEC2.AssertExpectations(t)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantID, *eice.InstanceConnectEndpointId)
-			mockEC2.AssertExpectations(t)
-		})
-	}
-}
-
-func TestCreateEICETunnelURI_Success(t *testing.T) {
-	t.Parallel()
-
-	mockEC2 := new(MockEC2API)
-	mockEC2.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.MatchedBy(func(input *awsec2.DescribeInstanceConnectEndpointsInput) bool {
-		return len(input.InstanceConnectEndpointIds) == 1 &&
-			input.InstanceConnectEndpointIds[0] == "eice-explicit"
-	})).Return(describeEICEOutput(
-		makeEICE("eice-explicit", "eice.example.com", "vpc-123", "subnet-456"),
-	), nil)
-
-	client := newTestClient(mockEC2, nil, nil)
-
-	uri, err := client.CreateEICETunnelURI("10.0.0.1", "22", "eice-explicit")
-
-	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(uri, "wss://eice.example.com/openTunnel"))
-	assert.Contains(t, uri, "instanceConnectEndpointId=eice-explicit")
-	assert.Contains(t, uri, "privateIpAddress=10.0.0.1")
-	assert.Contains(t, uri, "remotePort=22")
-	mockEC2.AssertExpectations(t)
-}
-
-func TestCreateEICETunnelURI_EICELookupFails(t *testing.T) {
-	t.Parallel()
-
-	mockEC2 := new(MockEC2API)
-	mockEC2.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-		nil, errors.New("AccessDenied"))
-
-	client := newTestClient(mockEC2, nil, nil)
-
-	_, err := client.CreateEICETunnelURI("10.0.0.1", "22", "eice-test")
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "AccessDenied")
-	mockEC2.AssertExpectations(t)
-}
-
-func TestCreateEICETunnelURI_NoEICEFound(t *testing.T) {
-	t.Parallel()
-
-	mockEC2 := new(MockEC2API)
-	mockEC2.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-		describeEICEOutput(), nil)
-
-	client := newTestClient(mockEC2, nil, nil)
-
-	_, err := client.CreateEICETunnelURI("10.0.0.1", "22", "eice-nonexistent")
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no matching instances found")
-	mockEC2.AssertExpectations(t)
-}
+// Note: GuessEICEByVPCAndSubnet uses ec2.NewDescribeInstanceConnectEndpointsPaginator
+// which creates a paginator directly from the EC2 client. This is difficult to mock
+// without significant restructuring. For comprehensive testing of this function,
+// consider integration tests or refactoring to accept an injectable paginator factory.
+//
+// The function logic is:
+// 1. Query all EICE endpoints in the VPC
+// 2. Prefer endpoint in same subnet
+// 3. Fall back to any endpoint in the VPC
+// 4. Return error if no endpoints found

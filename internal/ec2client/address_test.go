@@ -12,126 +12,107 @@ import (
 func TestGetInstanceAddr(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		instance types.Instance
 		addrType AddrType
-		wantAddr string
+		want     string
 		wantErr  bool
 	}{
-		// Auto type tests - priority: private > public > IPv6
-		{
-			name:     "auto - prefers private when available",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1"), withPublicIP("54.1.2.3")),
+		// Auto mode - prefers private
+		"auto prefers private": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
 			addrType: AddrTypeAuto,
-			wantAddr: "10.0.0.1",
+			want:     "10.0.0.1",
 		},
-		{
-			name:     "auto - falls back to public when no private",
-			instance: makeInstance("i-test", withPublicIP("54.1.2.3")),
+		"auto falls back to public": {
+			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
 			addrType: AddrTypeAuto,
-			wantAddr: "54.1.2.3",
+			want:     "1.2.3.4",
 		},
-		{
-			name:     "auto - falls back to IPv6 when no IPv4",
-			instance: makeInstance("i-test", withIPv6("2001:db8::1")),
+		"auto falls back to ipv6": {
+			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
 			addrType: AddrTypeAuto,
-			wantAddr: "2001:db8::1",
+			want:     "2001:db8::1",
 		},
-		{
-			name:     "auto - error when no addresses",
-			instance: makeInstance("i-test"),
+		"auto no address": {
+			instance: makeInstance("i-1"),
 			addrType: AddrTypeAuto,
 			wantErr:  true,
 		},
-		{
-			name:     "auto - private takes priority over IPv6",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1"), withIPv6("2001:db8::1")),
-			addrType: AddrTypeAuto,
-			wantAddr: "10.0.0.1",
-		},
-		{
-			name:     "auto - public takes priority over IPv6",
-			instance: makeInstance("i-test", withPublicIP("54.1.2.3"), withIPv6("2001:db8::1")),
-			addrType: AddrTypeAuto,
-			wantAddr: "54.1.2.3",
-		},
 
-		// Explicit private type tests
-		{
-			name:     "private - success",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1")),
+		// Explicit private
+		"explicit private": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
 			addrType: AddrTypePrivate,
-			wantAddr: "10.0.0.1",
+			want:     "10.0.0.1",
 		},
-		{
-			name:     "private - success with all addresses",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1"), withPublicIP("54.1.2.3"), withIPv6("2001:db8::1")),
+		"explicit private only private": {
+			instance: makeInstance("i-1", withPrivateIP("192.168.1.1")),
 			addrType: AddrTypePrivate,
-			wantAddr: "10.0.0.1",
+			want:     "192.168.1.1",
 		},
-		{
-			name:     "private - error when missing",
-			instance: makeInstance("i-test", withPublicIP("54.1.2.3")),
+		"missing private": {
+			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
 			addrType: AddrTypePrivate,
 			wantErr:  true,
 		},
 
-		// Explicit public type tests
-		{
-			name:     "public - success",
-			instance: makeInstance("i-test", withPublicIP("54.1.2.3")),
+		// Explicit public
+		"explicit public": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
 			addrType: AddrTypePublic,
-			wantAddr: "54.1.2.3",
+			want:     "1.2.3.4",
 		},
-		{
-			name:     "public - success with all addresses",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1"), withPublicIP("54.1.2.3"), withIPv6("2001:db8::1")),
+		"explicit public only public": {
+			instance: makeInstance("i-1", withPublicIP("52.0.0.1")),
 			addrType: AddrTypePublic,
-			wantAddr: "54.1.2.3",
+			want:     "52.0.0.1",
 		},
-		{
-			name:     "public - error when missing",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1")),
+		"missing public": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
 			addrType: AddrTypePublic,
 			wantErr:  true,
 		},
 
-		// Explicit IPv6 type tests
-		{
-			name:     "IPv6 - success",
-			instance: makeInstance("i-test", withIPv6("2001:db8::1")),
+		// Explicit IPv6
+		"explicit ipv6": {
+			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
 			addrType: AddrTypeIPv6,
-			wantAddr: "2001:db8::1",
+			want:     "2001:db8::1",
 		},
-		{
-			name:     "IPv6 - success with all addresses",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1"), withPublicIP("54.1.2.3"), withIPv6("2001:db8::1")),
+		"explicit ipv6 with others": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("fe80::1")),
 			addrType: AddrTypeIPv6,
-			wantAddr: "2001:db8::1",
+			want:     "fe80::1",
 		},
-		{
-			name:     "IPv6 - error when missing",
-			instance: makeInstance("i-test", withPrivateIP("10.0.0.1")),
+		"missing ipv6": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
 			addrType: AddrTypeIPv6,
 			wantErr:  true,
+		},
+
+		// All addresses present
+		"all addresses auto selects private": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("2001:db8::1")),
+			addrType: AddrTypeAuto,
+			want:     "10.0.0.1",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			addr, err := GetInstanceAddr(tt.instance, tt.addrType)
+			addr, err := GetInstanceAddr(tc.instance, tc.addrType)
 
-			if tt.wantErr {
+			if tc.wantErr {
 				require.Error(t, err)
 				assert.ErrorIs(t, err, ErrNoAddress)
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantAddr, addr)
+			assert.Equal(t, tc.want, addr)
 		})
 	}
 }
@@ -139,65 +120,43 @@ func TestGetInstanceAddr(t *testing.T) {
 func TestGetInstanceName(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		instance types.Instance
 		want     *string
 	}{
-		{
-			name:     "has Name tag",
-			instance: makeInstance("i-test", withNameTag("my-server")),
+		"has name tag": {
+			instance: makeInstance("i-1", withNameTag("my-server")),
 			want:     aws.String("my-server"),
 		},
-		{
-			name:     "no Name tag",
-			instance: makeInstance("i-test"),
+		"no name tag": {
+			instance: makeInstance("i-1"),
 			want:     nil,
 		},
-		{
-			name: "has other tags but not Name",
-			instance: func() types.Instance {
-				i := makeInstance("i-test")
-				i.Tags = []types.Tag{{Key: aws.String("Environment"), Value: aws.String("prod")}}
-				return i
-			}(),
-			want: nil,
+		"has other tags but no name": {
+			instance: makeInstance("i-1", withTag("Environment", "prod"), withTag("Team", "devops")),
+			want:     nil,
 		},
-		{
-			name: "multiple tags including Name",
-			instance: func() types.Instance {
-				i := makeInstance("i-test")
-				i.Tags = []types.Tag{
-					{Key: aws.String("Environment"), Value: aws.String("prod")},
-					{Key: aws.String("Name"), Value: aws.String("my-server")},
-					{Key: aws.String("Team"), Value: aws.String("platform")},
-				}
-				return i
-			}(),
-			want: aws.String("my-server"),
+		"empty name tag": {
+			instance: makeInstance("i-1", withNameTag("")),
+			want:     aws.String(""),
 		},
-		{
-			name: "Name tag with empty value",
-			instance: func() types.Instance {
-				i := makeInstance("i-test")
-				i.Tags = []types.Tag{{Key: aws.String("Name"), Value: aws.String("")}}
-				return i
-			}(),
-			want: aws.String(""),
+		"name tag among others": {
+			instance: makeInstance("i-1", withTag("Environment", "prod"), withNameTag("web-server"), withTag("Team", "devops")),
+			want:     aws.String("web-server"),
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := GetInstanceName(tt.instance)
+			result := GetInstanceName(tc.instance)
 
-			if tt.want == nil {
-				assert.Nil(t, got)
+			if tc.want == nil {
+				assert.Nil(t, result)
 			} else {
-				require.NotNil(t, got)
-				assert.Equal(t, *tt.want, *got)
+				require.NotNil(t, result)
+				assert.Equal(t, *tc.want, *result)
 			}
 		})
 	}

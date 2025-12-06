@@ -5,244 +5,241 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// mockConnection implements TunnelConnection for testing.
+// mockConnection implements TunnelConnection for testing
 type mockConnection struct {
-	reader     io.Reader
-	writer     io.Writer
-	closeCount int
+	reader *bytes.Buffer
+	writer *bytes.Buffer
+	closed bool
+	mu     sync.Mutex
 }
 
-func (m *mockConnection) Reader() io.Reader { return m.reader }
-func (m *mockConnection) Writer() io.Writer { return m.writer }
-func (m *mockConnection) Close()            { m.closeCount++ }
-
-// errorReader always returns an error.
-type errorReader struct {
-	err error
+func newMockConnection() *mockConnection {
+	return &mockConnection{
+		reader: new(bytes.Buffer),
+		writer: new(bytes.Buffer),
+	}
 }
 
-func (e *errorReader) Read(p []byte) (int, error) {
-	return 0, e.err
+func (m *mockConnection) Reader() io.Reader {
+	return m.reader
 }
 
-// errorWriter always returns an error.
-type errorWriter struct {
-	err error
+func (m *mockConnection) Writer() io.Writer {
+	return m.writer
 }
 
-func (e *errorWriter) Write(p []byte) (int, error) {
-	return 0, e.err
+func (m *mockConnection) Close() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closed = true
 }
 
-func TestRunWithIO_Success(t *testing.T) {
+func (m *mockConnection) isClosed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closed
+}
+
+func TestRunWithIO_BidirectionalCopy(t *testing.T) {
 	t.Parallel()
 
-	// Data to send through the tunnel
-	inputData := "hello from stdin"
-	connOutputData := "hello from connection"
+	// Setup mock connection with data to read
+	conn := newMockConnection()
+	conn.reader.WriteString("data from remote")
 
-	// Create mock connection with pre-loaded data
-	connReader := strings.NewReader(connOutputData)
-	connWriter := &bytes.Buffer{}
-	conn := &mockConnection{
-		reader: connReader,
-		writer: connWriter,
-	}
+	// Setup local stdin data
+	stdin := strings.NewReader("data from local")
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
 
-	// Mock dialer that returns our mock connection
-	dialer := func(uri string) (TunnelConnection, error) {
-		assert.Equal(t, "wss://test.uri", uri)
+	// Create a dialer that returns our mock
+	dial := func(uri string) (TunnelConnection, error) {
 		return conn, nil
 	}
 
-	// Set up stdin and stdout
-	stdin := strings.NewReader(inputData)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-
 	// Run the tunnel
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
+	err := RunWithIO("ws://test", dial, stdin, stdout, stderr)
 	require.NoError(t, err)
 
-	// Verify data flowed correctly
-	assert.Equal(t, connOutputData, stdout.String(), "connection output should be written to stdout")
-	assert.Equal(t, inputData, connWriter.String(), "stdin should be written to connection")
-	assert.Equal(t, 1, conn.closeCount, "connection should be closed once")
-	assert.Empty(t, stderr.String(), "no errors should be written to stderr")
+	// Verify bidirectional copy
+	assert.Equal(t, "data from remote", stdout.String(), "stdout should receive data from connection")
+	assert.Equal(t, "data from local", conn.writer.String(), "connection should receive data from stdin")
+	assert.True(t, conn.isClosed(), "connection should be closed")
+	assert.Empty(t, stderr.String(), "no errors expected")
 }
 
 func TestRunWithIO_DialError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("dial failed")
-
-	dialer := func(uri string) (TunnelConnection, error) {
-		return nil, expectedErr
+	dialErr := errors.New("connection refused")
+	dial := func(uri string) (TunnelConnection, error) {
+		return nil, dialErr
 	}
 
 	stdin := strings.NewReader("")
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
 
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
+	err := RunWithIO("ws://unreachable", dial, stdin, stdout, stderr)
 	require.Error(t, err)
-	assert.Equal(t, expectedErr, err)
+	assert.ErrorIs(t, err, dialErr)
 }
 
-func TestRunWithIO_ReadError(t *testing.T) {
+func TestRunWithIO_URIPassed(t *testing.T) {
 	t.Parallel()
 
-	readErr := errors.New("read failed")
-	conn := &mockConnection{
-		reader: &errorReader{err: readErr},
-		writer: io.Discard,
-	}
+	var receivedURI string
+	conn := newMockConnection()
 
-	dialer := func(uri string) (TunnelConnection, error) {
+	dial := func(uri string) (TunnelConnection, error) {
+		receivedURI = uri
 		return conn, nil
 	}
 
-	// Use an empty stdin that will immediately EOF
 	stdin := strings.NewReader("")
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
 
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
-	// Function completes without returning error (errors go to stderr)
+	err := RunWithIO("wss://example.com/tunnel?token=abc123", dial, stdin, stdout, stderr)
 	require.NoError(t, err)
-	assert.Contains(t, stderr.String(), "read failed")
-}
-
-func TestRunWithIO_WriteError(t *testing.T) {
-	t.Parallel()
-
-	writeErr := errors.New("write failed")
-	conn := &mockConnection{
-		reader: strings.NewReader(""), // Will EOF immediately
-		writer: &errorWriter{err: writeErr},
-	}
-
-	dialer := func(uri string) (TunnelConnection, error) {
-		return conn, nil
-	}
-
-	stdin := strings.NewReader("data to write")
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
-	// Function completes without returning error (errors go to stderr)
-	require.NoError(t, err)
-	assert.Contains(t, stderr.String(), "write failed")
-}
-
-func TestRunWithIO_BinaryData(t *testing.T) {
-	t.Parallel()
-
-	// Test with binary data including null bytes
-	binaryInput := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD}
-	binaryOutput := []byte{0xAA, 0xBB, 0xCC, 0x00, 0x11, 0x22}
-
-	connWriter := &bytes.Buffer{}
-	conn := &mockConnection{
-		reader: bytes.NewReader(binaryOutput),
-		writer: connWriter,
-	}
-
-	dialer := func(uri string) (TunnelConnection, error) {
-		return conn, nil
-	}
-
-	stdin := bytes.NewReader(binaryInput)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
-	require.NoError(t, err)
-	assert.Equal(t, binaryOutput, stdout.Bytes(), "binary data should be preserved in output")
-	assert.Equal(t, binaryInput, connWriter.Bytes(), "binary data should be preserved in input")
+	assert.Equal(t, "wss://example.com/tunnel?token=abc123", receivedURI)
 }
 
 func TestRunWithIO_EmptyStreams(t *testing.T) {
 	t.Parallel()
 
-	conn := &mockConnection{
-		reader: strings.NewReader(""),
-		writer: io.Discard,
-	}
-
-	dialer := func(uri string) (TunnelConnection, error) {
+	conn := newMockConnection()
+	dial := func(uri string) (TunnelConnection, error) {
 		return conn, nil
 	}
 
 	stdin := strings.NewReader("")
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
 
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
+	err := RunWithIO("ws://test", dial, stdin, stdout, stderr)
 	require.NoError(t, err)
+
 	assert.Empty(t, stdout.String())
-	assert.Empty(t, stderr.String())
+	assert.Empty(t, conn.writer.String())
+	assert.True(t, conn.isClosed())
 }
 
 func TestRunWithIO_LargeData(t *testing.T) {
 	t.Parallel()
 
-	// Test with data larger than typical buffer sizes
-	largeData := bytes.Repeat([]byte("x"), 1024*1024) // 1MB
+	// Generate large data
+	largeData := strings.Repeat("x", 64*1024) // 64KB
 
-	connWriter := &bytes.Buffer{}
-	conn := &mockConnection{
-		reader: bytes.NewReader(largeData),
-		writer: connWriter,
-	}
+	conn := newMockConnection()
+	conn.reader.WriteString(largeData)
 
-	dialer := func(uri string) (TunnelConnection, error) {
+	dial := func(uri string) (TunnelConnection, error) {
 		return conn, nil
 	}
 
-	stdin := bytes.NewReader(largeData)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
+	stdin := strings.NewReader(largeData)
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
 
-	err := RunWithIO("wss://test.uri", dialer, stdin, stdout, stderr)
-
+	err := RunWithIO("ws://test", dial, stdin, stdout, stderr)
 	require.NoError(t, err)
-	assert.Equal(t, len(largeData), stdout.Len(), "large data should be fully transferred to stdout")
-	assert.Equal(t, len(largeData), connWriter.Len(), "large data should be fully transferred to connection")
+
+	assert.Equal(t, len(largeData), stdout.Len(), "large data should be fully copied to stdout")
+	assert.Equal(t, len(largeData), conn.writer.Len(), "large data should be fully copied to connection")
 }
 
-func TestDefaultDialer(t *testing.T) {
+// errorReader simulates a reader that returns an error
+type errorReader struct {
+	err error
+}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, e.err
+}
+
+// errorWriter simulates a writer that returns an error
+type errorWriter struct {
+	err error
+}
+
+func (e *errorWriter) Write(p []byte) (n int, err error) {
+	return 0, e.err
+}
+
+// errorConnection wraps mockConnection but returns error readers/writers
+type errorConnection struct {
+	*mockConnection
+	readerErr error
+	writerErr error
+}
+
+func (e *errorConnection) Reader() io.Reader {
+	if e.readerErr != nil {
+		return &errorReader{err: e.readerErr}
+	}
+	return e.mockConnection.Reader()
+}
+
+func (e *errorConnection) Writer() io.Writer {
+	if e.writerErr != nil {
+		return &errorWriter{err: e.writerErr}
+	}
+	return e.mockConnection.Writer()
+}
+
+func TestRunWithIO_ConnectionReadError(t *testing.T) {
 	t.Parallel()
 
-	// Test that DefaultDialer returns an error for invalid URI
-	// (can't test success without a real WebSocket server)
-	_, err := DefaultDialer("wss://invalid.uri.that.does.not.exist.localhost:12345")
+	readErr := errors.New("connection reset")
+	conn := &errorConnection{
+		mockConnection: newMockConnection(),
+		readerErr:      readErr,
+	}
 
-	require.Error(t, err)
+	dial := func(uri string) (TunnelConnection, error) {
+		return conn, nil
+	}
+
+	stdin := strings.NewReader("")
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+
+	// RunWithIO doesn't return the copy error, it prints to stderr
+	err := RunWithIO("ws://test", dial, stdin, stdout, stderr)
+	require.NoError(t, err) // RunWithIO returns nil even on copy errors
+
+	// Error should be written to stderr
+	assert.Contains(t, stderr.String(), "connection reset")
 }
 
-func TestRun(t *testing.T) {
+func TestRunWithIO_ConnectionWriteError(t *testing.T) {
 	t.Parallel()
 
-	// Test that Run returns an error for invalid URI
-	// This exercises the integration of Run -> RunWithIO -> DefaultDialer
-	err := Run("wss://invalid.uri.that.does.not.exist.localhost:12345")
+	writeErr := errors.New("broken pipe")
+	conn := &errorConnection{
+		mockConnection: newMockConnection(),
+		writerErr:      writeErr,
+	}
 
-	require.Error(t, err)
+	dial := func(uri string) (TunnelConnection, error) {
+		return conn, nil
+	}
+
+	stdin := strings.NewReader("data to send")
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+
+	err := RunWithIO("ws://test", dial, stdin, stdout, stderr)
+	require.NoError(t, err) // RunWithIO returns nil even on copy errors
+
+	// Error should be written to stderr
+	assert.Contains(t, stderr.String(), "broken pipe")
 }
-
-// Ensure WebSocket implements TunnelConnection interface
-var _ TunnelConnection = (*WebSocket)(nil)

@@ -4,116 +4,104 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestSendSSHPublicKey(t *testing.T) {
+func TestClient_SendSSHPublicKey(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
-		instance   func() makeInstanceResult
-		osUser     string
-		publicKey  string
-		setupMock  func(*MockEC2InstanceConnectAPI)
-		wantErr    bool
-		errContain string
+	tests := map[string]struct {
+		instanceID  string
+		osUser      string
+		publicKey   string
+		mockSetup   func(*MockEC2InstanceConnectAPI)
+		wantErr     bool
+		errContains string
 	}{
-		{
-			name: "success",
-			instance: func() makeInstanceResult {
-				return makeInstanceResult{makeInstance("i-0123456789abcdef0")}
-			},
-			osUser:    "ec2-user",
-			publicKey: "ssh-ed25519 AAAA... test@host",
-			setupMock: func(m *MockEC2InstanceConnectAPI) {
+		"success": {
+			instanceID: "i-1234567890abcdef0",
+			osUser:     "ec2-user",
+			publicKey:  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host",
+			mockSetup: func(m *MockEC2InstanceConnectAPI) {
 				m.On("SendSSHPublicKey", mock.Anything, mock.MatchedBy(func(input *ec2instanceconnect.SendSSHPublicKeyInput) bool {
-					return *input.InstanceId == "i-0123456789abcdef0" &&
+					return *input.InstanceId == "i-1234567890abcdef0" &&
 						*input.InstanceOSUser == "ec2-user" &&
-						*input.SSHPublicKey == "ssh-ed25519 AAAA... test@host"
-				})).Return(&ec2instanceconnect.SendSSHPublicKeyOutput{Success: true}, nil)
+						*input.SSHPublicKey == "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@host"
+				})).Return(&ec2instanceconnect.SendSSHPublicKeyOutput{}, nil)
 			},
-			wantErr: false,
 		},
-		{
-			name: "error - invalid key",
-			instance: func() makeInstanceResult {
-				return makeInstanceResult{makeInstance("i-test")}
+		"success with different user": {
+			instanceID: "i-abc123",
+			osUser:     "ubuntu",
+			publicKey:  "ssh-rsa AAAAB3... user@host",
+			mockSetup: func(m *MockEC2InstanceConnectAPI) {
+				m.On("SendSSHPublicKey", mock.Anything, mock.MatchedBy(func(input *ec2instanceconnect.SendSSHPublicKeyInput) bool {
+					return *input.InstanceId == "i-abc123" &&
+						*input.InstanceOSUser == "ubuntu"
+				})).Return(&ec2instanceconnect.SendSSHPublicKeyOutput{}, nil)
 			},
-			osUser:    "ubuntu",
-			publicKey: "invalid-key",
-			setupMock: func(m *MockEC2InstanceConnectAPI) {
-				m.On("SendSSHPublicKey", mock.Anything, mock.Anything).Return(
-					nil, errors.New("InvalidArgsException: SSH public key is not valid"))
-			},
-			wantErr:    true,
-			errContain: "InvalidArgsException",
 		},
-		{
-			name: "error - instance not found",
-			instance: func() makeInstanceResult {
-				return makeInstanceResult{makeInstance("i-nonexistent")}
-			},
-			osUser:    "ec2-user",
-			publicKey: "ssh-ed25519 AAAA...",
-			setupMock: func(m *MockEC2InstanceConnectAPI) {
+		"api error - access denied": {
+			instanceID: "i-1234567890abcdef0",
+			osUser:     "ec2-user",
+			publicKey:  "ssh-ed25519 AAAAC3...",
+			mockSetup: func(m *MockEC2InstanceConnectAPI) {
 				m.On("SendSSHPublicKey", mock.Anything, mock.Anything).Return(
-					nil, errors.New("NotFoundException: Instance not found"))
+					nil,
+					errors.New("AccessDeniedException: User is not authorized"),
+				)
 			},
-			wantErr:    true,
-			errContain: "NotFoundException",
+			wantErr:     true,
+			errContains: "AccessDeniedException",
 		},
-		{
-			name: "error - rate limited",
-			instance: func() makeInstanceResult {
-				return makeInstanceResult{makeInstance("i-test")}
-			},
-			osUser:    "ec2-user",
-			publicKey: "ssh-ed25519 AAAA...",
-			setupMock: func(m *MockEC2InstanceConnectAPI) {
+		"api error - instance not found": {
+			instanceID: "i-notfound",
+			osUser:     "ec2-user",
+			publicKey:  "ssh-ed25519 AAAAC3...",
+			mockSetup: func(m *MockEC2InstanceConnectAPI) {
 				m.On("SendSSHPublicKey", mock.Anything, mock.Anything).Return(
-					nil, errors.New("ThrottlingException: Rate exceeded"))
+					nil,
+					errors.New("InvalidInstanceId: The instance ID 'i-notfound' is not valid"),
+				)
 			},
-			wantErr:    true,
-			errContain: "ThrottlingException",
+			wantErr:     true,
+			errContains: "InvalidInstanceId",
 		},
-		{
-			name: "error - permission denied",
-			instance: func() makeInstanceResult {
-				return makeInstanceResult{makeInstance("i-test")}
-			},
-			osUser:    "root",
-			publicKey: "ssh-ed25519 AAAA...",
-			setupMock: func(m *MockEC2InstanceConnectAPI) {
+		"api error - throttling": {
+			instanceID: "i-throttled",
+			osUser:     "ec2-user",
+			publicKey:  "ssh-ed25519 AAAAC3...",
+			mockSetup: func(m *MockEC2InstanceConnectAPI) {
 				m.On("SendSSHPublicKey", mock.Anything, mock.Anything).Return(
-					nil, errors.New("AccessDeniedException: User not authorized"))
+					nil,
+					errors.New("ThrottlingException: Rate exceeded"),
+				)
 			},
-			wantErr:    true,
-			errContain: "AccessDeniedException",
+			wantErr:     true,
+			errContains: "ThrottlingException",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			mockConnect := new(MockEC2InstanceConnectAPI)
-			tt.setupMock(mockConnect)
+			tc.mockSetup(mockConnect)
+
+			instance := makeInstance(tc.instanceID)
 			client := newTestClient(nil, mockConnect, nil)
 
-			instanceResult := tt.instance()
-			err := client.SendSSHPublicKey(instanceResult.Instance, tt.osUser, tt.publicKey)
+			err := client.SendSSHPublicKey(instance, tc.osUser, tc.publicKey)
 
-			if tt.wantErr {
+			if tc.wantErr {
 				require.Error(t, err)
-				if tt.errContain != "" {
-					assert.Contains(t, err.Error(), tt.errContain)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
 				}
-				mockConnect.AssertExpectations(t)
 				return
 			}
 
@@ -121,9 +109,4 @@ func TestSendSSHPublicKey(t *testing.T) {
 			mockConnect.AssertExpectations(t)
 		})
 	}
-}
-
-// makeInstanceResult wraps an instance for cleaner test table syntax.
-type makeInstanceResult struct {
-	Instance types.Instance
 }

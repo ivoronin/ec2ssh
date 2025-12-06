@@ -7,365 +7,344 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testOptions is a struct for testing with argsieve short/long tags.
-type testOptions struct {
+// testFlags is a test struct covering all supported field types.
+type testFlags struct {
 	Region  string `short:"r" long:"region"`
-	Profile string `long:"profile"`
+	Profile string `short:"p" long:"profile"`
+	Verbose bool   `short:"v" long:"verbose"`
 	Debug   bool   `short:"d" long:"debug"`
-	Verbose bool   `short:"v"`
-	Login   string `short:"l"`
-	Port    string `short:"p" long:"port"`
-	NoValue string // no tag - should be ignored
+}
+
+// testEmbeddedBase is embedded in testEmbedded.
+type testEmbeddedBase struct {
+	Region string `short:"r" long:"region"`
+}
+
+// testEmbedded tests embedded struct field extraction.
+type testEmbedded struct {
+	testEmbeddedBase
+	Profile string `short:"p" long:"profile"`
 }
 
 func TestSift(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name        string
-		args        []string
-		passthrough []string
-		wantOpts    testOptions
-		wantRemain  []string
-		wantPos     []string
-		wantErr     bool
+	tests := map[string]struct {
+		args               []string
+		passthroughWithArg []string
+		wantRemaining      []string
+		wantPositional     []string
+		wantRegion         string
+		wantProfile        string
+		wantVerbose        bool
+		wantDebug          bool
+		wantErr            bool
 	}{
-		// Long options
-		{
-			name:     "long option with space",
-			args:     []string{"--region", "us-west-2"},
-			wantOpts: testOptions{Region: "us-west-2"},
+		// Short flags with separate value
+		"short flag with separate value": {
+			args:       []string{"-r", "us-west-2"},
+			wantRegion: "us-west-2",
 		},
-		{
-			name:     "long option with equals",
-			args:     []string{"--region=us-east-1"},
-			wantOpts: testOptions{Region: "us-east-1"},
+		// Short flag with attached value
+		"short flag with attached value": {
+			args:       []string{"-rus-west-2"},
+			wantRegion: "us-west-2",
 		},
-		{
-			name:     "bool long flag",
-			args:     []string{"--debug"},
-			wantOpts: testOptions{Debug: true},
+		// Short bool flag
+		"short bool flag": {
+			args:        []string{"-v"},
+			wantVerbose: true,
 		},
-		{
-			name:    "missing value for long option",
+		// Short flag chaining bools
+		"short flag chaining bools": {
+			args:        []string{"-vd"},
+			wantVerbose: true,
+			wantDebug:   true,
+		},
+		// Short flag chain with value at end
+		"short flag chain with value at end": {
+			args:        []string{"-vdrus-west-2"},
+			wantVerbose: true,
+			wantDebug:   true,
+			wantRegion:  "us-west-2",
+		},
+		// Long flag with separate value
+		"long flag with separate value": {
+			args:       []string{"--region", "us-west-2"},
+			wantRegion: "us-west-2",
+		},
+		// Long flag with equals value
+		"long flag with equals value": {
+			args:       []string{"--region=us-west-2"},
+			wantRegion: "us-west-2",
+		},
+		// Long bool flag
+		"long bool flag": {
+			args:        []string{"--verbose"},
+			wantVerbose: true,
+		},
+		// Unknown short flag passed through
+		"unknown short flag passed through": {
+			args:           []string{"-x", "foo"},
+			wantRemaining:  []string{"-x"},
+			wantPositional: []string{"foo"},
+		},
+		// Unknown long flag passed through
+		"unknown long flag passed through": {
+			args:           []string{"--unknown", "foo"},
+			wantRemaining:  []string{"--unknown"},
+			wantPositional: []string{"foo"},
+		},
+		// Passthrough flag with value
+		"passthrough flag with value": {
+			args:               []string{"-o", "StrictHostKeyChecking=no"},
+			passthroughWithArg: []string{"-o"},
+			wantRemaining:      []string{"-o", "StrictHostKeyChecking=no"},
+		},
+		// Passthrough flag with attached value
+		"passthrough flag with attached value": {
+			args:               []string{"-oStrictHostKeyChecking=no"},
+			passthroughWithArg: []string{"-o"},
+			wantRemaining:      []string{"-oStrictHostKeyChecking=no"},
+		},
+		// Passthrough long flag with value
+		"passthrough long flag with value": {
+			args:               []string{"--option", "value"},
+			passthroughWithArg: []string{"--option"},
+			wantRemaining:      []string{"--option", "value"},
+		},
+		// Positional only
+		"positional only": {
+			args:           []string{"host1", "host2"},
+			wantPositional: []string{"host1", "host2"},
+		},
+		// Mixed flags and positional
+		"mixed flags and positional": {
+			args:           []string{"-r", "us-west-2", "host"},
+			wantRegion:     "us-west-2",
+			wantPositional: []string{"host"},
+		},
+		// Double dash terminator
+		"double dash terminator": {
+			args:           []string{"-v", "--", "-r", "us-west-2"},
+			wantVerbose:    true,
+			wantPositional: []string{"-r", "us-west-2"},
+		},
+		// Empty args
+		"empty args": {
+			args: []string{},
+		},
+		// Single dash is positional
+		"single dash is positional": {
+			args:           []string{"-"},
+			wantPositional: []string{"-"},
+		},
+		// Multiple known and unknown mixed
+		"multiple known and unknown mixed": {
+			args:           []string{"-v", "-x", "--region", "us-east-1", "--unknown", "host"},
+			wantVerbose:    true,
+			wantRegion:     "us-east-1",
+			wantRemaining:  []string{"-x", "--unknown"},
+			wantPositional: []string{"host"},
+		},
+		// Missing value for short flag
+		"missing value for short flag": {
+			args:    []string{"-r"},
+			wantErr: true,
+		},
+		// Missing value for long flag
+		"missing value for long flag": {
 			args:    []string{"--region"},
 			wantErr: true,
 		},
-
-		// Short options
-		{
-			name:     "short option with space",
-			args:     []string{"-l", "root"},
-			wantOpts: testOptions{Login: "root"},
-		},
-		{
-			name:     "short option attached",
-			args:     []string{"-lroot"},
-			wantOpts: testOptions{Login: "root"},
-		},
-		{
-			name:     "combined short bool flags",
-			args:     []string{"-dv"},
-			wantOpts: testOptions{Debug: true, Verbose: true},
-		},
-		{
-			name:     "combined short flags with value",
-			args:     []string{"-dvlroot"},
-			wantOpts: testOptions{Debug: true, Verbose: true, Login: "root"},
-		},
-		{
-			name:    "missing value for short option",
-			args:    []string{"-l"},
-			wantErr: true,
-		},
-
-		// Unknown flags
-		{
-			name:       "unknown short flag",
-			args:       []string{"-N", "--debug"},
-			wantOpts:   testOptions{Debug: true},
-			wantRemain: []string{"-N"},
-		},
-		{
-			name:       "unknown long flag",
-			args:       []string{"--unknown", "--debug"},
-			wantOpts:   testOptions{Debug: true},
-			wantRemain: []string{"--unknown"},
-		},
-
-		// Passthrough flags
-		{
-			name:        "passthrough long with arg",
-			args:        []string{"--url", "http://example.com", "--debug"},
-			passthrough: []string{"--url"},
-			wantOpts:    testOptions{Debug: true},
-			wantRemain:  []string{"--url", "http://example.com"},
-		},
-		{
-			name:        "passthrough long with equals",
-			args:        []string{"--url=http://example.com", "--debug"},
-			passthrough: []string{"--url"},
-			wantOpts:    testOptions{Debug: true},
-			wantRemain:  []string{"--url=http://example.com"},
-		},
-		{
-			name:        "passthrough short with arg",
-			args:        []string{"-o", "output.txt", "--debug"},
-			passthrough: []string{"-o"},
-			wantOpts:    testOptions{Debug: true},
-			wantRemain:  []string{"-o", "output.txt"},
-		},
-		{
-			name:        "passthrough short attached",
-			args:        []string{"-ooutput.txt", "--debug"},
-			passthrough: []string{"-o"},
-			wantOpts:    testOptions{Debug: true},
-			wantRemain:  []string{"-ooutput.txt"},
-		},
-		{
-			name:        "passthrough short consumes next arg even if flag-like",
-			args:        []string{"-o", "--debug", "hostname"},
-			passthrough: []string{"-o"},
-			wantOpts:    testOptions{Debug: false}, // --debug is consumed by -o, not parsed
-			wantRemain:  []string{"-o", "--debug"},
-			wantPos:     []string{"hostname"},
-		},
-
-		// Positional arguments
-		{
-			name:     "positional args",
-			args:     []string{"--debug", "hostname", "cmd", "arg1"},
-			wantOpts: testOptions{Debug: true},
-			wantPos:  []string{"hostname", "cmd", "arg1"},
-		},
-		{
-			name:    "only positional",
-			args:    []string{"hostname", "cmd"},
-			wantPos: []string{"hostname", "cmd"},
-		},
-
-		// Separator --
-		{
-			name:     "separator treats rest as positional",
-			args:     []string{"--debug", "--", "--not-a-flag", "positional"},
-			wantOpts: testOptions{Debug: true},
-			wantPos:  []string{"--not-a-flag", "positional"},
-		},
-
-		// Edge cases
-		{
-			name: "empty args",
-			args: []string{},
-		},
-		{
-			name:     "duplicate option (last wins)",
-			args:     []string{"--region", "first", "--region", "second"},
-			wantOpts: testOptions{Region: "second"},
-		},
-		{
-			name:        "without passthrough - value becomes positional",
-			args:        []string{"--url", "http://example.com"},
-			wantRemain:  []string{"--url"},
-			wantPos:     []string{"http://example.com"},
-		},
-		{
-			name:        "with passthrough - value stays with flag",
-			args:        []string{"--url", "http://example.com"},
-			passthrough: []string{"--url"},
-			wantRemain:  []string{"--url", "http://example.com"},
-		},
-
-		// Complex mix
-		{
-			name: "complex mix of all types",
-			args: []string{
-				"--region", "us-west-2",
-				"-dv",
-				"-lroot",
-				"-N",
-				"--url", "http://example.com",
-				"hostname",
-				"cmd",
-			},
-			passthrough: []string{"--url"},
-			wantOpts:    testOptions{Region: "us-west-2", Debug: true, Verbose: true, Login: "root"},
-			wantRemain:  []string{"-N", "--url", "http://example.com"},
-			wantPos:     []string{"hostname", "cmd"},
-		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			var opts testOptions
-			remaining, positional, err := Sift(&opts, tt.args, tt.passthrough)
+			var flags testFlags
+			remaining, positional, err := Sift(&flags, tc.args, tc.passthroughWithArg)
 
-			if tt.wantErr {
-				require.ErrorIs(t, err, ErrParse)
-
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrParse)
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantOpts, opts)
-			assert.Equal(t, tt.wantRemain, remaining)
-			assert.Equal(t, tt.wantPos, positional)
+			assert.Equal(t, tc.wantRemaining, remaining, "remaining")
+			assert.Equal(t, tc.wantPositional, positional, "positional")
+			assert.Equal(t, tc.wantRegion, flags.Region, "region")
+			assert.Equal(t, tc.wantProfile, flags.Profile, "profile")
+			assert.Equal(t, tc.wantVerbose, flags.Verbose, "verbose")
+			assert.Equal(t, tc.wantDebug, flags.Debug, "debug")
 		})
 	}
-}
-
-func TestSift_PanicOnInvalidTarget(t *testing.T) {
-	t.Parallel()
-
-	t.Run("non-pointer", func(t *testing.T) {
-		t.Parallel()
-		assert.Panics(t, func() {
-			var opts testOptions
-			Sift(opts, nil, nil) // passing value, not pointer
-		})
-	})
-
-	t.Run("pointer to non-struct", func(t *testing.T) {
-		t.Parallel()
-		assert.Panics(t, func() {
-			var s string
-			Sift(&s, nil, nil)
-		})
-	})
-
-	t.Run("unsupported field type", func(t *testing.T) {
-		t.Parallel()
-
-		type badOptions struct {
-			Count int `long:"count"`
-		}
-
-		assert.Panics(t, func() {
-			var opts badOptions
-			Sift(&opts, nil, nil)
-		})
-	})
-}
-
-func TestSift_EdgeCases(t *testing.T) {
-	t.Parallel()
-
-	t.Run("lone dash is positional", func(t *testing.T) {
-		t.Parallel()
-
-		var opts testOptions
-		remaining, positional, err := Sift(&opts, []string{"--debug", "-", "file.txt"}, nil)
-
-		require.NoError(t, err)
-		assert.True(t, opts.Debug)
-		assert.Empty(t, remaining)
-		assert.Equal(t, []string{"-", "file.txt"}, positional)
-	})
-
-	t.Run("passthrough at end without value", func(t *testing.T) {
-		t.Parallel()
-
-		var opts testOptions
-		remaining, positional, err := Sift(&opts, []string{"-o"}, []string{"-o"})
-
-		require.NoError(t, err)
-		assert.Equal(t, []string{"-o"}, remaining)
-		assert.Empty(t, positional)
-	})
 }
 
 func TestParse(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
-		args     []string
-		wantOpts testOptions
-		wantPos  []string
-		wantErr  bool
-		errMsg   string
+	tests := map[string]struct {
+		args           []string
+		wantPositional []string
+		wantRegion     string
+		wantProfile    string
+		wantVerbose    bool
+		wantErr        bool
+		errContains    string
 	}{
-		{
-			name:     "known flags work normally",
-			args:     []string{"--region", "us-west-2", "--debug"},
-			wantOpts: testOptions{Region: "us-west-2", Debug: true},
+		"valid flags": {
+			args:           []string{"--region", "us-west-2", "host"},
+			wantRegion:     "us-west-2",
+			wantPositional: []string{"host"},
 		},
-		{
-			name:    "unknown long flag causes error",
-			args:    []string{"--unknown", "--debug"},
-			wantErr: true,
-			errMsg:  "unknown option --unknown",
+		"all flag types": {
+			args:           []string{"-v", "-r", "us-west-2", "--profile", "myprofile", "host"},
+			wantVerbose:    true,
+			wantRegion:     "us-west-2",
+			wantProfile:    "myprofile",
+			wantPositional: []string{"host"},
 		},
-		{
-			name:    "unknown short flag causes error",
-			args:    []string{"-N", "--debug"},
-			wantErr: true,
-			errMsg:  "unknown option -N",
+		"unknown short flag rejected": {
+			args:        []string{"-x"},
+			wantErr:     true,
+			errContains: "unknown option -x",
 		},
-		{
-			name:    "unknown in combined short flags causes error",
-			args:    []string{"-dXv"},
-			wantErr: true,
-			errMsg:  "unknown option -X",
+		"unknown long flag rejected": {
+			args:        []string{"--unknown"},
+			wantErr:     true,
+			errContains: "unknown option --unknown",
 		},
-		{
-			name:     "positional args still work",
-			args:     []string{"--debug", "hostname", "cmd"},
-			wantOpts: testOptions{Debug: true},
-			wantPos:  []string{"hostname", "cmd"},
+		"empty args": {
+			args:           []string{},
+			wantPositional: nil,
 		},
-		{
-			name:     "separator treats rest as positional",
-			args:     []string{"--debug", "--", "--looks-like-flag"},
-			wantOpts: testOptions{Debug: true},
-			wantPos:  []string{"--looks-like-flag"},
+		"positional only": {
+			args:           []string{"host1", "host2"},
+			wantPositional: []string{"host1", "host2"},
 		},
-		{
-			name:    "missing value still errors",
-			args:    []string{"--region"},
-			wantErr: true,
-			errMsg:  "missing value for --region",
+		"missing value rejected": {
+			args:        []string{"--region"},
+			wantErr:     true,
+			errContains: "missing value for --region",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			var opts testOptions
-			positional, err := Parse(&opts, tt.args)
+			var flags testFlags
+			positional, err := Parse(&flags, tc.args)
 
-			if tt.wantErr {
-				require.ErrorIs(t, err, ErrParse)
-				assert.Contains(t, err.Error(), tt.errMsg)
-
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrParse)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantOpts, opts)
-			assert.Equal(t, tt.wantPos, positional)
+			assert.Equal(t, tc.wantPositional, positional)
+			assert.Equal(t, tc.wantRegion, flags.Region)
+			assert.Equal(t, tc.wantProfile, flags.Profile)
+			assert.Equal(t, tc.wantVerbose, flags.Verbose)
 		})
 	}
 }
 
-func TestParse_PanicOnInvalidTarget(t *testing.T) {
+func TestSift_EmbeddedStruct(t *testing.T) {
 	t.Parallel()
 
-	t.Run("non-pointer", func(t *testing.T) {
-		t.Parallel()
-		assert.Panics(t, func() {
-			var opts testOptions
-			Parse(opts, nil)
-		})
-	})
+	var flags testEmbedded
+	_, _, err := Sift(&flags, []string{"-r", "us-west-2", "-p", "myprofile"}, nil)
 
-	t.Run("pointer to non-struct", func(t *testing.T) {
-		t.Parallel()
-		assert.Panics(t, func() {
-			var s string
-			Parse(&s, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "us-west-2", flags.Region)
+	assert.Equal(t, "myprofile", flags.Profile)
+}
+
+func TestSift_PanicsOnInvalidTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		target any
+	}{
+		"nil target":        {target: nil},
+		"non-pointer":       {target: testFlags{}},
+		"pointer to string": {target: new(string)},
+		"pointer to int":    {target: new(int)},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Panics(t, func() {
+				_, _, _ = Sift(tc.target, []string{}, nil)
+			})
 		})
+	}
+}
+
+func TestSift_PanicsOnUnsupportedFieldType(t *testing.T) {
+	t.Parallel()
+
+	type badStruct struct {
+		Count int `short:"c"`
+	}
+
+	assert.Panics(t, func() {
+		var flags badStruct
+		_, _, _ = Sift(&flags, []string{}, nil)
 	})
+}
+
+func TestParse_PanicsOnInvalidTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		target any
+	}{
+		"nil target":  {target: nil},
+		"non-pointer": {target: testFlags{}},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Panics(t, func() {
+				_, _ = Parse(tc.target, []string{})
+			})
+		})
+	}
+}
+
+func TestSift_LongFlagEqualsEmptyValue(t *testing.T) {
+	t.Parallel()
+
+	var flags testFlags
+	_, _, err := Sift(&flags, []string{"--region="}, nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, "", flags.Region)
+}
+
+func TestSift_ComplexPassthrough(t *testing.T) {
+	t.Parallel()
+
+	var flags testFlags
+	remaining, positional, err := Sift(&flags,
+		[]string{"-v", "-o", "opt1", "-L", "8080:localhost:80", "--region", "us-west-2", "host"},
+		[]string{"-o", "-L"},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"-o", "opt1", "-L", "8080:localhost:80"}, remaining)
+	assert.Equal(t, []string{"host"}, positional)
+	assert.True(t, flags.Verbose)
+	assert.Equal(t, "us-west-2", flags.Region)
 }

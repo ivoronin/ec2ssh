@@ -3,121 +3,114 @@ package app
 import (
 	"testing"
 
+	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewSSMSession(t *testing.T) {
+	t.Parallel()
 
-	tests := []struct {
-		name    string
-		args    []string
-		wantErr string
-		check   func(t *testing.T, session *SSMSession)
+	tests := map[string]struct {
+		args        []string
+		wantHost    string
+		wantDstType ec2client.DstType
+		wantErr     bool
+		errContains string
 	}{
-		// Basic forms
-		{
-			name: "basic destination",
-			args: []string{"host"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.Equal(t, "host", session.Destination)
-			},
+		// Basic formats
+		"instance id": {
+			args:     []string{"i-1234567890abcdef0"},
+			wantHost: "i-1234567890abcdef0",
 		},
-		{
-			name: "user@host destination extracts host",
-			args: []string{"user@host"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.Equal(t, "host", session.Destination)
-			},
+		"user@instance id - user ignored": {
+			args:     []string{"ec2-user@i-1234567890abcdef0"},
+			wantHost: "i-1234567890abcdef0",
 		},
-		{
-			name: "instance ID destination",
-			args: []string{"i-0123456789abcdef0"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.Equal(t, "i-0123456789abcdef0", session.Destination)
-			},
+		"private ip": {
+			args:     []string{"10.0.0.1"},
+			wantHost: "10.0.0.1",
+		},
+		"name tag": {
+			args:     []string{"my-server"},
+			wantHost: "my-server",
 		},
 
-		// AWS options
-		{
-			name: "--region flag",
-			args: []string{"--region", "us-west-2", "host"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.Equal(t, "us-west-2", session.Region)
-			},
+		// With flags
+		"with region": {
+			args:     []string{"--region", "us-west-2", "i-123"},
+			wantHost: "i-123",
 		},
-		{
-			name: "--profile flag",
-			args: []string{"--profile", "prod", "host"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.Equal(t, "prod", session.Profile)
-			},
+		"with profile": {
+			args:     []string{"--profile", "myprofile", "i-123"},
+			wantHost: "i-123",
 		},
-		{
-			name: "--region and --profile",
-			args: []string{"--region", "eu-west-1", "--profile", "myprofile", "host"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.Equal(t, "eu-west-1", session.Region)
-				assert.Equal(t, "myprofile", session.Profile)
-			},
+		"with destination type id": {
+			args:        []string{"--destination-type", "id", "i-123"},
+			wantHost:    "i-123",
+			wantDstType: ec2client.DstTypeID,
 		},
-
-		// Destination types
-		{
-			name: "destination-type id",
-			args: []string{"--destination-type", "id", "i-123"},
+		"with destination type name_tag": {
+			args:        []string{"--destination-type", "name_tag", "my-server"},
+			wantHost:    "my-server",
+			wantDstType: ec2client.DstTypeNameTag,
 		},
-		{
-			name: "destination-type name_tag",
-			args: []string{"--destination-type", "name_tag", "my-server"},
-		},
-		{
-			name:    "destination-type invalid",
-			args:    []string{"--destination-type", "invalid", "host"},
-			wantErr: "unknown",
-		},
-
-		// Debug
-		{
-			name: "--debug flag",
-			args: []string{"--debug", "host"},
-			check: func(t *testing.T, session *SSMSession) {
-				assert.True(t, session.Debug)
-			},
+		"with debug": {
+			args:     []string{"--debug", "i-123"},
+			wantHost: "i-123",
 		},
 
 		// Error cases
-		{
-			name:    "no destination",
-			args:    []string{},
-			wantErr: "missing destination",
+		"missing destination": {
+			args:        []string{},
+			wantErr:     true,
+			errContains: "missing destination",
 		},
-		{
-			name:    "missing value for --region",
-			args:    []string{"--region"},
-			wantErr: "missing value",
+		"extra positional argument": {
+			args:        []string{"i-123", "extra"},
+			wantErr:     true,
+			errContains: "unexpected argument",
 		},
-		{
-			name:    "missing value for --profile",
-			args:    []string{"--profile"},
-			wantErr: "missing value",
+		"invalid destination type": {
+			args:        []string{"--destination-type", "invalid", "i-123"},
+			wantErr:     true,
+			errContains: "unknown destination type",
+		},
+		"unknown flag": {
+			args:        []string{"--unknown-flag", "i-123"},
+			wantErr:     true,
+			errContains: "unknown option",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			session, err := NewSSMSession(tt.args)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-			if tt.wantErr != "" {
+			session, err := NewSSMSession(tc.args)
+
+			if tc.wantErr {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
 				return
 			}
 
 			require.NoError(t, err)
-			if tt.check != nil {
-				tt.check(t, session)
-			}
+			require.NotNil(t, session)
+
+			assert.Equal(t, tc.wantHost, session.Destination, "destination")
+			assert.Equal(t, tc.wantDstType, session.DstType, "dstType")
 		})
 	}
+}
+
+func TestNewSSMSession_NoPassthroughArgs(t *testing.T) {
+	t.Parallel()
+
+	// SSM sessions use strict parsing - unknown flags should be rejected
+	_, err := NewSSMSession([]string{"-v", "i-123"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown option")
 }

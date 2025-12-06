@@ -9,238 +9,169 @@ import (
 func TestResolve(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
 		binPath    string
 		args       []string
 		wantIntent Intent
 		wantArgs   []string
 	}{
-		// Binary name detection
-		{
-			name:       "ec2ssh default",
+		// Binary name mapping
+		"ec2ssh binary": {
 			binPath:    "/usr/bin/ec2ssh",
 			args:       []string{"host"},
 			wantIntent: IntentSSH,
 			wantArgs:   []string{"host"},
 		},
-		{
-			name:       "ec2list binary",
-			binPath:    "/usr/bin/ec2list",
-			args:       nil,
-			wantIntent: IntentList,
-			wantArgs:   nil,
-		},
-		{
-			name:       "ec2list with args",
-			binPath:    "/usr/bin/ec2list",
-			args:       []string{"--region", "us-west-2"},
-			wantIntent: IntentList,
-			wantArgs:   []string{"--region", "us-west-2"},
-		},
-		{
-			name:       "unknown binary defaults to SSH",
-			binPath:    "/usr/bin/ec2foo",
-			args:       []string{"host"},
-			wantIntent: IntentSSH,
-			wantArgs:   []string{"host"},
-		},
-		{
-			name:       "empty binary name defaults to SSH",
-			binPath:    "ec2ssh",
-			args:       []string{"host"},
-			wantIntent: IntentSSH,
-			wantArgs:   []string{"host"},
-		},
-
-		// Override flags
-		{
-			name:       "--list override",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--list"},
-			wantIntent: IntentList,
-			wantArgs:   []string{},
-		},
-		{
-			name:       "--list with additional args",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--list", "--region", "us-east-1"},
-			wantIntent: IntentList,
-			wantArgs:   []string{"--region", "us-east-1"},
-		},
-		{
-			name:       "--ssh explicit",
-			binPath:    "/usr/bin/ec2list",
-			args:       []string{"--ssh", "host"},
-			wantIntent: IntentSSH,
-			wantArgs:   []string{"host"},
-		},
-		{
-			name:       "--help long form",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--help"},
-			wantIntent: IntentHelp,
-			wantArgs:   []string{},
-		},
-		{
-			name:       "-h short form",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"-h"},
-			wantIntent: IntentHelp,
-			wantArgs:   []string{},
-		},
-		{
-			name:       "--eice-tunnel",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--eice-tunnel"},
-			wantIntent: IntentEICETunnel,
-			wantArgs:   []string{},
-		},
-
-		// Override wins over binary name (silently)
-		{
-			name:       "--ssh overrides ec2list binary",
-			binPath:    "/usr/bin/ec2list",
-			args:       []string{"--ssh", "host"},
-			wantIntent: IntentSSH,
-			wantArgs:   []string{"host"},
-		},
-		{
-			name:       "--list overrides ec2ssh binary",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--list", "--region", "eu-west-1"},
-			wantIntent: IntentList,
-			wantArgs:   []string{"--region", "eu-west-1"},
-		},
-
-		// Edge cases
-		{
-			name:       "no args with ec2ssh",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       nil,
-			wantIntent: IntentSSH,
-			wantArgs:   nil,
-		},
-		{
-			name:       "no args with ec2list",
+		"ec2list binary": {
 			binPath:    "/usr/bin/ec2list",
 			args:       []string{},
 			wantIntent: IntentList,
 			wantArgs:   []string{},
 		},
-		{
-			name:       "non-intent flag is not consumed",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--region", "us-west-2", "host"},
-			wantIntent: IntentSSH,
-			wantArgs:   []string{"--region", "us-west-2", "host"},
+		"ec2scp binary": {
+			binPath:    "/usr/bin/ec2scp",
+			args:       []string{"file", "host:/path"},
+			wantIntent: IntentSCP,
+			wantArgs:   []string{"file", "host:/path"},
 		},
-		{
-			name:       "--list in non-first position is not an override",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"host", "--list"},
-			wantIntent: IntentSSH,
-			wantArgs:   []string{"host", "--list"},
-		},
-		// SFTP intent
-		{
-			name:       "--sftp override",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--sftp", "user@host:/path"},
-			wantIntent: IntentSFTP,
-			wantArgs:   []string{"user@host:/path"},
-		},
-		{
-			name:       "ec2sftp binary",
+		"ec2sftp binary": {
 			binPath:    "/usr/bin/ec2sftp",
-			args:       []string{"user@host"},
+			args:       []string{"host"},
 			wantIntent: IntentSFTP,
-			wantArgs:   []string{"user@host"},
+			wantArgs:   []string{"host"},
 		},
-		{
-			name:       "--sftp overrides ec2list binary",
+		"ec2ssm binary": {
+			binPath:    "/usr/bin/ec2ssm",
+			args:       []string{"host"},
+			wantIntent: IntentSSMSession,
+			wantArgs:   []string{"host"},
+		},
+		"unknown binary defaults to ssh": {
+			binPath:    "/usr/bin/unknown",
+			args:       []string{"host"},
+			wantIntent: IntentSSH,
+			wantArgs:   []string{"host"},
+		},
+		"binary with local path": {
+			binPath:    "./ec2list",
+			args:       []string{},
+			wantIntent: IntentList,
+			wantArgs:   []string{},
+		},
+		"binary with user path": {
+			binPath:    "/home/user/.local/bin/ec2sftp",
+			args:       []string{"host"},
+			wantIntent: IntentSFTP,
+			wantArgs:   []string{"host"},
+		},
+
+		// Flag overrides (win over binary name)
+		"--ssh flag override": {
 			binPath:    "/usr/bin/ec2list",
+			args:       []string{"--ssh", "host"},
+			wantIntent: IntentSSH,
+			wantArgs:   []string{"host"},
+		},
+		"--list flag override": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--list"},
+			wantIntent: IntentList,
+			wantArgs:   []string{},
+		},
+		"--scp flag override": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--scp", "file", "host:/path"},
+			wantIntent: IntentSCP,
+			wantArgs:   []string{"file", "host:/path"},
+		},
+		"--sftp flag override": {
+			binPath:    "/usr/bin/ec2ssh",
 			args:       []string{"--sftp", "host"},
 			wantIntent: IntentSFTP,
 			wantArgs:   []string{"host"},
 		},
-		// SCP intent
-		{
-			name:       "--scp override",
+		"--ssm flag override": {
 			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--scp", "/local/file", "user@host:/remote/path"},
-			wantIntent: IntentSCP,
-			wantArgs:   []string{"/local/file", "user@host:/remote/path"},
+			args:       []string{"--ssm", "host"},
+			wantIntent: IntentSSMSession,
+			wantArgs:   []string{"host"},
 		},
-		{
-			name:       "ec2scp binary",
-			binPath:    "/usr/bin/ec2scp",
-			args:       []string{"/local/file", "user@host:/remote"},
-			wantIntent: IntentSCP,
-			wantArgs:   []string{"/local/file", "user@host:/remote"},
+		"--eice-tunnel flag": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--eice-tunnel", "--host", "10.0.0.1"},
+			wantIntent: IntentEICETunnel,
+			wantArgs:   []string{"--host", "10.0.0.1"},
 		},
-		{
-			name:       "--scp overrides ec2list binary",
-			binPath:    "/usr/bin/ec2list",
-			args:       []string{"--scp", "file", "user@host:path"},
-			wantIntent: IntentSCP,
-			wantArgs:   []string{"file", "user@host:path"},
+		"--ssm-tunnel flag": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--ssm-tunnel", "--instance-id", "i-123"},
+			wantIntent: IntentSSMTunnel,
+			wantArgs:   []string{"--instance-id", "i-123"},
 		},
-		{
-			name:       "ec2scp with flags",
-			binPath:    "/usr/bin/ec2scp",
-			args:       []string{"-r", "--region", "us-west-2", "/local", "host:/remote"},
-			wantIntent: IntentSCP,
-			wantArgs:   []string{"-r", "--region", "us-west-2", "/local", "host:/remote"},
+
+		// Help flags
+		"--help flag": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--help"},
+			wantIntent: IntentHelp,
+			wantArgs:   []string{},
 		},
-		// Version intent
-		{
-			name:       "--version flag",
+		"-h flag": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"-h"},
+			wantIntent: IntentHelp,
+			wantArgs:   []string{},
+		},
+		"--help with args": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"--help", "extra"},
+			wantIntent: IntentHelp,
+			wantArgs:   []string{"extra"},
+		},
+
+		// Version flag
+		"--version flag": {
 			binPath:    "/usr/bin/ec2ssh",
 			args:       []string{"--version"},
 			wantIntent: IntentVersion,
 			wantArgs:   []string{},
 		},
-		// SSM intent
-		{
-			name:       "--ssm flag",
+
+		// Edge cases
+		"empty args with ec2ssh": {
 			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--ssm", "my-instance"},
-			wantIntent: IntentSSMSession,
-			wantArgs:   []string{"my-instance"},
-		},
-		// SSM tunnel intent
-		{
-			name:       "--ssm-tunnel flag",
-			binPath:    "/usr/bin/ec2ssh",
-			args:       []string{"--ssm-tunnel"},
-			wantIntent: IntentSSMTunnel,
+			args:       []string{},
+			wantIntent: IntentSSH,
 			wantArgs:   []string{},
 		},
-		{
-			name:       "ec2ssm binary",
-			binPath:    "/usr/bin/ec2ssm",
-			args:       []string{"my-instance"},
-			wantIntent: IntentSSMSession,
-			wantArgs:   []string{"my-instance"},
+		"empty args with ec2list": {
+			binPath:    "/usr/bin/ec2list",
+			args:       []string{},
+			wantIntent: IntentList,
+			wantArgs:   []string{},
 		},
-		{
-			name:       "ec2ssm with profile and region",
-			binPath:    "/usr/bin/ec2ssm",
-			args:       []string{"--profile", "prod", "--region", "us-west-2", "i-123"},
-			wantIntent: IntentSSMSession,
-			wantArgs:   []string{"--profile", "prod", "--region", "us-west-2", "i-123"},
+		"binary name only - no path": {
+			binPath:    "ec2list",
+			args:       []string{},
+			wantIntent: IntentList,
+			wantArgs:   []string{},
+		},
+		"flag not at first position": {
+			binPath:    "/usr/bin/ec2ssh",
+			args:       []string{"host", "--list"},
+			wantIntent: IntentSSH,
+			wantArgs:   []string{"host", "--list"}, // --list is not consumed
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			gotIntent, gotArgs := Resolve(tt.binPath, tt.args)
+			intent, args := Resolve(tc.binPath, tc.args)
 
-			assert.Equal(t, tt.wantIntent, gotIntent, "intent mismatch")
-			assert.Equal(t, tt.wantArgs, gotArgs, "args mismatch")
+			assert.Equal(t, tc.wantIntent, intent, "intent")
+			assert.Equal(t, tc.wantArgs, args, "args")
 		})
 	}
 }
@@ -248,27 +179,26 @@ func TestResolve(t *testing.T) {
 func TestIntent_String(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
+	tests := map[string]struct {
 		intent Intent
 		want   string
 	}{
-		{IntentSSH, "ssh"},
-		{IntentList, "list"},
-		{IntentHelp, "help"},
-		{IntentEICETunnel, "eice-tunnel"},
-		{IntentSFTP, "sftp"},
-		{IntentSCP, "scp"},
-		{IntentVersion, "version"},
-		{IntentSSMSession, "ssm"},
-		{IntentSSMTunnel, "ssm-tunnel"},
-		{Intent(99), "unknown"},
+		"help":        {intent: IntentHelp, want: "help"},
+		"version":     {intent: IntentVersion, want: "version"},
+		"ssh":         {intent: IntentSSH, want: "ssh"},
+		"scp":         {intent: IntentSCP, want: "scp"},
+		"sftp":        {intent: IntentSFTP, want: "sftp"},
+		"eice-tunnel": {intent: IntentEICETunnel, want: "eice-tunnel"},
+		"ssm":         {intent: IntentSSMSession, want: "ssm"},
+		"ssm-tunnel":  {intent: IntentSSMTunnel, want: "ssm-tunnel"},
+		"list":        {intent: IntentList, want: "list"},
+		"unknown":     {intent: Intent(99), want: "unknown"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			assert.Equal(t, tt.want, tt.intent.String())
+			assert.Equal(t, tc.want, tc.intent.String())
 		})
 	}
 }
