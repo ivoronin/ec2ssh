@@ -78,7 +78,7 @@ func (r *Runner) Run() int {
 		if tunnelConfig == "" {
 			return r.fatalError(errors.New("EC2SSH_TUNNEL_CONFIG environment variable not set"))
 		}
-		err = tunnel.RunSSM(tunnelConfig)
+		err = app.RunSSM(tunnelConfig)
 	case intent.IntentList:
 		err = app.RunList(args)
 	default:
