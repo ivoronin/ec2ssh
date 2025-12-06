@@ -67,7 +67,7 @@ func NewSCPSession(args []string) (*SCPSession, error) {
 	}
 
 	if session.Destination == "" {
-		return nil, ErrMissingDestination
+		return nil, fmt.Errorf("%w: missing destination", ErrUsage)
 	}
 
 	return &session, nil

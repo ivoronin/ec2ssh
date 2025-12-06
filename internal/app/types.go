@@ -29,7 +29,7 @@ var addrTypes = map[string]ec2client.AddrType{
 func ParseDstType(s string) (ec2client.DstType, error) {
 	dstType, ok := dstTypes[s]
 	if !ok {
-		return ec2client.DstTypeAuto, fmt.Errorf("%w: %s", ErrUnknownType, s)
+		return ec2client.DstTypeAuto, fmt.Errorf("%w: unknown destination type: %s", ErrUsage, s)
 	}
 	return dstType, nil
 }
@@ -38,7 +38,7 @@ func ParseDstType(s string) (ec2client.DstType, error) {
 func ParseAddrType(s string) (ec2client.AddrType, error) {
 	addrType, ok := addrTypes[s]
 	if !ok {
-		return ec2client.AddrTypeAuto, fmt.Errorf("%w: %s", ErrUnknownType, s)
+		return ec2client.AddrTypeAuto, fmt.Errorf("%w: unknown address type: %s", ErrUsage, s)
 	}
 	return addrType, nil
 }

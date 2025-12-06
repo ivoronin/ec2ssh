@@ -74,7 +74,7 @@ func TestNewSSMSession(t *testing.T) {
 		{
 			name:    "destination-type invalid",
 			args:    []string{"--destination-type", "invalid", "host"},
-			wantErr: "unknown type",
+			wantErr: "unknown",
 		},
 
 		// Debug

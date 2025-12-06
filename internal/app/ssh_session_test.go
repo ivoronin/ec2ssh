@@ -363,7 +363,7 @@ func TestParseTypes(t *testing.T) {
 			err := session.ParseTypes()
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "unknown type")
+				assert.Contains(t, err.Error(), "unknown")
 			} else {
 				assert.NoError(t, err)
 			}

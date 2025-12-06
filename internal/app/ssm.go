@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -32,7 +33,7 @@ type SSMSession struct {
 func NewSSMSession(args []string) (*SSMSession, error) {
 	var session SSMSession
 
-	sieve := argsieve.New(&session, nil) // No passthrough args for SSM
+	sieve := argsieve.NewStrict(&session)
 
 	_, positional, err := sieve.Sift(args)
 	if err != nil {
@@ -52,7 +53,7 @@ func NewSSMSession(args []string) (*SSMSession, error) {
 	}
 
 	if session.Destination == "" {
-		return nil, ErrMissingDestination
+		return nil, fmt.Errorf("%w: missing destination", ErrUsage)
 	}
 
 	return &session, nil

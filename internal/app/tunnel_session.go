@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -51,10 +52,14 @@ type EICETunnelSession struct {
 func NewEICETunnelSession(args []string) (*EICETunnelSession, error) {
 	var session EICETunnelSession
 
-	sieve := argsieve.New(&session, nil)
-	_, _, err := sieve.Sift(args)
+	sieve := argsieve.NewStrict(&session)
+	_, positional, err := sieve.Sift(args)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(positional) > 0 {
+		return nil, fmt.Errorf("%w: unexpected argument %s", ErrUsage, positional[0])
 	}
 
 	// Validate required fields
@@ -109,10 +114,14 @@ type SSMTunnelSession struct {
 func NewSSMTunnelSession(args []string) (*SSMTunnelSession, error) {
 	var session SSMTunnelSession
 
-	sieve := argsieve.New(&session, nil)
-	_, _, err := sieve.Sift(args)
+	sieve := argsieve.NewStrict(&session)
+	_, positional, err := sieve.Sift(args)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(positional) > 0 {
+		return nil, fmt.Errorf("%w: unexpected argument %s", ErrUsage, positional[0])
 	}
 
 	// Validate required fields

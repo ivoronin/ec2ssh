@@ -150,7 +150,7 @@ func TestNewSFTPSession(t *testing.T) {
 		{
 			name:    "address-type invalid",
 			args:    []string{"--address-type", "invalid", "user@host"},
-			wantErr: "unknown type",
+			wantErr: "unknown",
 		},
 		{
 			name: "destination-type id",
@@ -163,7 +163,7 @@ func TestNewSFTPSession(t *testing.T) {
 		{
 			name:    "destination-type invalid",
 			args:    []string{"--destination-type", "invalid", "user@host"},
-			wantErr: "unknown type",
+			wantErr: "unknown",
 		},
 
 		// Error cases

@@ -37,21 +37,16 @@ type ListOptions struct {
 func NewListOptions(args []string) (*ListOptions, error) {
 	var options ListOptions
 
-	// List intent has no passthrough - all unknown flags are errors
-	sieve := argsieve.New(&options, nil)
+	sieve := argsieve.NewStrict(&options)
 
-	remaining, positional, err := sieve.Sift(args)
+	_, positional, err := sieve.Sift(args)
 	if err != nil {
 		return nil, err
 	}
 
-	// List doesn't accept positional arguments or unknown flags
-	if len(remaining) > 0 {
-		return nil, fmt.Errorf("%w: unknown option %s", ErrInvalidOption, remaining[0])
-	}
-
+	// List doesn't accept positional arguments
 	if len(positional) > 0 {
-		return nil, fmt.Errorf("%w: unexpected argument %s", ErrInvalidOption, positional[0])
+		return nil, fmt.Errorf("%w: unexpected argument %s", ErrUsage, positional[0])
 	}
 
 	return &options, nil
@@ -66,7 +61,7 @@ func RunList(args []string) error {
 
 	columns, err := parseListColumns(options.Columns)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidListColumns, err)
+		return fmt.Errorf("%w: invalid list columns: %v", ErrUsage, err)
 	}
 
 	logger := log.New(io.Discard, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)

@@ -31,6 +31,7 @@ type Sieve struct {
 	passthrough map[string]struct{}
 	remaining   []string
 	positional  []string
+	strict      bool // reject unknown flags in Sift()
 }
 
 // New creates a Sieve from a struct with short/long tags.
@@ -49,6 +50,20 @@ func New(target any, passthroughWithArg []string) *Sieve {
 	for _, p := range passthroughWithArg {
 		s.passthrough[p] = struct{}{}
 	}
+
+	return s
+}
+
+// NewStrict creates a Sieve that rejects unknown flags during Sift().
+// Use this for commands that don't pass flags through to wrapped programs.
+func NewStrict(target any) *Sieve {
+	s := &Sieve{
+		fields:      make(map[string]fieldInfo),
+		passthrough: make(map[string]struct{}),
+		strict:      true,
+	}
+
+	s.extractFields(target)
 
 	return s
 }
@@ -125,8 +140,12 @@ func (s *Sieve) handleLong(arg string, next func() (string, bool)) error {
 
 	info, known := s.fields[name]
 
-	// Unknown flag - check passthrough list
+	// Unknown flag - reject in strict mode or check passthrough list
 	if !known {
+		if s.strict {
+			return fmt.Errorf("%w: unknown option --%s", ErrSift, name)
+		}
+
 		_, isPassthrough := s.passthrough["--"+name]
 
 		if isPassthrough && !hasEquals {
@@ -220,6 +239,10 @@ func (s *Sieve) handleShort(arg string, next func() (string, bool)) error {
 
 // handleUnknownShort handles unknown short flags, checking passthrough list.
 func (s *Sieve) handleUnknownShort(flag, tail string, next func() (string, bool)) error {
+	if s.strict {
+		return fmt.Errorf("%w: unknown option -%s", ErrSift, flag)
+	}
+
 	prefixedFlag := "-" + flag
 	_, isPassthrough := s.passthrough[prefixedFlag]
 

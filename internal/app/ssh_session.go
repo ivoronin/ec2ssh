@@ -123,7 +123,7 @@ func (s *baseSSHSession) ApplyDefaults() error {
 
 	// Validate mutually exclusive options
 	if s.UseEICE && s.UseSSM {
-		return fmt.Errorf("%w: --use-eice and --use-ssm", ErrExclusiveOptions)
+		return fmt.Errorf("%w: --use-eice and --use-ssm are mutually exclusive", ErrUsage)
 	}
 
 	if s.Login == "" {

@@ -131,7 +131,7 @@ func TestNewSSHSession(t *testing.T) {
 		{
 			name:    "address-type invalid",
 			args:    []string{"--address-type", "invalid", "host"},
-			wantErr: "unknown type",
+			wantErr: "unknown",
 		},
 		// Destination types
 		{
@@ -161,7 +161,7 @@ func TestNewSSHSession(t *testing.T) {
 		{
 			name:    "destination-type invalid",
 			args:    []string{"--destination-type", "invalid", "host"},
-			wantErr: "unknown type",
+			wantErr: "unknown",
 		},
 		{
 			name:    "missing value for --region",

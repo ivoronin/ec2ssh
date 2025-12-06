@@ -277,3 +277,100 @@ func TestSift_EdgeCases(t *testing.T) {
 		assert.Empty(t, positional)
 	})
 }
+
+func TestNewStrict(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		args     []string
+		wantOpts testOptions
+		wantPos  []string
+		wantErr  bool
+		errMsg   string
+	}{
+		{
+			name:     "known flags work normally",
+			args:     []string{"--region", "us-west-2", "--debug"},
+			wantOpts: testOptions{Region: "us-west-2", Debug: true},
+		},
+		{
+			name:    "unknown long flag causes error",
+			args:    []string{"--unknown", "--debug"},
+			wantErr: true,
+			errMsg:  "unknown option --unknown",
+		},
+		{
+			name:    "unknown short flag causes error",
+			args:    []string{"-N", "--debug"},
+			wantErr: true,
+			errMsg:  "unknown option -N",
+		},
+		{
+			name:    "unknown in combined short flags causes error",
+			args:    []string{"-dXv"},
+			wantErr: true,
+			errMsg:  "unknown option -X",
+		},
+		{
+			name:     "positional args still work",
+			args:     []string{"--debug", "hostname", "cmd"},
+			wantOpts: testOptions{Debug: true},
+			wantPos:  []string{"hostname", "cmd"},
+		},
+		{
+			name:     "separator treats rest as positional",
+			args:     []string{"--debug", "--", "--looks-like-flag"},
+			wantOpts: testOptions{Debug: true},
+			wantPos:  []string{"--looks-like-flag"},
+		},
+		{
+			name:    "missing value still errors",
+			args:    []string{"--region"},
+			wantErr: true,
+			errMsg:  "missing value for --region",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var opts testOptions
+			sieve := NewStrict(&opts)
+			remaining, positional, err := sieve.Sift(tt.args)
+
+			if tt.wantErr {
+				require.ErrorIs(t, err, ErrSift)
+				assert.Contains(t, err.Error(), tt.errMsg)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Empty(t, remaining, "strict mode should have empty remaining")
+			assert.Equal(t, tt.wantOpts, opts)
+			assert.Equal(t, tt.wantPos, positional)
+		})
+	}
+}
+
+func TestNewStrict_PanicOnInvalidTarget(t *testing.T) {
+	t.Parallel()
+
+	t.Run("non-pointer", func(t *testing.T) {
+		t.Parallel()
+		assert.Panics(t, func() {
+			var opts testOptions
+			NewStrict(opts)
+		})
+	})
+
+	t.Run("pointer to non-struct", func(t *testing.T) {
+		t.Parallel()
+		assert.Panics(t, func() {
+			var s string
+			NewStrict(&s)
+		})
+	})
+}

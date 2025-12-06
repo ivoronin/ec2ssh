@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
 )
@@ -68,7 +70,7 @@ func NewSSHSession(args []string) (*SSHSession, error) {
 	}
 
 	if session.Destination == "" {
-		return nil, ErrMissingDestination
+		return nil, fmt.Errorf("%w: missing destination", ErrUsage)
 	}
 
 	return &session, nil
