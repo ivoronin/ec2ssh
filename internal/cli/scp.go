@@ -81,7 +81,8 @@ func ParseSCPOperand(operand string) SCPOperand {
 	path := operand[colonIdx+1:]
 
 	// Extract login and host, handling IPv6 brackets
-	login, host := parseUserHost(loginHost)
+	login, host := parseLoginHost(loginHost)
+	host = StripIPv6Brackets(host)
 
 	return SCPOperand{
 		Login:    login,
@@ -89,15 +90,6 @@ func ParseSCPOperand(operand string) SCPOperand {
 		Path:     path,
 		IsRemote: true,
 	}
-}
-
-// parseUserHost extracts user and host from "[user@]host" string.
-// Strips IPv6 brackets if present.
-func parseUserHost(s string) (login, host string) {
-	login, host = parseLoginHost(s)
-	host = StripIPv6Brackets(host)
-
-	return login, host
 }
 
 // SCPParsedOperands holds the result of parsing two SCP operands.
