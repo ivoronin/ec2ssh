@@ -44,6 +44,11 @@ func NewSSMSession(args []string) (*SSMSession, error) {
 		session.Destination = host
 	}
 
+	// Reject extra positional arguments
+	if len(positional) > 1 {
+		return nil, fmt.Errorf("%w: unexpected argument %s", ErrUsage, positional[1])
+	}
+
 	// Parse destination type string to enum
 	session.DstType, err = ParseDstType(session.DstTypeStr)
 	if err != nil {
