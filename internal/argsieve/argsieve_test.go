@@ -199,11 +199,10 @@ func TestSift(t *testing.T) {
 			t.Parallel()
 
 			var opts testOptions
-			sieve := New(&opts, tt.passthrough)
-			remaining, positional, err := sieve.Sift(tt.args)
+			remaining, positional, err := Sift(&opts, tt.args, tt.passthrough)
 
 			if tt.wantErr {
-				require.ErrorIs(t, err, ErrSift)
+				require.ErrorIs(t, err, ErrParse)
 
 				return
 			}
@@ -216,14 +215,14 @@ func TestSift(t *testing.T) {
 	}
 }
 
-func TestNew_PanicOnInvalidTarget(t *testing.T) {
+func TestSift_PanicOnInvalidTarget(t *testing.T) {
 	t.Parallel()
 
 	t.Run("non-pointer", func(t *testing.T) {
 		t.Parallel()
 		assert.Panics(t, func() {
 			var opts testOptions
-			New(opts, nil) // passing value, not pointer
+			Sift(opts, nil, nil) // passing value, not pointer
 		})
 	})
 
@@ -231,7 +230,7 @@ func TestNew_PanicOnInvalidTarget(t *testing.T) {
 		t.Parallel()
 		assert.Panics(t, func() {
 			var s string
-			New(&s, nil)
+			Sift(&s, nil, nil)
 		})
 	})
 
@@ -244,7 +243,7 @@ func TestNew_PanicOnInvalidTarget(t *testing.T) {
 
 		assert.Panics(t, func() {
 			var opts badOptions
-			New(&opts, nil)
+			Sift(&opts, nil, nil)
 		})
 	})
 }
@@ -256,8 +255,7 @@ func TestSift_EdgeCases(t *testing.T) {
 		t.Parallel()
 
 		var opts testOptions
-		sieve := New(&opts, nil)
-		remaining, positional, err := sieve.Sift([]string{"--debug", "-", "file.txt"})
+		remaining, positional, err := Sift(&opts, []string{"--debug", "-", "file.txt"}, nil)
 
 		require.NoError(t, err)
 		assert.True(t, opts.Debug)
@@ -269,8 +267,7 @@ func TestSift_EdgeCases(t *testing.T) {
 		t.Parallel()
 
 		var opts testOptions
-		sieve := New(&opts, []string{"-o"})
-		remaining, positional, err := sieve.Sift([]string{"-o"})
+		remaining, positional, err := Sift(&opts, []string{"-o"}, []string{"-o"})
 
 		require.NoError(t, err)
 		assert.Equal(t, []string{"-o"}, remaining)
@@ -278,7 +275,7 @@ func TestSift_EdgeCases(t *testing.T) {
 	})
 }
 
-func TestNewStrict(t *testing.T) {
+func TestParse(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -337,32 +334,30 @@ func TestNewStrict(t *testing.T) {
 			t.Parallel()
 
 			var opts testOptions
-			sieve := NewStrict(&opts)
-			remaining, positional, err := sieve.Sift(tt.args)
+			positional, err := Parse(&opts, tt.args)
 
 			if tt.wantErr {
-				require.ErrorIs(t, err, ErrSift)
+				require.ErrorIs(t, err, ErrParse)
 				assert.Contains(t, err.Error(), tt.errMsg)
 
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Empty(t, remaining, "strict mode should have empty remaining")
 			assert.Equal(t, tt.wantOpts, opts)
 			assert.Equal(t, tt.wantPos, positional)
 		})
 	}
 }
 
-func TestNewStrict_PanicOnInvalidTarget(t *testing.T) {
+func TestParse_PanicOnInvalidTarget(t *testing.T) {
 	t.Parallel()
 
 	t.Run("non-pointer", func(t *testing.T) {
 		t.Parallel()
 		assert.Panics(t, func() {
 			var opts testOptions
-			NewStrict(opts)
+			Parse(opts, nil)
 		})
 	})
 
@@ -370,7 +365,7 @@ func TestNewStrict_PanicOnInvalidTarget(t *testing.T) {
 		t.Parallel()
 		assert.Panics(t, func() {
 			var s string
-			NewStrict(&s)
+			Parse(&s, nil)
 		})
 	})
 }

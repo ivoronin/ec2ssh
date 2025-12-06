@@ -30,9 +30,7 @@ var sshPassthroughWithArg = []string{
 func NewSSHSession(args []string) (*SSHSession, error) {
 	var session SSHSession
 
-	sieve := argsieve.New(&session, sshPassthroughWithArg)
-
-	remaining, positional, err := sieve.Sift(args)
+	remaining, positional, err := argsieve.Sift(&session, args, sshPassthroughWithArg)
 	if err != nil {
 		return nil, err
 	}

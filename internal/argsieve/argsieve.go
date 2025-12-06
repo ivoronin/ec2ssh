@@ -1,10 +1,6 @@
-// Package argsieve provides argument sifting that separates known flags
-// from unknown flags and positional arguments, binding values directly
-// to struct fields during a single pass.
-//
-// This is designed for CLI tools that wrap other programs (like SSH) and need
-// to extract their own options while passing unrecognized flags through to
-// the underlying command.
+// Package argsieve provides argument parsing with two modes:
+//   - Sift: extracts known flags, passes unknown flags through (for CLI wrappers)
+//   - Parse: strict parsing that errors on unknown flags
 package argsieve
 
 import (
@@ -16,8 +12,8 @@ import (
 	"strings"
 )
 
-// ErrSift indicates a sifting error (e.g., missing value for an option).
-var ErrSift = errors.New("argument parsing error")
+// ErrParse indicates a parsing error (e.g., missing value or unknown option).
+var ErrParse = errors.New("argument parsing error")
 
 // fieldInfo holds a reference to a struct field and whether it needs an argument.
 type fieldInfo struct {
@@ -25,22 +21,22 @@ type fieldInfo struct {
 	needsArg bool
 }
 
-// Sieve separates known flags from unknown flags and positional arguments.
-type Sieve struct {
+// sieve separates known flags from unknown flags and positional arguments.
+type sieve struct {
 	fields      map[string]fieldInfo // flag name → field info
 	passthrough map[string]struct{}
 	remaining   []string
 	positional  []string
-	strict      bool // reject unknown flags in Sift()
+	strict      bool
 }
 
-// New creates a Sieve from a struct with short/long tags.
+// Sift extracts known flags into target, returning unknown flags and positional args.
 // passthroughWithArg lists unknown flags that take values (e.g., []string{"-o", "-L"}).
 //
 // Panics if target is not a pointer to struct or if any tagged field
 // has a type other than string or bool.
-func New(target any, passthroughWithArg []string) *Sieve {
-	s := &Sieve{
+func Sift(target any, args []string, passthroughWithArg []string) (remaining, positional []string, err error) {
+	s := &sieve{
 		fields:      make(map[string]fieldInfo),
 		passthrough: make(map[string]struct{}),
 	}
@@ -51,13 +47,16 @@ func New(target any, passthroughWithArg []string) *Sieve {
 		s.passthrough[p] = struct{}{}
 	}
 
-	return s
+	return s.parse(args)
 }
 
-// NewStrict creates a Sieve that rejects unknown flags during Sift().
-// Use this for commands that don't pass flags through to wrapped programs.
-func NewStrict(target any) *Sieve {
-	s := &Sieve{
+// Parse parses args into target, returning positional args.
+// Returns error if unknown flags are encountered.
+//
+// Panics if target is not a pointer to struct or if any tagged field
+// has a type other than string or bool.
+func Parse(target any, args []string) (positional []string, err error) {
+	s := &sieve{
 		fields:      make(map[string]fieldInfo),
 		passthrough: make(map[string]struct{}),
 		strict:      true,
@@ -65,16 +64,18 @@ func NewStrict(target any) *Sieve {
 
 	s.extractFields(target)
 
-	return s
+	_, positional, err = s.parse(args)
+
+	return positional, err
 }
 
 // Helper methods for cleaner append patterns.
-func (s *Sieve) addRemaining(args ...string)  { s.remaining = append(s.remaining, args...) }
-func (s *Sieve) addPositional(args ...string) { s.positional = append(s.positional, args...) }
+func (s *sieve) addRemaining(args ...string)  { s.remaining = append(s.remaining, args...) }
+func (s *sieve) addPositional(args ...string) { s.positional = append(s.positional, args...) }
 
 // extractFields reads struct tags and stores field references.
 // Panics if target is not a pointer to a struct.
-func (s *Sieve) extractFields(target any) {
+func (s *sieve) extractFields(target any) {
 	v := reflect.ValueOf(target)
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
 		panic(fmt.Sprintf("argsieve: target must be a pointer to struct, got %T", target))
@@ -85,7 +86,7 @@ func (s *Sieve) extractFields(target any) {
 
 // extractFieldsFromValue recursively extracts fields from a struct value,
 // including fields from embedded structs.
-func (s *Sieve) extractFieldsFromValue(v reflect.Value) {
+func (s *sieve) extractFieldsFromValue(v reflect.Value) {
 	t := v.Type()
 
 	for i := 0; i < t.NumField(); i++ {
@@ -126,7 +127,7 @@ func (s *Sieve) extractFieldsFromValue(v reflect.Value) {
 }
 
 // setField assigns a value to a field based on its type.
-func (s *Sieve) setField(info fieldInfo, value string) {
+func (s *sieve) setField(info fieldInfo, value string) {
 	if info.needsArg {
 		info.field.SetString(value)
 	} else {
@@ -135,7 +136,7 @@ func (s *Sieve) setField(info fieldInfo, value string) {
 }
 
 // handleLong processes --name or --name=value arguments.
-func (s *Sieve) handleLong(arg string, next func() (string, bool)) error {
+func (s *sieve) handleLong(arg string, next func() (string, bool)) error {
 	name, eqValue, hasEquals := strings.Cut(arg[2:], "=")
 
 	info, known := s.fields[name]
@@ -143,7 +144,7 @@ func (s *Sieve) handleLong(arg string, next func() (string, bool)) error {
 	// Unknown flag - reject in strict mode or check passthrough list
 	if !known {
 		if s.strict {
-			return fmt.Errorf("%w: unknown option --%s", ErrSift, name)
+			return fmt.Errorf("%w: unknown option --%s", ErrParse, name)
 		}
 
 		_, isPassthrough := s.passthrough["--"+name]
@@ -178,7 +179,7 @@ func (s *Sieve) handleLong(arg string, next func() (string, bool)) error {
 	// Known string flag - needs argument from next arg
 	value, ok := next()
 	if !ok {
-		return fmt.Errorf("%w: missing value for --%s", ErrSift, name)
+		return fmt.Errorf("%w: missing value for --%s", ErrParse, name)
 	}
 
 	s.setField(info, value)
@@ -187,7 +188,7 @@ func (s *Sieve) handleLong(arg string, next func() (string, bool)) error {
 }
 
 // handleShort processes -x, -xvalue, or -xyz combined arguments.
-func (s *Sieve) handleShort(arg string, next func() (string, bool)) error {
+func (s *sieve) handleShort(arg string, next func() (string, bool)) error {
 	flags := arg[1:]
 
 	for j := 0; j < len(flags); j++ {
@@ -226,7 +227,7 @@ func (s *Sieve) handleShort(arg string, next func() (string, bool)) error {
 		// Known string flag - value in next arg
 		value, ok := next()
 		if !ok {
-			return fmt.Errorf("%w: missing value for -%s", ErrSift, flag)
+			return fmt.Errorf("%w: missing value for -%s", ErrParse, flag)
 		}
 
 		s.setField(info, value)
@@ -238,9 +239,9 @@ func (s *Sieve) handleShort(arg string, next func() (string, bool)) error {
 }
 
 // handleUnknownShort handles unknown short flags, checking passthrough list.
-func (s *Sieve) handleUnknownShort(flag, tail string, next func() (string, bool)) error {
+func (s *sieve) handleUnknownShort(flag, tail string, next func() (string, bool)) error {
 	if s.strict {
-		return fmt.Errorf("%w: unknown option -%s", ErrSift, flag)
+		return fmt.Errorf("%w: unknown option -%s", ErrParse, flag)
 	}
 
 	prefixedFlag := "-" + flag
@@ -265,14 +266,9 @@ func (s *Sieve) handleUnknownShort(flag, tail string, next func() (string, bool)
 	return nil
 }
 
-// Sift separates args into known flags (bound to target), unknown flags, and positionals.
+// parse separates args into known flags (bound to target), unknown flags, and positionals.
 // Arguments after "--" are treated as positional (the "--" itself is not included).
-//
-// Returns:
-//   - remaining: unknown flags (with values if in passthroughWithArg list)
-//   - positional: non-flag arguments
-//   - err: ErrSift if a known option requiring a value has none
-func (s *Sieve) Sift(args []string) (remaining, positional []string, err error) {
+func (s *sieve) parse(args []string) (remaining, positional []string, err error) {
 	next, stop := iter.Pull(slices.Values(args))
 	defer stop()
 

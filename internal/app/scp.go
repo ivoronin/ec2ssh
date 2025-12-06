@@ -30,9 +30,7 @@ var scpPassthroughWithArg = []string{
 func NewSCPSession(args []string) (*SCPSession, error) {
 	var session SCPSession
 
-	sieve := argsieve.New(&session, scpPassthroughWithArg)
-
-	remaining, positional, err := sieve.Sift(args)
+	remaining, positional, err := argsieve.Sift(&session, args, scpPassthroughWithArg)
 	if err != nil {
 		return nil, err
 	}

@@ -29,9 +29,7 @@ var sftpPassthroughWithArg = []string{
 func NewSFTPSession(args []string) (*SFTPSession, error) {
 	var session SFTPSession
 
-	sieve := argsieve.New(&session, sftpPassthroughWithArg)
-
-	remaining, positional, err := sieve.Sift(args)
+	remaining, positional, err := argsieve.Sift(&session, args, sftpPassthroughWithArg)
 	if err != nil {
 		return nil, err
 	}

@@ -52,8 +52,7 @@ type EICETunnelSession struct {
 func NewEICETunnelSession(args []string) (*EICETunnelSession, error) {
 	var session EICETunnelSession
 
-	sieve := argsieve.NewStrict(&session)
-	_, positional, err := sieve.Sift(args)
+	positional, err := argsieve.Parse(&session, args)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +113,7 @@ type SSMTunnelSession struct {
 func NewSSMTunnelSession(args []string) (*SSMTunnelSession, error) {
 	var session SSMTunnelSession
 
-	sieve := argsieve.NewStrict(&session)
-	_, positional, err := sieve.Sift(args)
+	positional, err := argsieve.Parse(&session, args)
 	if err != nil {
 		return nil, err
 	}

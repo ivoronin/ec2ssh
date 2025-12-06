@@ -33,9 +33,7 @@ type SSMSession struct {
 func NewSSMSession(args []string) (*SSMSession, error) {
 	var session SSMSession
 
-	sieve := argsieve.NewStrict(&session)
-
-	_, positional, err := sieve.Sift(args)
+	positional, err := argsieve.Parse(&session, args)
 	if err != nil {
 		return nil, err
 	}

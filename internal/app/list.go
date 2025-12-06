@@ -37,9 +37,7 @@ type ListOptions struct {
 func NewListOptions(args []string) (*ListOptions, error) {
 	var options ListOptions
 
-	sieve := argsieve.NewStrict(&options)
-
-	_, positional, err := sieve.Sift(args)
+	positional, err := argsieve.Parse(&options, args)
 	if err != nil {
 		return nil, err
 	}

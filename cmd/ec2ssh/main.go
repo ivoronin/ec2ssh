@@ -83,7 +83,7 @@ func (r *Runner) Run() int {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return exitErr.ExitCode()
-		} else if errors.Is(err, argsieve.ErrSift) || errors.Is(err, app.ErrUsage) {
+		} else if errors.Is(err, argsieve.ErrParse) || errors.Is(err, app.ErrUsage) {
 			return r.usage(err)
 		} else {
 			return r.fatalError(err)
