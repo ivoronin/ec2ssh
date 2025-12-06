@@ -7,7 +7,7 @@ import (
 
 // SFTPSession represents an SFTP connection to an EC2 instance.
 type SFTPSession struct {
-	baseSession
+	baseSSHSession
 
 	// SFTP-specific fields
 	RemotePath string

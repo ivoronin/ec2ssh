@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,76 +42,85 @@ func TestRunner_Help(t *testing.T) {
 	}
 }
 
-func TestRunner_Tunnel_Success(t *testing.T) {
+func TestRunner_EICETunnel_MissingArgs(t *testing.T) {
 	t.Parallel()
 
-	var calledWithURI string
-	stderr := &bytes.Buffer{}
-
-	runner := &Runner{
-		Args: []string{"ec2ssh", "--eice-tunnel"},
-		Getenv: func(key string) string {
-			if key == "EC2SSH_TUNNEL_CONFIG" {
-				return "wss://test.tunnel.uri"
-			}
-			return ""
+	tests := []struct {
+		name         string
+		args         []string
+		wantContains string
+	}{
+		{
+			name:         "missing all required args",
+			args:         []string{"ec2ssh", "--eice-tunnel"},
+			wantContains: "missing required --host",
 		},
-		Stderr: stderr,
-		TunnelRunner: func(uri string) error {
-			calledWithURI = uri
-			return nil
+		{
+			name:         "missing eice-id",
+			args:         []string{"ec2ssh", "--eice-tunnel", "--host", "10.0.0.1", "--port", "22"},
+			wantContains: "missing required --eice-id",
+		},
+		{
+			name:         "missing port",
+			args:         []string{"ec2ssh", "--eice-tunnel", "--host", "10.0.0.1", "--eice-id", "eice-123"},
+			wantContains: "missing required --port",
 		},
 	}
 
-	exitCode := runner.Run()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.Equal(t, 0, exitCode)
-	assert.Equal(t, "wss://test.tunnel.uri", calledWithURI)
-	assert.Empty(t, stderr.String())
+			stderr := &bytes.Buffer{}
+			runner := &Runner{
+				Args:   tt.args,
+				Stderr: stderr,
+			}
+
+			exitCode := runner.Run()
+
+			assert.Equal(t, 1, exitCode)
+			assert.Contains(t, stderr.String(), tt.wantContains)
+		})
+	}
 }
 
-func TestRunner_Tunnel_MissingEnvVar(t *testing.T) {
+func TestRunner_SSMTunnel_MissingArgs(t *testing.T) {
 	t.Parallel()
 
-	stderr := &bytes.Buffer{}
-
-	runner := &Runner{
-		Args: []string{"ec2ssh", "--eice-tunnel"},
-		Getenv: func(key string) string {
-			return "" // No environment variable set
+	tests := []struct {
+		name         string
+		args         []string
+		wantContains string
+	}{
+		{
+			name:         "missing instance-id",
+			args:         []string{"ec2ssh", "--ssm-tunnel", "--port", "22"},
+			wantContains: "missing required --instance-id",
 		},
-		Stderr: stderr,
+		{
+			name:         "missing port",
+			args:         []string{"ec2ssh", "--ssm-tunnel", "--instance-id", "i-1234567890abcdef0"},
+			wantContains: "missing required --port",
+		},
 	}
 
-	exitCode := runner.Run()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.Equal(t, 1, exitCode)
-	assert.Contains(t, stderr.String(), "EC2SSH_TUNNEL_CONFIG environment variable not set")
-}
-
-func TestRunner_Tunnel_Error(t *testing.T) {
-	t.Parallel()
-
-	stderr := &bytes.Buffer{}
-
-	runner := &Runner{
-		Args: []string{"ec2ssh", "--eice-tunnel"},
-		Getenv: func(key string) string {
-			if key == "EC2SSH_TUNNEL_CONFIG" {
-				return "wss://test.uri"
+			stderr := &bytes.Buffer{}
+			runner := &Runner{
+				Args:   tt.args,
+				Stderr: stderr,
 			}
-			return ""
-		},
-		Stderr: stderr,
-		TunnelRunner: func(uri string) error {
-			return errors.New("tunnel connection failed")
-		},
+
+			exitCode := runner.Run()
+
+			assert.Equal(t, 1, exitCode)
+			assert.Contains(t, stderr.String(), tt.wantContains)
+		})
 	}
-
-	exitCode := runner.Run()
-
-	assert.Equal(t, 1, exitCode)
-	assert.Contains(t, stderr.String(), "tunnel connection failed")
 }
 
 func TestRunner_SSH_UsageError(t *testing.T) {
@@ -122,7 +130,6 @@ func TestRunner_SSH_UsageError(t *testing.T) {
 
 	runner := &Runner{
 		Args:   []string{"ec2ssh"}, // No destination
-		Getenv: func(key string) string { return "" },
 		Stderr: stderr,
 	}
 
@@ -140,7 +147,6 @@ func TestRunner_SCP_UsageError(t *testing.T) {
 
 	runner := &Runner{
 		Args:   []string{"ec2scp"}, // No operands
-		Getenv: func(key string) string { return "" },
 		Stderr: stderr,
 	}
 
@@ -157,7 +163,6 @@ func TestRunner_SFTP_UsageError(t *testing.T) {
 
 	runner := &Runner{
 		Args:   []string{"ec2sftp"}, // No destination
-		Getenv: func(key string) string { return "" },
 		Stderr: stderr,
 	}
 
@@ -204,7 +209,6 @@ func TestRunner_BinaryNameRouting(t *testing.T) {
 			stderr := &bytes.Buffer{}
 			runner := &Runner{
 				Args:   tt.args,
-				Getenv: func(key string) string { return "" },
 				Stderr: stderr,
 			}
 
@@ -253,7 +257,6 @@ func TestRunner_IntentFlags(t *testing.T) {
 			stderr := &bytes.Buffer{}
 			runner := &Runner{
 				Args:   tt.args,
-				Getenv: func(key string) string { return "" },
 				Stderr: stderr,
 			}
 
@@ -273,7 +276,6 @@ func TestRunner_UnknownOption(t *testing.T) {
 
 	runner := &Runner{
 		Args:   []string{"ec2list", "--unknown-option"},
-		Getenv: func(key string) string { return "" },
 		Stderr: stderr,
 	}
 
@@ -290,7 +292,5 @@ func TestDefaultRunner(t *testing.T) {
 	runner := DefaultRunner()
 
 	assert.NotNil(t, runner.Args)
-	assert.NotNil(t, runner.Getenv)
 	assert.NotNil(t, runner.Stderr)
-	assert.NotNil(t, runner.TunnelRunner)
 }

@@ -7,7 +7,7 @@ import (
 
 // SSHSession represents an SSH connection to an EC2 instance.
 type SSHSession struct {
-	baseSession
+	baseSSHSession
 
 	// SSH-specific fields
 	CommandWithArgs []string

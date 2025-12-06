@@ -64,12 +64,12 @@ func TestBaseArgs(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		session baseSession
+		session baseSSHSession
 		want    []string
 	}{
 		{
 			name: "minimal args with instance ID only",
-			session: baseSession{
+			session: baseSSHSession{
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
@@ -78,7 +78,7 @@ func TestBaseArgs(t *testing.T) {
 		},
 		{
 			name: "with identity file",
-			session: baseSession{
+			session: baseSSHSession{
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
@@ -88,7 +88,7 @@ func TestBaseArgs(t *testing.T) {
 		},
 		{
 			name: "with proxy command",
-			session: baseSession{
+			session: baseSSHSession{
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
@@ -98,7 +98,7 @@ func TestBaseArgs(t *testing.T) {
 		},
 		{
 			name: "with passthrough args",
-			session: baseSession{
+			session: baseSSHSession{
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
@@ -108,7 +108,7 @@ func TestBaseArgs(t *testing.T) {
 		},
 		{
 			name: "full configuration",
-			session: baseSession{
+			session: baseSSHSession{
 				instance: types.Instance{
 					InstanceId: aws.String(instanceID),
 				},
@@ -142,7 +142,7 @@ func TestSSHSessionBuildArgs(t *testing.T) {
 		{
 			name: "basic SSH args",
 			session: SSHSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -155,7 +155,7 @@ func TestSSHSessionBuildArgs(t *testing.T) {
 		{
 			name: "with port",
 			session: SSHSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -169,7 +169,7 @@ func TestSSHSessionBuildArgs(t *testing.T) {
 		{
 			name: "with command and args",
 			session: SSHSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -183,7 +183,7 @@ func TestSSHSessionBuildArgs(t *testing.T) {
 		{
 			name: "EICE mode with proxy command",
 			session: SSHSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -218,7 +218,7 @@ func TestSCPSessionBuildArgs(t *testing.T) {
 		{
 			name: "upload local to remote",
 			session: SCPSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -234,7 +234,7 @@ func TestSCPSessionBuildArgs(t *testing.T) {
 		{
 			name: "download remote to local",
 			session: SCPSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -250,7 +250,7 @@ func TestSCPSessionBuildArgs(t *testing.T) {
 		{
 			name: "with port",
 			session: SCPSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -288,7 +288,7 @@ func TestSFTPSessionBuildArgs(t *testing.T) {
 		{
 			name: "basic SFTP connection",
 			session: SFTPSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -301,7 +301,7 @@ func TestSFTPSessionBuildArgs(t *testing.T) {
 		{
 			name: "with remote path",
 			session: SFTPSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -315,7 +315,7 @@ func TestSFTPSessionBuildArgs(t *testing.T) {
 		{
 			name: "with port",
 			session: SFTPSession{
-				baseSession: baseSession{
+				baseSSHSession: baseSSHSession{
 					instance: types.Instance{
 						InstanceId: aws.String(instanceID),
 					},
@@ -359,7 +359,7 @@ func TestParseTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			session := &baseSession{DstTypeStr: tt.dstTypeStr}
+			session := &baseSSHSession{DstTypeStr: tt.dstTypeStr}
 			err := session.ParseTypes()
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -376,7 +376,7 @@ func TestApplyDefaults(t *testing.T) {
 
 	t.Run("EICEID implies UseEICE", func(t *testing.T) {
 		t.Parallel()
-		session := &baseSession{EICEID: "eice-12345678"}
+		session := &baseSSHSession{EICEID: "eice-12345678"}
 		err := session.ApplyDefaults()
 		assert.NoError(t, err)
 		assert.True(t, session.UseEICE)
@@ -384,7 +384,7 @@ func TestApplyDefaults(t *testing.T) {
 
 	t.Run("empty EICEID does not set UseEICE", func(t *testing.T) {
 		t.Parallel()
-		session := &baseSession{}
+		session := &baseSSHSession{}
 		err := session.ApplyDefaults()
 		assert.NoError(t, err)
 		assert.False(t, session.UseEICE)
@@ -392,7 +392,7 @@ func TestApplyDefaults(t *testing.T) {
 
 	t.Run("empty Login defaults to current user", func(t *testing.T) {
 		t.Parallel()
-		session := &baseSession{}
+		session := &baseSSHSession{}
 		err := session.ApplyDefaults()
 		assert.NoError(t, err)
 		assert.NotEmpty(t, session.Login)
@@ -400,7 +400,7 @@ func TestApplyDefaults(t *testing.T) {
 
 	t.Run("non-empty Login is preserved", func(t *testing.T) {
 		t.Parallel()
-		session := &baseSession{Login: "customuser"}
+		session := &baseSSHSession{Login: "customuser"}
 		err := session.ApplyDefaults()
 		assert.NoError(t, err)
 		assert.Equal(t, "customuser", session.Login)

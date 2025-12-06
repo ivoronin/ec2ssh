@@ -10,7 +10,6 @@ import (
 	"github.com/ivoronin/ec2ssh/internal/app"
 	"github.com/ivoronin/ec2ssh/internal/cli/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/intent"
-	"github.com/ivoronin/ec2ssh/internal/tunnel"
 )
 
 // version is set at build time via ldflags.
@@ -18,19 +17,15 @@ var version = "dev"
 
 // Runner encapsulates the CLI execution logic for testing.
 type Runner struct {
-	Args         []string                 // Command-line arguments (os.Args)
-	Getenv       func(string) string      // Environment variable getter
-	Stderr       io.Writer                // Error output writer
-	TunnelRunner func(uri string) error   // Tunnel execution function
+	Args   []string  // Command-line arguments (os.Args)
+	Stderr io.Writer // Error output writer
 }
 
 // DefaultRunner creates a Runner with production defaults.
 func DefaultRunner() *Runner {
 	return &Runner{
-		Args:         os.Args,
-		Getenv:       os.Getenv,
-		Stderr:       os.Stderr,
-		TunnelRunner: tunnel.Run,
+		Args:   os.Args,
+		Stderr: os.Stderr,
 	}
 }
 
@@ -63,22 +58,20 @@ func (r *Runner) Run() int {
 			err = session.Run()
 		}
 	case intent.IntentEICETunnel:
-		tunnelConfig := r.Getenv("EC2SSH_TUNNEL_CONFIG")
-		if tunnelConfig == "" {
-			return r.fatalError(errors.New("EC2SSH_TUNNEL_CONFIG environment variable not set"))
+		var session *app.EICETunnelSession
+		if session, err = app.NewEICETunnelSession(args); err == nil {
+			err = session.Run()
 		}
-		err = r.TunnelRunner(tunnelConfig)
 	case intent.IntentSSMSession:
 		var session *app.SSMSession
 		if session, err = app.NewSSMSession(args); err == nil {
 			err = session.Run()
 		}
 	case intent.IntentSSMTunnel:
-		tunnelConfig := r.Getenv("EC2SSH_TUNNEL_CONFIG")
-		if tunnelConfig == "" {
-			return r.fatalError(errors.New("EC2SSH_TUNNEL_CONFIG environment variable not set"))
+		var session *app.SSMTunnelSession
+		if session, err = app.NewSSMTunnelSession(args); err == nil {
+			err = session.Run()
 		}
-		err = app.RunSSM(tunnelConfig)
 	case intent.IntentList:
 		err = app.RunList(args)
 	default:

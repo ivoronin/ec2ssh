@@ -9,7 +9,7 @@ import (
 
 // SCPSession represents an SCP file transfer to/from an EC2 instance.
 type SCPSession struct {
-	baseSession
+	baseSSHSession
 
 	// SCP-specific fields
 	LocalPath  string

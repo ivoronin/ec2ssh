@@ -14,9 +14,8 @@ import (
 
 // capturedCommand stores the command and args passed to executeCommand.
 type capturedCommand struct {
-	command      string
-	args         []string
-	tunnelConfig string
+	command string
+	args    []string
 }
 
 // TestSSHSession_BuildArgs_Integration tests the full arg building with realistic scenarios.
@@ -188,7 +187,7 @@ func TestKeyGeneration(t *testing.T) {
 		return "/mock/private/key", "ssh-ed25519 AAAA... mock", nil
 	}
 
-	session := &baseSession{}
+	session := &baseSSHSession{}
 	err := session.setupSSHKeys("/test/tmp")
 
 	require.NoError(t, err)
@@ -210,7 +209,7 @@ func TestKeyGenerationWithIdentityFile(t *testing.T) {
 		return "ssh-rsa AAAA... existing", nil
 	}
 
-	session := &baseSession{
+	session := &baseSSHSession{
 		IdentityFile: "/path/to/my/key",
 	}
 	err := session.setupSSHKeys("/test/tmp")
@@ -231,7 +230,7 @@ func TestKeyGenerationError(t *testing.T) {
 		return "", "", errors.New("key generation failed")
 	}
 
-	session := &baseSession{}
+	session := &baseSSHSession{}
 	err := session.setupSSHKeys("/test/tmp")
 
 	require.Error(t, err)
@@ -248,7 +247,7 @@ func TestGetPublicKeyError(t *testing.T) {
 		return "", errors.New("cannot read public key")
 	}
 
-	session := &baseSession{
+	session := &baseSSHSession{
 		IdentityFile: "/nonexistent/key",
 	}
 	err := session.setupSSHKeys("/test/tmp")
@@ -265,20 +264,18 @@ func TestExecuteCommandFactory(t *testing.T) {
 	defer func() { executeCommand = origFunc }()
 
 	var captured capturedCommand
-	executeCommand = func(command string, args []string, tunnelConfig string, logger *log.Logger) error {
+	executeCommand = func(command string, args []string, logger *log.Logger) error {
 		captured.command = command
 		captured.args = args
-		captured.tunnelConfig = tunnelConfig
 		return nil
 	}
 
 	logger := log.Default()
-	err := executeCommand("ssh", []string{"-v", "host"}, "wss://tunnel.uri", logger)
+	err := executeCommand("ssh", []string{"-v", "host"}, logger)
 
 	require.NoError(t, err)
 	assert.Equal(t, "ssh", captured.command)
 	assert.Equal(t, []string{"-v", "host"}, captured.args)
-	assert.Equal(t, "wss://tunnel.uri", captured.tunnelConfig)
 }
 
 // TestExecuteCommandError tests error propagation from command execution.
@@ -288,12 +285,12 @@ func TestExecuteCommandError(t *testing.T) {
 	defer func() { executeCommand = origFunc }()
 
 	expectedErr := errors.New("command failed")
-	executeCommand = func(command string, args []string, tunnelConfig string, logger *log.Logger) error {
+	executeCommand = func(command string, args []string, logger *log.Logger) error {
 		return expectedErr
 	}
 
 	logger := log.Default()
-	err := executeCommand("ssh", []string{}, "", logger)
+	err := executeCommand("ssh", []string{}, logger)
 
 	assert.Equal(t, expectedErr, err)
 }
@@ -302,7 +299,7 @@ func TestExecuteCommandError(t *testing.T) {
 func TestSessionApplyDefaults_EICE(t *testing.T) {
 	t.Parallel()
 
-	session := &baseSession{
+	session := &baseSSHSession{
 		EICEID: "eice-12345",
 	}
 
@@ -316,7 +313,7 @@ func TestSessionApplyDefaults_EICE(t *testing.T) {
 func TestSessionApplyDefaults_DefaultLogin(t *testing.T) {
 	t.Parallel()
 
-	session := &baseSession{}
+	session := &baseSSHSession{}
 
 	err := session.ApplyDefaults()
 
@@ -362,7 +359,7 @@ func TestSessionParseTypes_Valid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			session := &baseSession{
+			session := &baseSSHSession{
 				DstTypeStr:  tt.dstTypeStr,
 				AddrTypeStr: tt.addrTypeStr,
 			}
@@ -383,7 +380,7 @@ func TestBaseSession_InitLogger(t *testing.T) {
 	t.Run("debug disabled", func(t *testing.T) {
 		t.Parallel()
 
-		session := &baseSession{Debug: false}
+		session := &baseSSHSession{Debug: false}
 		session.initLogger()
 
 		assert.NotNil(t, session.logger)
@@ -393,7 +390,7 @@ func TestBaseSession_InitLogger(t *testing.T) {
 	t.Run("debug enabled", func(t *testing.T) {
 		t.Parallel()
 
-		session := &baseSession{Debug: true}
+		session := &baseSSHSession{Debug: true}
 		session.initLogger()
 
 		assert.NotNil(t, session.logger)
@@ -426,7 +423,7 @@ func TestSessionParseTypes_Invalid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			session := &baseSession{
+			session := &baseSSHSession{
 				DstTypeStr:  tt.dstTypeStr,
 				AddrTypeStr: tt.addrTypeStr,
 			}
