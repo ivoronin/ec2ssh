@@ -304,42 +304,42 @@ func TestParseSCPOperands(t *testing.T) {
 		{
 			name:     "no operands",
 			operands: []string{},
-			wantErr:  ErrSCPTooFewOperands,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "one operand",
 			operands: []string{"i-123:/path"},
-			wantErr:  ErrSCPTooFewOperands,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "three operands",
 			operands: []string{"a", "b", "c"},
-			wantErr:  ErrSCPTooManyOperands,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "both local",
 			operands: []string{"/path1", "/path2"},
-			wantErr:  ErrSCPNoRemote,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "both local relative",
 			operands: []string{"file1.txt", "file2.txt"},
-			wantErr:  ErrSCPNoRemote,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "both remote",
 			operands: []string{"i-123:/a", "i-456:/b"},
-			wantErr:  ErrSCPMultipleRemotes,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "empty path after colon",
 			operands: []string{"i-123:", "/local"},
-			wantErr:  ErrSCPEmptyPath,
+			wantErr:  ErrSCP,
 		},
 		{
 			name:     "leading colon treated as local (no remote)",
 			operands: []string{":/path", "/local"},
-			wantErr:  ErrSCPNoRemote, // OpenSSH: leading colon is filename
+			wantErr:  ErrSCP, // OpenSSH: leading colon is filename
 		},
 
 		// Edge cases - local files with colons (OpenSSH-compatible)

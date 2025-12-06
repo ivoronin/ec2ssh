@@ -1,5 +1,13 @@
 package cli
 
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrSCP is the sentinel error for all SCP parsing errors.
+var ErrSCP = errors.New("scp error")
+
 // SCPOperand represents a parsed SCP operand (source or target).
 type SCPOperand struct {
 	Login    string // Username (if remote)
@@ -109,12 +117,8 @@ type SCPParsedOperands struct {
 //   - Remote path is empty after ':'
 //   - Remote host is empty
 func ParseSCPOperands(operands []string) (SCPParsedOperands, error) {
-	if len(operands) < 2 {
-		return SCPParsedOperands{}, ErrSCPTooFewOperands
-	}
-
-	if len(operands) > 2 {
-		return SCPParsedOperands{}, ErrSCPTooManyOperands
+	if len(operands) != 2 {
+		return SCPParsedOperands{}, fmt.Errorf("%w: requires exactly 2 operands (source and destination)", ErrSCP)
 	}
 
 	source := ParseSCPOperand(operands[0])
@@ -122,11 +126,11 @@ func ParseSCPOperands(operands []string) (SCPParsedOperands, error) {
 
 	// Validate: exactly one must be remote
 	if !source.IsRemote && !target.IsRemote {
-		return SCPParsedOperands{}, ErrSCPNoRemote
+		return SCPParsedOperands{}, fmt.Errorf("%w: no remote operand found (use host:path syntax)", ErrSCP)
 	}
 
 	if source.IsRemote && target.IsRemote {
-		return SCPParsedOperands{}, ErrSCPMultipleRemotes
+		return SCPParsedOperands{}, fmt.Errorf("%w: multiple remote operands not supported", ErrSCP)
 	}
 
 	var result SCPParsedOperands
@@ -149,11 +153,11 @@ func ParseSCPOperands(operands []string) (SCPParsedOperands, error) {
 
 	// Validate remote components
 	if result.Host == "" {
-		return SCPParsedOperands{}, ErrSCPEmptyHost
+		return SCPParsedOperands{}, fmt.Errorf("%w: remote host cannot be empty", ErrSCP)
 	}
 
 	if result.RemotePath == "" {
-		return SCPParsedOperands{}, ErrSCPEmptyPath
+		return SCPParsedOperands{}, fmt.Errorf("%w: remote path cannot be empty after ':'", ErrSCP)
 	}
 
 	return result, nil
