@@ -14,7 +14,7 @@ func TestNewSSMSession(t *testing.T) {
 	tests := map[string]struct {
 		args        []string
 		wantHost    string
-		wantDstType ec2client.DstType
+		wantDstType *ec2client.DstType // nil = auto-detect (default)
 		wantErr     bool
 		errContains string
 	}{
@@ -48,12 +48,12 @@ func TestNewSSMSession(t *testing.T) {
 		"with destination type id": {
 			args:        []string{"--destination-type", "id", "i-123"},
 			wantHost:    "i-123",
-			wantDstType: ec2client.DstTypeID,
+			wantDstType: dstTypePtr(ec2client.DstTypeID),
 		},
 		"with destination type name_tag": {
 			args:        []string{"--destination-type", "name_tag", "my-server"},
 			wantHost:    "my-server",
-			wantDstType: ec2client.DstTypeNameTag,
+			wantDstType: dstTypePtr(ec2client.DstTypeNameTag),
 		},
 		"with debug": {
 			args:     []string{"--debug", "i-123"},

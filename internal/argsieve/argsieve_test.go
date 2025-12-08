@@ -1,6 +1,7 @@
 package argsieve
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -372,6 +373,26 @@ func (l *logLevel) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// strictLevel is like logLevel but rejects empty strings (matches DstType/AddrType behavior)
+type strictLevel int
+
+const (
+	strictLevelLow strictLevel = iota
+	strictLevelHigh
+)
+
+func (s *strictLevel) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "low":
+		*s = strictLevelLow
+	case "high":
+		*s = strictLevelHigh
+	default:
+		return fmt.Errorf("unknown strict level: %q", text)
+	}
+	return nil
+}
+
 func TestSift_TextUnmarshaler(t *testing.T) {
 	t.Parallel()
 
@@ -469,6 +490,186 @@ func TestParse_TextUnmarshaler(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantLevel, flags.Level)
+		})
+	}
+}
+
+func TestSift_PointerToTextUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	type pointerFlags struct {
+		Level *logLevel `long:"level"`
+		Name  string    `long:"name"`
+	}
+
+	tests := map[string]struct {
+		args      []string
+		wantLevel *logLevel
+		wantNil   bool
+	}{
+		"flag absent - nil": {
+			args:    []string{"--name", "test"},
+			wantNil: true,
+		},
+		"flag present - allocated": {
+			args:      []string{"--level", "debug"},
+			wantLevel: ptrTo(logLevelDebug),
+		},
+		"flag with equals": {
+			args:      []string{"--level=error"},
+			wantLevel: ptrTo(logLevelError),
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var flags pointerFlags
+			_, _, err := Sift(&flags, tc.args, nil)
+			require.NoError(t, err)
+
+			if tc.wantNil {
+				assert.Nil(t, flags.Level)
+			} else {
+				require.NotNil(t, flags.Level)
+				assert.Equal(t, *tc.wantLevel, *flags.Level)
+			}
+		})
+	}
+}
+
+func TestParse_PointerToTextUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	type pointerFlags struct {
+		Level *logLevel `short:"l" long:"level"`
+	}
+
+	tests := map[string]struct {
+		args      []string
+		wantLevel *logLevel
+		wantNil   bool
+		wantErr   bool
+	}{
+		"short flag with value": {
+			args:      []string{"-l", "debug"},
+			wantLevel: ptrTo(logLevelDebug),
+		},
+		"short flag attached": {
+			args:      []string{"-lerror"},
+			wantLevel: ptrTo(logLevelError),
+		},
+		"absent is nil": {
+			args:    []string{},
+			wantNil: true,
+		},
+		"invalid value": {
+			args:    []string{"--level", "invalid"},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var flags pointerFlags
+			_, err := Parse(&flags, tc.args)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			if tc.wantNil {
+				assert.Nil(t, flags.Level)
+			} else {
+				require.NotNil(t, flags.Level)
+				assert.Equal(t, *tc.wantLevel, *flags.Level)
+			}
+		})
+	}
+}
+
+// ptrTo returns a pointer to the value (generic helper for tests).
+func ptrTo[T any](v T) *T {
+	return &v
+}
+
+func TestSift_PanicsOnUnsupportedPointerType(t *testing.T) {
+	t.Parallel()
+
+	// *string does not implement encoding.TextUnmarshaler
+	type badStruct struct {
+		Value *string `long:"value"`
+	}
+
+	assert.Panics(t, func() {
+		var flags badStruct
+		_, _, _ = Sift(&flags, []string{}, nil)
+	})
+}
+
+func TestParse_PanicsOnUnsupportedPointerType(t *testing.T) {
+	t.Parallel()
+
+	// *int does not implement encoding.TextUnmarshaler
+	type badStruct struct {
+		Count *int `long:"count"`
+	}
+
+	assert.Panics(t, func() {
+		var flags badStruct
+		_, _ = Parse(&flags, []string{})
+	})
+}
+
+// TestParse_PointerEmptyStringRejection tests that types rejecting empty strings
+// (like DstType and AddrType) correctly propagate errors through pointer fields.
+func TestParse_PointerEmptyStringRejection(t *testing.T) {
+	t.Parallel()
+
+	type strictFlags struct {
+		Level *strictLevel `long:"level"`
+	}
+
+	tests := map[string]struct {
+		args    []string
+		wantErr bool
+	}{
+		"valid value": {
+			args:    []string{"--level", "high"},
+			wantErr: false,
+		},
+		"empty string with equals": {
+			args:    []string{"--level="},
+			wantErr: true,
+		},
+		"empty string separate": {
+			args:    []string{"--level", ""},
+			wantErr: true,
+		},
+		"absent is nil not error": {
+			args:    []string{},
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var flags strictFlags
+			_, err := Parse(&flags, tc.args)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "unknown strict level")
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

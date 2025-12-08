@@ -17,8 +17,8 @@ func TestNewSSHSession(t *testing.T) {
 		args           []string
 		wantLogin      string
 		wantHost       string
-		wantDstType    ec2client.DstType
-		wantAddrType   ec2client.AddrType
+		wantDstType    *ec2client.DstType  // nil = auto-detect (default)
+		wantAddrType   *ec2client.AddrType // nil = auto-detect (default)
 		wantUseEICE    bool
 		wantUseSSM     bool
 		wantNoSendKeys bool
@@ -65,27 +65,47 @@ func TestNewSSHSession(t *testing.T) {
 		"destination type id": {
 			args:        []string{"--destination-type", "id", "i-123"},
 			wantHost:    "i-123",
-			wantDstType: ec2client.DstTypeID,
+			wantDstType: dstTypePtr(ec2client.DstTypeID),
 		},
 		"destination type private_ip": {
 			args:        []string{"--destination-type", "private_ip", "10.0.0.1"},
 			wantHost:    "10.0.0.1",
-			wantDstType: ec2client.DstTypePrivateIP,
+			wantDstType: dstTypePtr(ec2client.DstTypePrivateIP),
 		},
 		"destination type name_tag": {
 			args:        []string{"--destination-type", "name_tag", "my-server"},
 			wantHost:    "my-server",
-			wantDstType: ec2client.DstTypeNameTag,
+			wantDstType: dstTypePtr(ec2client.DstTypeNameTag),
 		},
 		"address type private": {
 			args:         []string{"--address-type", "private", "myhost"},
 			wantHost:     "myhost",
-			wantAddrType: ec2client.AddrTypePrivate,
+			wantAddrType: addrTypePtr(ec2client.AddrTypePrivate),
 		},
 		"address type public": {
 			args:         []string{"--address-type", "public", "myhost"},
 			wantHost:     "myhost",
-			wantAddrType: ec2client.AddrTypePublic,
+			wantAddrType: addrTypePtr(ec2client.AddrTypePublic),
+		},
+		"address type ipv6": {
+			args:         []string{"--address-type", "ipv6", "myhost"},
+			wantHost:     "myhost",
+			wantAddrType: addrTypePtr(ec2client.AddrTypeIPv6),
+		},
+		"destination type ipv6": {
+			args:        []string{"--destination-type", "ipv6", "2001:db8::1"},
+			wantHost:    "2001:db8::1",
+			wantDstType: dstTypePtr(ec2client.DstTypeIPv6),
+		},
+		"destination type public_ip": {
+			args:        []string{"--destination-type", "public_ip", "52.0.0.1"},
+			wantHost:    "52.0.0.1",
+			wantDstType: dstTypePtr(ec2client.DstTypePublicIP),
+		},
+		"destination type private_dns": {
+			args:        []string{"--destination-type", "private_dns", "ip-10-0-0-1.ec2.internal"},
+			wantHost:    "ip-10-0-0-1.ec2.internal",
+			wantDstType: dstTypePtr(ec2client.DstTypePrivateDNSName),
 		},
 
 		// Tunnel options
@@ -390,4 +410,14 @@ func TestSSHSession_BuildArgs_PassthroughMode(t *testing.T) {
 // Helper to create string pointer
 func strPtr(s string) *string {
 	return &s
+}
+
+// Helper to create AddrType pointer
+func addrTypePtr(t ec2client.AddrType) *ec2client.AddrType {
+	return &t
+}
+
+// Helper to create DstType pointer
+func dstTypePtr(t ec2client.DstType) *ec2client.DstType {
+	return &t
 }

@@ -13,11 +13,11 @@ import (
 )
 
 // DstType represents the type of destination identifier.
+// Use a pointer to DstType where nil means auto-detect.
 type DstType int
 
 const (
-	DstTypeAuto DstType = iota
-	DstTypeID
+	DstTypeID DstType = iota
 	DstTypePrivateIP
 	DstTypePublicIP
 	DstTypeIPv6
@@ -26,9 +26,9 @@ const (
 )
 
 // UnmarshalText implements encoding.TextUnmarshaler for CLI flag parsing.
+// Note: Empty string is not valid - use *DstType where nil means auto.
 func (d *DstType) UnmarshalText(text []byte) error {
 	types := map[string]DstType{
-		"":            DstTypeAuto,
 		"id":          DstTypeID,
 		"private_ip":  DstTypePrivateIP,
 		"public_ip":   DstTypePublicIP,
@@ -158,15 +158,18 @@ func GuessDestinationType(dst string) DstType {
 }
 
 // GetInstance retrieves an instance using the specified destination type and value.
-func (c *Client) GetInstance(dstType DstType, destination string) (types.Instance, error) {
-	if dstType == DstTypeAuto {
-		dstType = GuessDestinationType(destination)
-		c.logger.Printf("guessed destination type %d for %s", dstType, destination)
+// If dstType is nil, auto-detects the type from the destination string.
+func (c *Client) GetInstance(dstType *DstType, destination string) (types.Instance, error) {
+	// nil means auto-detect
+	if dstType == nil {
+		guessed := GuessDestinationType(destination)
+		dstType = &guessed
+		c.logger.Printf("guessed destination type %d for %s", *dstType, destination)
 	}
 
 	var filterName string
 
-	switch dstType {
+	switch *dstType {
 	case DstTypeID:
 		return c.GetInstanceByID(destination)
 	case DstTypePrivateIP:
@@ -183,11 +186,8 @@ func (c *Client) GetInstance(dstType DstType, destination string) (types.Instanc
 		}
 	case DstTypeNameTag:
 		filterName = "tag:Name"
-	case DstTypeAuto:
-		fallthrough
 	default:
-		// Should never happen
-		panic(dstType)
+		panic(fmt.Sprintf("unexpected DstType: %d", *dstType))
 	}
 
 	return c.GetRunningInstanceByFilter(filterName, destination)

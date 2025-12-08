@@ -16,7 +16,7 @@ func TestNewSFTPSession(t *testing.T) {
 		args        []string
 		wantHost    string
 		wantLogin   string
-		wantDstType ec2client.DstType
+		wantDstType *ec2client.DstType // nil = auto-detect (default)
 		wantErr     bool
 		errContains string
 	}{
@@ -94,7 +94,7 @@ func TestNewSFTPSession(t *testing.T) {
 		"with destination type": {
 			args:        []string{"--destination-type", "name_tag", "my-server"},
 			wantHost:    "my-server",
-			wantDstType: ec2client.DstTypeNameTag,
+			wantDstType: dstTypePtr(ec2client.DstTypeNameTag),
 		},
 		"with use eice": {
 			args:     []string{"--use-eice", "myhost"},

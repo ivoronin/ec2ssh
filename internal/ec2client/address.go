@@ -7,11 +7,11 @@ import (
 )
 
 // AddrType represents the type of address to use for connection.
+// Use a pointer to AddrType where nil means auto-detect.
 type AddrType int
 
 const (
-	AddrTypeAuto AddrType = iota
-	AddrTypePrivate
+	AddrTypePrivate AddrType = iota
 	AddrTypePublic
 	AddrTypeIPv6
 )
@@ -23,9 +23,9 @@ type InstanceAddr struct {
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler for CLI flag parsing.
+// Note: Empty string is not valid - use *AddrType where nil means auto.
 func (a *AddrType) UnmarshalText(text []byte) error {
 	types := map[string]AddrType{
-		"":        AddrTypeAuto,
 		"private": AddrTypePrivate,
 		"public":  AddrTypePublic,
 		"ipv6":    AddrTypeIPv6,
@@ -39,11 +39,12 @@ func (a *AddrType) UnmarshalText(text []byte) error {
 }
 
 // GetInstanceAddr returns the appropriate IP address for an instance.
-func GetInstanceAddr(instance types.Instance, addrType AddrType) (InstanceAddr, error) {
-	// Auto mode: try private → public → ipv6
-	if addrType == AddrTypeAuto {
+// If addrType is nil, auto-detects by trying private → public → ipv6.
+func GetInstanceAddr(instance types.Instance, addrType *AddrType) (InstanceAddr, error) {
+	// nil means auto-detect: try private → public → ipv6
+	if addrType == nil {
 		for _, t := range []AddrType{AddrTypePrivate, AddrTypePublic, AddrTypeIPv6} {
-			if result, err := GetInstanceAddr(instance, t); err == nil {
+			if result, err := GetInstanceAddr(instance, &t); err == nil {
 				return result, nil
 			}
 		}
@@ -51,11 +52,11 @@ func GetInstanceAddr(instance types.Instance, addrType AddrType) (InstanceAddr, 
 	}
 
 	// Explicit type: lookup address
-	addr, name := getAddrByType(instance, addrType)
+	addr, name := getAddrByType(instance, *addrType)
 	if addr == nil {
 		return InstanceAddr{}, fmt.Errorf("%w: no %s address for instance %s", ErrNoAddress, name, *instance.InstanceId)
 	}
-	return InstanceAddr{Addr: *addr, Type: addrType}, nil
+	return InstanceAddr{Addr: *addr, Type: *addrType}, nil
 }
 
 func getAddrByType(instance types.Instance, addrType AddrType) (*string, string) {

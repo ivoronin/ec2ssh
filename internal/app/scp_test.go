@@ -18,7 +18,7 @@ func TestNewSCPSession(t *testing.T) {
 		wantLogin     string
 		wantLocalPath string
 		wantIsUpload  bool
-		wantDstType   ec2client.DstType
+		wantDstType   *ec2client.DstType // nil = auto-detect (default)
 		wantErr       bool
 		errContains   string
 	}{
@@ -87,7 +87,7 @@ func TestNewSCPSession(t *testing.T) {
 			wantHost:      "my-server",
 			wantLocalPath: "file.txt",
 			wantIsUpload:  true,
-			wantDstType:   ec2client.DstTypeNameTag,
+			wantDstType:   dstTypePtr(ec2client.DstTypeNameTag),
 		},
 		"with use eice": {
 			args:          []string{"--use-eice", "file.txt", "host:/path"},

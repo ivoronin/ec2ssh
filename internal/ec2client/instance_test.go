@@ -18,10 +18,6 @@ func TestDstType_UnmarshalText(t *testing.T) {
 		want    DstType
 		wantErr bool
 	}{
-		"empty string - auto": {
-			input: "",
-			want:  DstTypeAuto,
-		},
 		"id": {
 			input: "id",
 			want:  DstTypeID,
@@ -45,6 +41,10 @@ func TestDstType_UnmarshalText(t *testing.T) {
 		"name_tag": {
 			input: "name_tag",
 			want:  DstTypeNameTag,
+		},
+		"empty string is error": {
+			input:   "",
+			wantErr: true, // Use *DstType with nil for auto-detect
 		},
 		"invalid type": {
 			input:   "invalid",
@@ -349,14 +349,14 @@ func TestClient_GetInstance(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		dstType     DstType
+		dstType     *DstType // nil = auto-detect
 		destination string
 		mockSetup   func(*MockEC2API)
 		wantID      string
 		wantErr     bool
 	}{
-		"auto detect instance id": {
-			dstType:     DstTypeAuto,
+		"nil auto-detects instance id": {
+			dstType:     nil,
 			destination: "i-auto123",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -368,8 +368,8 @@ func TestClient_GetInstance(t *testing.T) {
 			},
 			wantID: "i-auto123",
 		},
-		"auto detect private ip": {
-			dstType:     DstTypeAuto,
+		"nil auto-detects private ip": {
+			dstType:     nil,
 			destination: "10.0.0.5",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -386,8 +386,8 @@ func TestClient_GetInstance(t *testing.T) {
 			},
 			wantID: "i-byip",
 		},
-		"auto detect public ip": {
-			dstType:     DstTypeAuto,
+		"nil auto-detects public ip": {
+			dstType:     nil,
 			destination: "54.123.45.67",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -404,8 +404,8 @@ func TestClient_GetInstance(t *testing.T) {
 			},
 			wantID: "i-bypubip",
 		},
-		"auto detect private dns": {
-			dstType:     DstTypeAuto,
+		"nil auto-detects private dns": {
+			dstType:     nil,
 			destination: "ip-10-0-0-1.ec2.internal",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -423,7 +423,7 @@ func TestClient_GetInstance(t *testing.T) {
 			wantID: "i-bydns",
 		},
 		"explicit private dns with wildcard": {
-			dstType:     DstTypePrivateDNSName,
+			dstType:     dstTypePtr(DstTypePrivateDNSName),
 			destination: "ip-10-0-0-1",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -441,7 +441,7 @@ func TestClient_GetInstance(t *testing.T) {
 			wantID: "i-dns",
 		},
 		"explicit name tag": {
-			dstType:     DstTypeNameTag,
+			dstType:     dstTypePtr(DstTypeNameTag),
 			destination: "my-server",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -459,7 +459,7 @@ func TestClient_GetInstance(t *testing.T) {
 			wantID: "i-named",
 		},
 		"explicit ipv6": {
-			dstType:     DstTypeIPv6,
+			dstType:     dstTypePtr(DstTypeIPv6),
 			destination: "2001:db8::1",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -477,7 +477,7 @@ func TestClient_GetInstance(t *testing.T) {
 			wantID: "i-ipv6",
 		},
 		"not found": {
-			dstType:     DstTypeNameTag,
+			dstType:     dstTypePtr(DstTypeNameTag),
 			destination: "nonexistent",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(

@@ -58,8 +58,8 @@ type baseSSHSession struct {
 	Region       string             `long:"region"`
 	Profile      string             `long:"profile"`
 	EICEID       string             `long:"eice-id"`
-	DstType      ec2client.DstType  `long:"destination-type"`
-	AddrType     ec2client.AddrType `long:"address-type"`
+	DstType  *ec2client.DstType  `long:"destination-type"` // nil = auto-detect
+	AddrType *ec2client.AddrType `long:"address-type"`     // nil = auto-detect
 	IdentityFile string             `short:"i"`
 	UseEICE      bool               `long:"use-eice"`
 	UseSSM       bool               `long:"use-ssm"`

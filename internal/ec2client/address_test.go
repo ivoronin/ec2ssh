@@ -17,10 +17,6 @@ func TestAddrType_UnmarshalText(t *testing.T) {
 		want    AddrType
 		wantErr bool
 	}{
-		"empty string - auto": {
-			input: "",
-			want:  AddrTypeAuto,
-		},
 		"private": {
 			input: "private",
 			want:  AddrTypePrivate,
@@ -32,6 +28,10 @@ func TestAddrType_UnmarshalText(t *testing.T) {
 		"ipv6": {
 			input: "ipv6",
 			want:  AddrTypeIPv6,
+		},
+		"empty string is error": {
+			input:   "",
+			wantErr: true, // Use *AddrType with nil for auto-detect
 		},
 		"invalid type": {
 			input:   "invalid",
@@ -75,97 +75,97 @@ func TestGetInstanceAddr(t *testing.T) {
 
 	tests := map[string]struct {
 		instance types.Instance
-		addrType AddrType
+		addrType *AddrType // nil = auto-detect
 		wantAddr string
 		wantType AddrType
 		wantErr  bool
 	}{
-		// Auto mode - prefers private
-		"auto prefers private": {
+		// nil (auto) mode - prefers private
+		"nil prefers private": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
-			addrType: AddrTypeAuto,
+			addrType: nil,
 			wantAddr: "10.0.0.1",
 			wantType: AddrTypePrivate,
 		},
-		"auto falls back to public": {
+		"nil falls back to public": {
 			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
-			addrType: AddrTypeAuto,
+			addrType: nil,
 			wantAddr: "1.2.3.4",
 			wantType: AddrTypePublic,
 		},
-		"auto falls back to ipv6": {
+		"nil falls back to ipv6": {
 			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
-			addrType: AddrTypeAuto,
+			addrType: nil,
 			wantAddr: "2001:db8::1",
 			wantType: AddrTypeIPv6,
 		},
-		"auto no address": {
+		"nil no address": {
 			instance: makeInstance("i-1"),
-			addrType: AddrTypeAuto,
+			addrType: nil,
 			wantErr:  true,
 		},
 
 		// Explicit private
 		"explicit private": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
-			addrType: AddrTypePrivate,
+			addrType: addrTypePtr(AddrTypePrivate),
 			wantAddr: "10.0.0.1",
 			wantType: AddrTypePrivate,
 		},
 		"explicit private only private": {
 			instance: makeInstance("i-1", withPrivateIP("192.168.1.1")),
-			addrType: AddrTypePrivate,
+			addrType: addrTypePtr(AddrTypePrivate),
 			wantAddr: "192.168.1.1",
 			wantType: AddrTypePrivate,
 		},
 		"missing private": {
 			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
-			addrType: AddrTypePrivate,
+			addrType: addrTypePtr(AddrTypePrivate),
 			wantErr:  true,
 		},
 
 		// Explicit public
 		"explicit public": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
-			addrType: AddrTypePublic,
+			addrType: addrTypePtr(AddrTypePublic),
 			wantAddr: "1.2.3.4",
 			wantType: AddrTypePublic,
 		},
 		"explicit public only public": {
 			instance: makeInstance("i-1", withPublicIP("52.0.0.1")),
-			addrType: AddrTypePublic,
+			addrType: addrTypePtr(AddrTypePublic),
 			wantAddr: "52.0.0.1",
 			wantType: AddrTypePublic,
 		},
 		"missing public": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
-			addrType: AddrTypePublic,
+			addrType: addrTypePtr(AddrTypePublic),
 			wantErr:  true,
 		},
 
 		// Explicit IPv6
 		"explicit ipv6": {
 			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
-			addrType: AddrTypeIPv6,
+			addrType: addrTypePtr(AddrTypeIPv6),
 			wantAddr: "2001:db8::1",
 			wantType: AddrTypeIPv6,
 		},
 		"explicit ipv6 with others": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("fe80::1")),
-			addrType: AddrTypeIPv6,
+			addrType: addrTypePtr(AddrTypeIPv6),
 			wantAddr: "fe80::1",
 			wantType: AddrTypeIPv6,
 		},
 		"missing ipv6": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
-			addrType: AddrTypeIPv6,
+			addrType: addrTypePtr(AddrTypeIPv6),
 			wantErr:  true,
 		},
 
 		// All addresses present
-		"all addresses auto selects private": {
+		"all addresses nil selects private": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("2001:db8::1")),
-			addrType: AddrTypeAuto,
+			addrType: nil,
 			wantAddr: "10.0.0.1",
 			wantType: AddrTypePrivate,
 		},

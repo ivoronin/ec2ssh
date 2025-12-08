@@ -23,6 +23,7 @@ var textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem(
 type fieldInfo struct {
 	field    reflect.Value
 	needsArg bool
+	isPtr    bool // true if field is a pointer to TextUnmarshaler
 }
 
 // sieve separates known flags from unknown flags and positional arguments.
@@ -120,6 +121,15 @@ func (s *sieve) extractFieldsFromValue(v reflect.Value) {
 			info = fieldInfo{field: fieldValue, needsArg: false}
 		case kind == reflect.String:
 			info = fieldInfo{field: fieldValue, needsArg: true}
+		case kind == reflect.Ptr:
+			// Pointer to TextUnmarshaler - nil when flag absent, allocated when present
+			elemType := fieldType.Type.Elem()
+			if reflect.PointerTo(elemType).Implements(textUnmarshalerType) {
+				info = fieldInfo{field: fieldValue, needsArg: true, isPtr: true}
+			} else {
+				panic(fmt.Sprintf("argsieve: pointer field %s must point to type implementing encoding.TextUnmarshaler",
+					fieldType.Name))
+			}
 		case fieldValue.CanAddr() && reflect.PointerTo(fieldType.Type).Implements(textUnmarshalerType):
 			// Field's pointer type implements encoding.TextUnmarshaler
 			info = fieldInfo{field: fieldValue, needsArg: true}
@@ -141,7 +151,20 @@ func (s *sieve) extractFieldsFromValue(v reflect.Value) {
 // setField assigns a value to a field based on its type.
 // Returns an error if TextUnmarshaler.UnmarshalText fails.
 func (s *sieve) setField(info fieldInfo, value string) error {
-	// Try TextUnmarshaler first
+	// Handle pointer fields - allocate and set
+	if info.isPtr {
+		elemType := info.field.Type().Elem()
+		newVal := reflect.New(elemType)
+		if tu, ok := newVal.Interface().(encoding.TextUnmarshaler); ok {
+			if err := tu.UnmarshalText([]byte(value)); err != nil {
+				return err
+			}
+			info.field.Set(newVal)
+			return nil
+		}
+	}
+
+	// Try TextUnmarshaler for value types
 	if info.field.CanAddr() {
 		if tu, ok := info.field.Addr().Interface().(encoding.TextUnmarshaler); ok {
 			return tu.UnmarshalText([]byte(value))

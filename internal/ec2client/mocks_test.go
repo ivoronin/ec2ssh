@@ -34,3 +34,13 @@ var (
 	makeEICEOutput     = MakeEICEOutput
 	newTestClient      = NewTestClient
 )
+
+// addrTypePtr returns a pointer to the AddrType value.
+func addrTypePtr(t AddrType) *AddrType {
+	return &t
+}
+
+// dstTypePtr returns a pointer to the DstType value.
+func dstTypePtr(t DstType) *DstType {
+	return &t
+}

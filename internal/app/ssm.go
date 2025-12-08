@@ -18,7 +18,7 @@ type SSMSession struct {
 	// CLI Configuration
 	Region  string            `long:"region"`
 	Profile string            `long:"profile"`
-	DstType ec2client.DstType `long:"destination-type"`
+	DstType *ec2client.DstType `long:"destination-type"` // nil = auto-detect
 	Debug   bool              `long:"debug"`
 
 	// Parsed values
