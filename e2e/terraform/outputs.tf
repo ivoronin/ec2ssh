@@ -35,3 +35,23 @@ output "private_name" {
   description = "Name tag of private instance"
   value       = aws_instance.private.tags["Name"]
 }
+
+output "eice_ipv6_id" {
+  description = "ID of IPv6-only EICE endpoint"
+  value       = aws_ec2_instance_connect_endpoint.ipv6_only.id
+}
+
+output "ipv6_only_id" {
+  description = "ID of IPv6-only instance"
+  value       = aws_instance.ipv6_only.id
+}
+
+output "ipv6_only_ipv6" {
+  description = "IPv6 address of IPv6-only instance"
+  value       = aws_instance.ipv6_only.ipv6_addresses[0]
+}
+
+output "ipv6_only_name" {
+  description = "Name tag of IPv6-only instance"
+  value       = aws_instance.ipv6_only.tags["Name"]
+}

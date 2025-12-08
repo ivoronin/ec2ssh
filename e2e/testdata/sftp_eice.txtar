@@ -14,18 +14,14 @@ exec ec2ssh --sftp --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHo
 exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- cat /tmp/e2e-eice-sftp.txt
 stdout 'eice-sftp-content'
 
-# === IPv6 Tests ===
+# Test EICE auto-detection: --use-eice WITHOUT --eice-id
+exec sh -c 'echo "eice-auto-sftp-$(date +%s)" > $WORK/eice-auto-sftp.txt'
+exec sh -c 'echo "put $WORK/eice-auto-sftp.txt /tmp/e2e-eice-auto-sftp.txt" > $WORK/eice-auto-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/eice-auto-batch.txt'
 
-# Create local test file for EICE IPv6 SFTP
-exec sh -c 'echo "eice-ipv6-sftp-content-$(date +%s)" > $WORK/eice-ipv6-sftp-upload.txt'
+# Upload via EICE auto-detect SFTP
+exec ec2ssh --sftp --use-eice -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/eice-auto-batch.txt $USER@$PRIVATE_ID
 
-# Create SFTP batch file
-exec sh -c 'echo "put $WORK/eice-ipv6-sftp-upload.txt /tmp/e2e-eice-ipv6-sftp.txt" > $WORK/eice-ipv6-sftp-batch.txt'
-exec sh -c 'echo "quit" >> $WORK/eice-ipv6-sftp-batch.txt'
-
-# Upload via EICE SFTP to IPv6 address (brackets required for SFTP)
-exec ec2ssh --sftp --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/eice-ipv6-sftp-batch.txt $USER@[$PRIVATE_IPV6]
-
-# Verify SFTP upload
-exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_IPV6 -- cat /tmp/e2e-eice-ipv6-sftp.txt
-stdout 'eice-ipv6-sftp-content'
+# Verify auto-detect SFTP upload
+exec ec2ssh --use-eice -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- cat /tmp/e2e-eice-auto-sftp.txt
+stdout 'eice-auto-sftp'

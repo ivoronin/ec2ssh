@@ -38,7 +38,7 @@ e2e-build:
 	go build -o e2e/ec2ssh ./cmd/ec2ssh
 
 e2e-test: e2e-build
-	cd e2e && go test -v -tags=e2e ./...
+	cd e2e && go test -parallel 2 -tags=e2e ./...
 
 # Full E2E workflow (assumes infrastructure is already up)
 e2e: e2e-build e2e-test

@@ -1,0 +1,32 @@
+# SFTP via EICE to IPv6-only instance tests
+
+# Create local test file for IPv6-only EICE SFTP
+exec sh -c 'echo "ipv6-only-eice-sftp-content-$(date +%s)" > $WORK/ipv6-only-eice-sftp-upload.txt'
+
+# Create SFTP batch file
+exec sh -c 'echo "put $WORK/ipv6-only-eice-sftp-upload.txt /tmp/e2e-ipv6-only-eice-sftp.txt" > $WORK/ipv6-only-eice-sftp-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/ipv6-only-eice-sftp-batch.txt'
+
+# Upload via EICE SFTP to IPv6-only instance by ID
+exec ec2ssh --sftp --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/ipv6-only-eice-sftp-batch.txt $USER@$IPV6_ONLY_ID
+
+# Verify SFTP upload
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID -- cat /tmp/e2e-ipv6-only-eice-sftp.txt
+stdout 'ipv6-only-eice-sftp-content'
+
+# === IPv6 Address Tests ===
+
+# Create local test file for IPv6 address SFTP
+exec sh -c 'echo "ipv6-only-addr-sftp-content-$(date +%s)" > $WORK/ipv6-only-addr-sftp-upload.txt'
+
+# Create SFTP batch file
+exec sh -c 'echo "put $WORK/ipv6-only-addr-sftp-upload.txt /tmp/e2e-ipv6-only-addr-sftp.txt" > $WORK/ipv6-only-addr-sftp-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/ipv6-only-addr-sftp-batch.txt'
+
+# Upload via EICE SFTP using IPv6 address (brackets required for SFTP)
+exec ec2ssh --sftp --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/ipv6-only-addr-sftp-batch.txt $USER@[$IPV6_ONLY_IPV6]
+
+# Verify SFTP upload
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_IPV6 -- cat /tmp/e2e-ipv6-only-addr-sftp.txt
+stdout 'ipv6-only-addr-sftp-content'
+

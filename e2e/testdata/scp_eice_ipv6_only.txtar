@@ -1,0 +1,31 @@
+# SCP via EICE to IPv6-only instance tests
+
+# Create local test file for IPv6-only EICE SCP upload
+exec sh -c 'echo "ipv6-only-eice-scp-content-$(date +%s)" > $WORK/ipv6-only-eice-upload.txt'
+
+# Upload via EICE SCP to IPv6-only instance by ID
+exec ec2ssh --scp --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/ipv6-only-eice-upload.txt $USER@$IPV6_ONLY_ID:/tmp/e2e-ipv6-only-eice-scp.txt
+
+# Verify upload
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID -- cat /tmp/e2e-ipv6-only-eice-scp.txt
+stdout 'ipv6-only-eice-scp-content'
+
+# Download via EICE SCP from IPv6-only instance
+exec ec2ssh --scp --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID:/tmp/e2e-ipv6-only-eice-scp.txt $WORK/ipv6-only-eice-download.txt
+
+# Verify download
+exec cat $WORK/ipv6-only-eice-download.txt
+stdout 'ipv6-only-eice-scp-content'
+
+# === IPv6 Address Tests ===
+
+# Create local test file for IPv6 address SCP upload
+exec sh -c 'echo "ipv6-only-addr-scp-content-$(date +%s)" > $WORK/ipv6-only-addr-upload.txt'
+
+# Upload via EICE SCP using IPv6 address (brackets required for SCP path syntax)
+exec ec2ssh --scp --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/ipv6-only-addr-upload.txt $USER@[$IPV6_ONLY_IPV6]:/tmp/e2e-ipv6-only-addr-scp.txt
+
+# Verify upload
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_IPV6 -- cat /tmp/e2e-ipv6-only-addr-scp.txt
+stdout 'ipv6-only-addr-scp-content'
+

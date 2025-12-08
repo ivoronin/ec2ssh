@@ -12,3 +12,23 @@ stdout 'hello-ssm-public'
 exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- hostname
 stdout .
 
+# Test SSH over SSM with multiple args using -l user target syntax
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l $USER $PRIVATE_ID -- echo ssm multi arg
+stdout 'ssm multi arg'
+
+# Test SSH over SSM with environment variable
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- printenv HOME
+stdout '/home/ec2-user'
+
+# Test --destination-type id via SSM
+exec ec2ssh --destination-type id --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo dtype-ssm-id
+stdout 'dtype-ssm-id'
+
+# Test ssh:// URL format via SSM
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PRIVATE_ID -- echo url-ssm
+stdout 'url-ssm'
+
+# Test ssh:// URL with private IP via SSM
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PRIVATE_IP -- echo url-ssm-ip
+stdout 'url-ssm-ip'
+

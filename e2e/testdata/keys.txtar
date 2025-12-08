@@ -22,3 +22,49 @@ exec sh -c 'cat $WORK/nosend_key.pub | ec2ssh -o StrictHostKeyChecking=no -o Use
 # Connect with --no-send-keys (uses the key we added to authorized_keys, skips EC2IC)
 exec ec2ssh --no-send-keys -i $WORK/nosend_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo no-send-keys-test
 stdout 'no-send-keys-test'
+
+# === Test 3: Custom identity file via EICE ===
+# Flow: Generate key -> ec2ssh -i extracts public key -> Pushes via EC2IC API -> Connects via EICE
+
+# Generate test keypair for EICE
+exec ssh-keygen -t ed25519 -f $WORK/eice_key -N '' -q
+
+# Connect with -i flag via EICE tunnel
+exec ec2ssh -i $WORK/eice_key --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo eice-custom-key-test
+stdout 'eice-custom-key-test'
+
+# === Test 4: --no-send-keys via EICE ===
+# Flow: Generate key -> Add to authorized_keys via EICE -> Connect with --no-send-keys via EICE
+
+# Generate keypair for EICE no-send test
+exec ssh-keygen -t ed25519 -f $WORK/eice_nosend_key -N '' -q
+
+# Add public key to authorized_keys on private instance via EICE
+exec sh -c 'cat $WORK/eice_nosend_key.pub | ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- sh -c "cat >> ~/.ssh/authorized_keys"'
+
+# Connect with --no-send-keys via EICE (skips EC2IC key push)
+exec ec2ssh --no-send-keys -i $WORK/eice_nosend_key --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo eice-no-send-keys-test
+stdout 'eice-no-send-keys-test'
+
+# === Test 5: Custom identity file via SSM ===
+# Flow: Generate key -> ec2ssh -i extracts public key -> Pushes via EC2IC API -> Connects via SSM
+
+# Generate test keypair for SSM
+exec ssh-keygen -t ed25519 -f $WORK/ssm_key -N '' -q
+
+# Connect with -i flag via SSM tunnel
+exec ec2ssh -i $WORK/ssm_key --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo ssm-custom-key-test
+stdout 'ssm-custom-key-test'
+
+# === Test 6: --no-send-keys via SSM ===
+# Flow: Generate key -> Add to authorized_keys via SSM -> Connect with --no-send-keys via SSM
+
+# Generate keypair for SSM no-send test
+exec ssh-keygen -t ed25519 -f $WORK/ssm_nosend_key -N '' -q
+
+# Add public key to authorized_keys on private instance via SSM
+exec sh -c 'cat $WORK/ssm_nosend_key.pub | ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- sh -c "cat >> ~/.ssh/authorized_keys"'
+
+# Connect with --no-send-keys via SSM (skips EC2IC key push)
+exec ec2ssh --no-send-keys -i $WORK/ssm_nosend_key --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo ssm-no-send-keys-test
+stdout 'ssm-no-send-keys-test'

@@ -1,0 +1,27 @@
+# SSH via EICE to IPv6-only instance tests
+# Tests the new IPv6 support for EICE tunneling with instances that have no IPv4 address
+
+# Test EICE SSH to IPv6-only instance by ID (should auto-fallback to IPv6 since no IPv4)
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID -- echo hello-ipv6-only-eice
+stdout 'hello-ipv6-only-eice'
+
+# Test EICE SSH to IPv6-only instance by IPv6 address
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_IPV6 -- echo hello-ipv6-only-eice-addr
+stdout 'hello-ipv6-only-eice-addr'
+
+# Test EICE SSH with explicit --address-type ipv6
+exec ec2ssh --address-type ipv6 --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID -- echo hello-ipv6-only-explicit
+stdout 'hello-ipv6-only-explicit'
+
+# Test EICE SSH with hostname command
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID -- hostname
+stdout .
+
+# Test EICE SSH using -l user target syntax
+exec ec2ssh --eice-id $EICE_IPV6_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l $USER $IPV6_ONLY_ID -- echo hello-ipv6-only-lflag
+stdout 'hello-ipv6-only-lflag'
+
+# Test EICE auto-detection: --use-eice WITHOUT --eice-id on IPv6-only instance
+exec ec2ssh --use-eice -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$IPV6_ONLY_ID -- echo hello-ipv6-only-autodetect
+stdout 'hello-ipv6-only-autodetect'
+

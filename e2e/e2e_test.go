@@ -75,12 +75,14 @@ func TestE2E(t *testing.T) {
 			env.Setenv("EICE_ID", outputs.GetString("eice_id"))
 			env.Setenv("PUBLIC_ID", outputs.GetString("public_id"))
 			env.Setenv("PUBLIC_IP", outputs.GetString("public_ip"))
-			env.Setenv("PUBLIC_IPV6", outputs.GetString("public_ipv6"))
 			env.Setenv("PRIVATE_ID", outputs.GetString("private_id"))
 			env.Setenv("PRIVATE_IP", outputs.GetString("private_ip"))
-			env.Setenv("PRIVATE_IPV6", outputs.GetString("private_ipv6"))
 			env.Setenv("PUBLIC_NAME", outputs.GetString("public_name"))
 			env.Setenv("PRIVATE_NAME", outputs.GetString("private_name"))
+			env.Setenv("EICE_IPV6_ID", outputs.GetString("eice_ipv6_id"))
+			env.Setenv("IPV6_ONLY_ID", outputs.GetString("ipv6_only_id"))
+			env.Setenv("IPV6_ONLY_IPV6", outputs.GetString("ipv6_only_ipv6"))
+			env.Setenv("IPV6_ONLY_NAME", outputs.GetString("ipv6_only_name"))
 			env.Setenv("USER", "ec2-user")
 
 			return nil

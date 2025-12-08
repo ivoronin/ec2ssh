@@ -16,3 +16,31 @@ stdout .
 exec ec2ssh --use-eice -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l $USER $PRIVATE_ID -- echo hello-eice-autodetect
 stdout 'hello-eice-autodetect'
 
+# Test EICE SSH with multiple command arguments
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo multi arg test
+stdout 'multi arg test'
+
+# Test SSH to private instance by name tag via EICE
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_NAME -- echo hello-private-name
+stdout 'hello-private-name'
+
+# Test --destination-type private_ip via EICE
+exec ec2ssh --destination-type private_ip --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_IP -- echo dtype-private-ip
+stdout 'dtype-private-ip'
+
+# Test --destination-type name_tag via EICE
+exec ec2ssh --destination-type name_tag --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_NAME -- echo dtype-eice-name
+stdout 'dtype-eice-name'
+
+# Test --address-type private via EICE
+exec ec2ssh --address-type private --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo atype-private
+stdout 'atype-private'
+
+# Test ssh:// URL format via EICE
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PRIVATE_ID -- echo url-eice
+stdout 'url-eice'
+
+# Test ssh:// URL with private IP via EICE
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PRIVATE_IP -- echo url-eice-ip
+stdout 'url-eice-ip'
+

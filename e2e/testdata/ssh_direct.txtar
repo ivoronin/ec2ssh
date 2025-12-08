@@ -25,3 +25,23 @@ stdout 'hello-by-name'
 exec ec2ssh --address-type public -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo atype-public
 stdout 'atype-public'
 
+# Test --destination-type id
+exec ec2ssh --destination-type id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo dtype-id
+stdout 'dtype-id'
+
+# Test --destination-type public_ip
+exec ec2ssh --destination-type public_ip -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_IP -- echo dtype-public-ip
+stdout 'dtype-public-ip'
+
+# Test --destination-type name_tag
+exec ec2ssh --destination-type name_tag -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_NAME -- echo dtype-name
+stdout 'dtype-name'
+
+# Test ssh:// URL format with instance ID
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PUBLIC_ID -- echo url-ssh
+stdout 'url-ssh'
+
+# Test ssh:// URL format with IP address
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PUBLIC_IP -- echo url-ip
+stdout 'url-ip'
+
