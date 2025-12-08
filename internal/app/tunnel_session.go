@@ -54,7 +54,7 @@ func NewEICETunnelSession(args []string) (*EICETunnelSession, error) {
 
 	positional, err := argsieve.Parse(&session, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
 	}
 
 	if len(positional) > 0 {
@@ -115,7 +115,7 @@ func NewSSMTunnelSession(args []string) (*SSMTunnelSession, error) {
 
 	positional, err := argsieve.Parse(&session, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
 	}
 
 	if len(positional) > 0 {

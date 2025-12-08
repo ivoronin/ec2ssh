@@ -61,10 +61,6 @@ func TestRunner_MissingDestination(t *testing.T) {
 		args        []string
 		errContains string
 	}{
-		"ssh mode no args": {
-			args:        []string{"ec2ssh"},
-			errContains: "missing destination",
-		},
 		"ssm mode no destination": {
 			args:        []string{"ec2ssm"},
 			errContains: "missing destination",
@@ -97,10 +93,6 @@ func TestRunner_IntentRouting(t *testing.T) {
 		"ec2scp needs operands": {
 			args:        []string{"ec2scp"},
 			errContains: "exactly 2 operands",
-		},
-		"ec2sftp needs destination": {
-			args:        []string{"ec2sftp"},
-			errContains: "missing destination",
 		},
 		"--list mode needs no destination": {
 			// List mode might succeed or fail depending on context
@@ -163,13 +155,8 @@ func TestRunner_BinaryNameRouting(t *testing.T) {
 	}{
 		"ec2scp binary": {
 			binaryName:  "ec2scp",
-			args:        []string{}, // Just binary name
-			errContains: "exactly 2 operands",
-		},
-		"ec2sftp binary": {
-			binaryName:  "ec2sftp",
 			args:        []string{},
-			errContains: "missing destination",
+			errContains: "exactly 2 operands",
 		},
 		"ec2ssm binary": {
 			binaryName:  "ec2ssm",

@@ -4,6 +4,7 @@
 package argsieve
 
 import (
+	"encoding"
 	"errors"
 	"fmt"
 	"iter"
@@ -14,6 +15,9 @@ import (
 
 // ErrParse indicates a parsing error (e.g., missing value or unknown option).
 var ErrParse = errors.New("argument parsing error")
+
+// textUnmarshalerType is used to check if a type implements encoding.TextUnmarshaler.
+var textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 
 // fieldInfo holds a reference to a struct field and whether it needs an argument.
 type fieldInfo struct {
@@ -107,14 +111,22 @@ func (s *sieve) extractFieldsFromValue(v reflect.Value) {
 			continue
 		}
 
-		// Validate field type - only string and bool are supported
+		// Determine field type and whether it needs an argument
 		kind := fieldType.Type.Kind()
-		if kind != reflect.String && kind != reflect.Bool {
-			panic(fmt.Sprintf("argsieve: field %s has unsupported type %s (only string and bool are supported)",
+		var info fieldInfo
+
+		switch {
+		case kind == reflect.Bool:
+			info = fieldInfo{field: fieldValue, needsArg: false}
+		case kind == reflect.String:
+			info = fieldInfo{field: fieldValue, needsArg: true}
+		case fieldValue.CanAddr() && reflect.PointerTo(fieldType.Type).Implements(textUnmarshalerType):
+			// Field's pointer type implements encoding.TextUnmarshaler
+			info = fieldInfo{field: fieldValue, needsArg: true}
+		default:
+			panic(fmt.Sprintf("argsieve: field %s has unsupported type %s (must be string, bool, or implement encoding.TextUnmarshaler)",
 				fieldType.Name, fieldType.Type))
 		}
-
-		info := fieldInfo{field: fieldValue, needsArg: kind != reflect.Bool}
 
 		if short != "" {
 			s.fields[short] = info
@@ -127,12 +139,23 @@ func (s *sieve) extractFieldsFromValue(v reflect.Value) {
 }
 
 // setField assigns a value to a field based on its type.
-func (s *sieve) setField(info fieldInfo, value string) {
+// Returns an error if TextUnmarshaler.UnmarshalText fails.
+func (s *sieve) setField(info fieldInfo, value string) error {
+	// Try TextUnmarshaler first
+	if info.field.CanAddr() {
+		if tu, ok := info.field.Addr().Interface().(encoding.TextUnmarshaler); ok {
+			return tu.UnmarshalText([]byte(value))
+		}
+	}
+
+	// Fall back to built-in types
 	if info.needsArg {
 		info.field.SetString(value)
 	} else {
 		info.field.SetBool(true)
 	}
+
+	return nil
 }
 
 // handleLong processes --name or --name=value arguments.
@@ -164,14 +187,14 @@ func (s *sieve) handleLong(arg string, next func() (string, bool)) error {
 
 	// Known bool flag
 	if !info.needsArg {
-		s.setField(info, "")
-
-		return nil
+		return s.setField(info, "")
 	}
 
 	// Known string flag with equals
 	if hasEquals {
-		s.setField(info, eqValue)
+		if err := s.setField(info, eqValue); err != nil {
+			return fmt.Errorf("%w: invalid value for --%s: %v", ErrParse, name, err)
+		}
 
 		return nil
 	}
@@ -182,7 +205,9 @@ func (s *sieve) handleLong(arg string, next func() (string, bool)) error {
 		return fmt.Errorf("%w: missing value for --%s", ErrParse, name)
 	}
 
-	s.setField(info, value)
+	if err := s.setField(info, value); err != nil {
+		return fmt.Errorf("%w: invalid value for --%s: %v", ErrParse, name, err)
+	}
 
 	return nil
 }
@@ -212,14 +237,18 @@ func (s *sieve) handleShort(arg string, next func() (string, bool)) error {
 
 		// Known bool flag
 		if !info.needsArg {
-			s.setField(info, "")
+			if err := s.setField(info, ""); err != nil {
+				return err
+			}
 
 			continue
 		}
 
 		// Known string flag - value attached
 		if len(tail) > 0 {
-			s.setField(info, tail)
+			if err := s.setField(info, tail); err != nil {
+				return fmt.Errorf("%w: invalid value for -%s: %v", ErrParse, flag, err)
+			}
 
 			return nil
 		}
@@ -230,7 +259,9 @@ func (s *sieve) handleShort(arg string, next func() (string, bool)) error {
 			return fmt.Errorf("%w: missing value for -%s", ErrParse, flag)
 		}
 
-		s.setField(info, value)
+		if err := s.setField(info, value); err != nil {
+			return fmt.Errorf("%w: invalid value for -%s: %v", ErrParse, flag, err)
+		}
 
 		return nil
 	}

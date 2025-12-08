@@ -10,6 +10,79 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDstType_UnmarshalText(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input   string
+		want    DstType
+		wantErr bool
+	}{
+		"empty string - auto": {
+			input: "",
+			want:  DstTypeAuto,
+		},
+		"id": {
+			input: "id",
+			want:  DstTypeID,
+		},
+		"private_ip": {
+			input: "private_ip",
+			want:  DstTypePrivateIP,
+		},
+		"public_ip": {
+			input: "public_ip",
+			want:  DstTypePublicIP,
+		},
+		"ipv6": {
+			input: "ipv6",
+			want:  DstTypeIPv6,
+		},
+		"private_dns": {
+			input: "private_dns",
+			want:  DstTypePrivateDNSName,
+		},
+		"name_tag": {
+			input: "name_tag",
+			want:  DstTypeNameTag,
+		},
+		"invalid type": {
+			input:   "invalid",
+			wantErr: true,
+		},
+		"unknown type": {
+			input:   "unknown_type",
+			wantErr: true,
+		},
+		"partial match": {
+			input:   "private", // Not "private_ip" or "private_dns"
+			wantErr: true,
+		},
+		"uppercase rejected": {
+			input:   "ID",
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var got DstType
+			err := got.UnmarshalText([]byte(tc.input))
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "unknown destination type")
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestGuessDestinationType(t *testing.T) {
 	t.Parallel()
 

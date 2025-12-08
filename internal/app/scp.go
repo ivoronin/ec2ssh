@@ -3,8 +3,8 @@ package app
 import (
 	"fmt"
 
-	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
 // SCPSession represents an SCP file transfer to/from an EC2 instance.
@@ -12,18 +12,14 @@ type SCPSession struct {
 	baseSSHSession
 
 	// SCP-specific fields
-	LocalPath  string
-	RemotePath string
-	IsUpload   bool // true = local→remote, false = remote→local
-
-	// Parsing-only fields (not used at runtime, but must be exported for argsieve)
-	PortFlag string `short:"P"` // SCP uses uppercase -P for port
+	LocalPath string
+	IsUpload  bool // true = local→remote, false = remote→local
 }
 
 // scpPassthroughWithArg lists SCP short options that take arguments.
 // These are passed through to SCP along with their values.
 var scpPassthroughWithArg = []string{
-	"-c", "-F", "-J", "-l", "-o", "-S",
+	"-c", "-F", "-J", "-l", "-o", "-P", "-S",
 }
 
 // NewSCPSession creates an SCPSession from command-line arguments.
@@ -32,61 +28,66 @@ func NewSCPSession(args []string) (*SCPSession, error) {
 
 	remaining, positional, err := argsieve.Sift(&session, args, scpPassthroughWithArg)
 	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+	}
+
+	// Apply implied flags and validate early
+	session.ApplyImpliedFlags()
+	if err := session.Validate(); err != nil {
 		return nil, err
 	}
 
 	// Parse SCP operands (source and target)
-	parsed, err := cli.ParseSCPOperands(positional)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+	if len(positional) != 2 {
+		return nil, fmt.Errorf("%w: scp requires exactly 2 operands", ErrUsage)
 	}
 
-	session.Destination = parsed.Host
-	session.RemotePath = parsed.RemotePath
-	session.LocalPath = parsed.LocalPath
-	session.IsUpload = parsed.IsUpload
-	session.Login = parsed.Login
+	srcLocal := ssh.IsLocalPath(positional[0])
+	dstLocal := ssh.IsLocalPath(positional[1])
 
-	// Apply port from flag if provided
-	if session.PortFlag != "" {
-		session.Port = session.PortFlag
+	switch {
+	case srcLocal && dstLocal:
+		return nil, fmt.Errorf("%w: no remote operand (use host:path)", ErrUsage)
+	case !srcLocal && !dstLocal:
+		return nil, fmt.Errorf("%w: multiple remote operands not supported", ErrUsage)
+	case !srcLocal:
+		// Download: remote → local
+		target, err := ssh.NewSCPTarget(positional[0])
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+		}
+		session.Target = target
+		session.LocalPath = positional[1]
+		session.IsUpload = false
+	default:
+		// Upload: local → remote
+		target, err := ssh.NewSCPTarget(positional[1])
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+		}
+		session.Target = target
+		session.LocalPath = positional[0]
+		session.IsUpload = true
 	}
 
 	session.PassArgs = remaining
-
-	// Parse type strings to enums
-	if err := session.ParseTypes(); err != nil {
-		return nil, err
-	}
-
-	// Apply common defaults (EICE ID implies UseEICE, default login)
-	if err := session.ApplyDefaults(); err != nil {
-		return nil, err
-	}
-
-	if session.Destination == "" {
-		return nil, fmt.Errorf("%w: missing destination", ErrUsage)
-	}
 
 	return &session, nil
 }
 
 func (s *SCPSession) buildArgs() []string {
 	args := s.baseArgs()
-	args = appendOptArg(args, "-P%s", s.Port) // SCP uses uppercase -P for port
 
-	// Build remote spec: [login@]host:path
-	var remoteSpec string
-	if s.Login != "" {
-		remoteSpec = s.Login + "@"
+	// Skip operands in passthrough mode
+	if s.Target == nil {
+		return args
 	}
-	remoteSpec += s.destinationAddr + ":" + s.RemotePath
 
-	// Order depends on direction
+	// Order depends on direction (host already set by run())
 	if s.IsUpload {
-		args = append(args, s.LocalPath, remoteSpec)
+		args = append(args, s.LocalPath, s.Target.String())
 	} else {
-		args = append(args, remoteSpec, s.LocalPath)
+		args = append(args, s.Target.String(), s.LocalPath)
 	}
 
 	return args

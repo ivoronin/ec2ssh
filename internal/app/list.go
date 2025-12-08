@@ -39,7 +39,7 @@ func NewListOptions(args []string) (*ListOptions, error) {
 
 	positional, err := argsieve.Parse(&options, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
 	}
 
 	// List doesn't accept positional arguments

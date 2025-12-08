@@ -16,6 +16,22 @@ const (
 	AddrTypeIPv6
 )
 
+// UnmarshalText implements encoding.TextUnmarshaler for CLI flag parsing.
+func (a *AddrType) UnmarshalText(text []byte) error {
+	types := map[string]AddrType{
+		"":        AddrTypeAuto,
+		"private": AddrTypePrivate,
+		"public":  AddrTypePublic,
+		"ipv6":    AddrTypeIPv6,
+	}
+	t, ok := types[string(text)]
+	if !ok {
+		return fmt.Errorf("unknown address type: %s", text)
+	}
+	*a = t
+	return nil
+}
+
 // GetInstanceAddr returns the appropriate IP address for an instance.
 func GetInstanceAddr(instance types.Instance, addrType AddrType) (string, error) {
 	var addr *string

@@ -9,6 +9,67 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAddrType_UnmarshalText(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input   string
+		want    AddrType
+		wantErr bool
+	}{
+		"empty string - auto": {
+			input: "",
+			want:  AddrTypeAuto,
+		},
+		"private": {
+			input: "private",
+			want:  AddrTypePrivate,
+		},
+		"public": {
+			input: "public",
+			want:  AddrTypePublic,
+		},
+		"ipv6": {
+			input: "ipv6",
+			want:  AddrTypeIPv6,
+		},
+		"invalid type": {
+			input:   "invalid",
+			wantErr: true,
+		},
+		"unknown type": {
+			input:   "unknown_type",
+			wantErr: true,
+		},
+		"partial match": {
+			input:   "priv", // Not "private"
+			wantErr: true,
+		},
+		"uppercase rejected": {
+			input:   "PUBLIC",
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var got AddrType
+			err := got.UnmarshalText([]byte(tc.input))
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "unknown address type")
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestGetInstanceAddr(t *testing.T) {
 	t.Parallel()
 

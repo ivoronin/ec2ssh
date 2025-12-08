@@ -3,8 +3,8 @@ package app
 import (
 	"fmt"
 
-	"github.com/ivoronin/ec2ssh/internal/cli"
 	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 
 // SSHSession represents an SSH connection to an EC2 instance.
@@ -14,16 +14,16 @@ type SSHSession struct {
 	// SSH-specific fields
 	CommandWithArgs []string
 
-	// Parsing-only fields (not used at runtime, but must be exported for argsieve)
-	LoginFlag string `short:"l"` // SSH uses -l for login
-	PortFlag  string `short:"p"` // SSH uses lowercase -p for port
+	// Login captures the -l flag, passed through to SSH.
+	// Also used in EC2IC fallback chain: Target.Login() → -l flag → OS user.
+	Login string `short:"l"`
 }
 
 // sshPassthroughWithArg lists SSH short options that take arguments.
 // These are passed through to SSH along with their values.
 var sshPassthroughWithArg = []string{
 	"-B", "-b", "-c", "-D", "-E", "-e", "-F", "-I",
-	"-J", "-L", "-m", "-O", "-o", "-P", "-R", "-S", "-W", "-w",
+	"-J", "-L", "-m", "-O", "-o", "-p", "-P", "-R", "-S", "-W", "-w",
 }
 
 // NewSSHSession creates an SSHSession from command-line arguments.
@@ -32,23 +32,21 @@ func NewSSHSession(args []string) (*SSHSession, error) {
 
 	remaining, positional, err := argsieve.Sift(&session, args, sshPassthroughWithArg)
 	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+	}
+
+	// Apply implied flags and validate early
+	session.ApplyImpliedFlags()
+	if err := session.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Parse destination from first positional (may contain user@host:port)
+	// Parse target from first positional
 	if len(positional) > 0 {
-		login, host, port := cli.ParseSSHDestination(positional[0])
-		session.Destination = host
-		session.Login = login
-		session.Port = port
-	}
-
-	// Flags override destination-parsed values
-	if session.LoginFlag != "" {
-		session.Login = session.LoginFlag
-	}
-	if session.PortFlag != "" {
-		session.Port = session.PortFlag
+		session.Target, err = ssh.NewSSHTarget(positional[0])
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+		}
 	}
 
 	session.PassArgs = remaining
@@ -57,28 +55,25 @@ func NewSSHSession(args []string) (*SSHSession, error) {
 		session.CommandWithArgs = positional[1:]
 	}
 
-	// Parse type strings to enums
-	if err := session.ParseTypes(); err != nil {
-		return nil, err
-	}
-
-	// Apply common defaults (EICE ID implies UseEICE, default login)
-	if err := session.ApplyDefaults(); err != nil {
-		return nil, err
-	}
-
-	if session.Destination == "" {
-		return nil, fmt.Errorf("%w: missing destination", ErrUsage)
-	}
+	// Copy -l flag to baseSession for EC2IC fallback chain
+	session.loginFlag = session.Login
 
 	return &session, nil
 }
 
 func (s *SSHSession) buildArgs() []string {
 	args := s.baseArgs()
+
+	// Pass -l only if provided via flag (not embedded in target)
 	args = appendOptArg(args, "-l%s", s.Login)
-	args = appendOptArg(args, "-p%s", s.Port)
-	args = append(args, s.destinationAddr)
+
+	// Skip destination in passthrough mode
+	if s.Target == nil {
+		return args
+	}
+
+	// Output target string (host already set by run())
+	args = append(args, s.Target.String())
 
 	if len(s.CommandWithArgs) > 0 {
 		args = append(args, "--")

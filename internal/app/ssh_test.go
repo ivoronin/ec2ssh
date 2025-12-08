@@ -1,9 +1,11 @@
 package app
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,17 +14,16 @@ func TestNewSSHSession(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		args            []string
-		wantLogin       string
-		wantHost        string
-		wantPort        string
-		wantDstType     ec2client.DstType
-		wantAddrType    ec2client.AddrType
-		wantUseEICE     bool
-		wantUseSSM      bool
-		wantNoSendKeys  bool
-		wantErr         bool
-		errContains     string
+		args           []string
+		wantLogin      string
+		wantHost       string
+		wantDstType    ec2client.DstType
+		wantAddrType   ec2client.AddrType
+		wantUseEICE    bool
+		wantUseSSM     bool
+		wantNoSendKeys bool
+		wantErr        bool
+		errContains    string
 	}{
 		// Basic destination formats
 		"simple host": {
@@ -38,24 +39,18 @@ func TestNewSSHSession(t *testing.T) {
 			args:      []string{"ssh://admin@myhost:2222"},
 			wantLogin: "admin",
 			wantHost:  "myhost",
-			wantPort:  "2222",
 		},
 
 		// Flags
 		"login flag": {
-			args:      []string{"-l", "ubuntu", "myhost"},
-			wantLogin: "ubuntu",
+			args:     []string{"-l", "ubuntu", "myhost"},
+			wantHost: "myhost",
+			// Note: -l flag sets Login, NOT target.Login()
+		},
+		"target login overrides flag": {
+			args:      []string{"-l", "admin", "user@myhost"},
+			wantLogin: "user", // target login is used, -l flag is separate passthrough
 			wantHost:  "myhost",
-		},
-		"port flag": {
-			args:     []string{"-p", "2222", "myhost"},
-			wantHost: "myhost",
-			wantPort: "2222",
-		},
-		"port flag overrides url": {
-			args:     []string{"-p", "3333", "ssh://admin@myhost:2222"},
-			wantHost: "myhost",
-			wantPort: "3333",
 		},
 		"region flag": {
 			args:     []string{"--region", "us-west-2", "myhost"},
@@ -116,11 +111,6 @@ func TestNewSSHSession(t *testing.T) {
 		},
 
 		// Error cases
-		"missing destination": {
-			args:        []string{},
-			wantErr:     true,
-			errContains: "missing destination",
-		},
 		"invalid destination type": {
 			args:        []string{"--destination-type", "invalid", "myhost"},
 			wantErr:     true,
@@ -146,7 +136,7 @@ func TestNewSSHSession(t *testing.T) {
 
 			if tc.wantErr {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrUsage)
+				assert.True(t, errors.Is(err, ErrUsage), "expected ErrUsage, got: %v", err)
 				if tc.errContains != "" {
 					assert.Contains(t, err.Error(), tc.errContains)
 				}
@@ -155,12 +145,12 @@ func TestNewSSHSession(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, session)
+			require.NotNil(t, session.Target, "target should be set")
 
-			assert.Equal(t, tc.wantHost, session.Destination, "destination")
+			assert.Equal(t, tc.wantHost, session.Target.Host(), "host")
 			if tc.wantLogin != "" {
-				assert.Equal(t, tc.wantLogin, session.Login, "login")
+				assert.Equal(t, tc.wantLogin, session.Target.Login(), "login")
 			}
-			assert.Equal(t, tc.wantPort, session.Port, "port")
 			assert.Equal(t, tc.wantDstType, session.DstType, "dstType")
 			assert.Equal(t, tc.wantAddrType, session.AddrType, "addrType")
 			assert.Equal(t, tc.wantUseEICE, session.UseEICE, "useEICE")
@@ -217,7 +207,7 @@ func TestNewSSHSession_CommandAfterDestination(t *testing.T) {
 	// To pass flags to remote command, use -- separator
 	session, err := NewSSHSession([]string{"myhost", "--", "ls", "-la"})
 	require.NoError(t, err)
-	assert.Equal(t, "myhost", session.Destination)
+	assert.Equal(t, "myhost", session.Target.Host())
 	assert.Equal(t, []string{"ls", "-la"}, session.CommandWithArgs)
 }
 
@@ -227,48 +217,86 @@ func TestNewSSHSession_SimpleCommand(t *testing.T) {
 	// Command without flags doesn't need --
 	session, err := NewSSHSession([]string{"myhost", "hostname"})
 	require.NoError(t, err)
-	assert.Equal(t, "myhost", session.Destination)
+	assert.Equal(t, "myhost", session.Target.Host())
 	assert.Equal(t, []string{"hostname"}, session.CommandWithArgs)
 }
 
 func TestSSHSession_BuildArgs(t *testing.T) {
 	t.Parallel()
 
-	// Note: buildArgs requires runtime state to be set (destinationAddr, privateKeyPath, instance)
-	// which is normally done in run(). For unit tests of buildArgs, we'd need to
-	// set these fields manually or test through higher-level integration tests.
+	t.Run("login from flag", func(t *testing.T) {
+		t.Parallel()
 
-	// This test focuses on argument construction logic by setting up a minimal session
-	session := &SSHSession{}
-	session.Login = "ec2-user"
-	session.Port = "2222"
-	session.destinationAddr = "10.0.0.1"
-	session.privateKeyPath = "/tmp/key"
-	session.instance.InstanceId = strPtr("i-123")
-	session.PassArgs = []string{"-v"}
+		// Simulates: ec2ssh -l ec2-user myhost
+		session := &SSHSession{}
+		session.Target, _ = ssh.NewSSHTarget("myhost")
+		session.Login = "ec2-user" // From -l flag
+		session.Target.SetHost("10.0.0.1")
+		session.privateKeyPath = "/tmp/key"
+		session.instance.InstanceId = strPtr("i-123")
+		session.PassArgs = []string{"-v"}
 
-	args := session.buildArgs()
+		args := session.buildArgs()
 
-	// Should contain login
-	assert.Contains(t, args, "-lec2-user")
-	// Should contain port
-	assert.Contains(t, args, "-p2222")
-	// Should contain identity file
-	assert.Contains(t, args, "-i/tmp/key")
-	// Should contain passthrough args
-	assert.Contains(t, args, "-v")
-	// Should contain host key alias
-	assert.Contains(t, args, "-oHostKeyAlias=i-123")
-	// Last arg should be destination
-	assert.Equal(t, "10.0.0.1", args[len(args)-1])
+		// Should contain login (from flag)
+		assert.Contains(t, args, "-lec2-user")
+		// Should contain identity file
+		assert.Contains(t, args, "-i/tmp/key")
+		// Should contain passthrough args
+		assert.Contains(t, args, "-v")
+		// Should contain host key alias
+		assert.Contains(t, args, "-oHostKeyAlias=i-123")
+		// Last arg should be resolved destination
+		assert.Equal(t, "10.0.0.1", args[len(args)-1])
+	})
+
+	t.Run("login embedded in target url", func(t *testing.T) {
+		t.Parallel()
+
+		// Simulates: ec2ssh ssh://ec2-user@myhost:2222
+		session := &SSHSession{}
+		session.Target, _ = ssh.NewSSHTarget("ssh://ec2-user@myhost:2222")
+		session.Target.SetHost("10.0.0.1")
+		session.privateKeyPath = "/tmp/key"
+		session.instance.InstanceId = strPtr("i-123")
+
+		args := session.buildArgs()
+
+		// Should NOT contain -l (login embedded in target)
+		for _, arg := range args {
+			assert.NotContains(t, arg, "-lec2-user")
+		}
+		// Last arg should be full URL with resolved host (port preserved)
+		assert.Equal(t, "ssh://ec2-user@10.0.0.1:2222", args[len(args)-1])
+	})
+
+	t.Run("non-URL target with login", func(t *testing.T) {
+		t.Parallel()
+
+		// Simulates: ec2ssh ec2-user@myhost
+		session := &SSHSession{}
+		session.Target, _ = ssh.NewSSHTarget("ec2-user@myhost")
+		session.Target.SetHost("10.0.0.1")
+		session.privateKeyPath = "/tmp/key"
+		session.instance.InstanceId = strPtr("i-123")
+
+		args := session.buildArgs()
+
+		// Should NOT contain -l (login embedded in target)
+		for _, arg := range args {
+			assert.NotContains(t, arg, "-l")
+		}
+		// Last arg should be user@resolved_host
+		assert.Equal(t, "ec2-user@10.0.0.1", args[len(args)-1])
+	})
 }
 
 func TestSSHSession_BuildArgsWithCommand(t *testing.T) {
 	t.Parallel()
 
 	session := &SSHSession{}
-	session.Login = "ec2-user"
-	session.destinationAddr = "10.0.0.1"
+	session.Target, _ = ssh.NewSSHTarget("ec2-user@myhost")
+	session.Target.SetHost("10.0.0.1")
 	session.privateKeyPath = "/tmp/key"
 	session.instance.InstanceId = strPtr("i-123")
 	session.CommandWithArgs = []string{"ls", "-la"}
@@ -277,7 +305,7 @@ func TestSSHSession_BuildArgsWithCommand(t *testing.T) {
 
 	// buildArgs adds -- separator before command
 	// Format: [...options, destination, --, ls, -la]
-	assert.Equal(t, "10.0.0.1", args[len(args)-4])
+	assert.Equal(t, "ec2-user@10.0.0.1", args[len(args)-4])
 	assert.Equal(t, "--", args[len(args)-3])
 	assert.Equal(t, "ls", args[len(args)-2])
 	assert.Equal(t, "-la", args[len(args)-1])
@@ -287,8 +315,8 @@ func TestSSHSession_BuildArgsWithProxyCommand(t *testing.T) {
 	t.Parallel()
 
 	session := &SSHSession{}
-	session.Login = "ec2-user"
-	session.destinationAddr = "i-123"
+	session.Target, _ = ssh.NewSSHTarget("ec2-user@i-123")
+	session.Target.SetHost("i-123")
 	session.privateKeyPath = "/tmp/key"
 	session.instance.InstanceId = strPtr("i-123")
 	session.proxyCommand = "ec2ssh --eice-tunnel --host 10.0.0.1 --port %p --eice-id eice-123"
@@ -304,6 +332,59 @@ func TestSSHSession_BuildArgsWithProxyCommand(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "ProxyCommand should be in args")
+}
+
+// Passthrough mode tests - when Target is nil (e.g., ec2ssh -V)
+func TestNewSSHSession_PassthroughMode(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		args         []string
+		wantPassArgs []string
+	}{
+		"version flag": {
+			args:         []string{"-V"},
+			wantPassArgs: []string{"-V"},
+		},
+		"verbose and version": {
+			args:         []string{"-v", "-V"},
+			wantPassArgs: []string{"-v", "-V"},
+		},
+		"help long form": {
+			args:         []string{"--help"},
+			wantPassArgs: []string{"--help"},
+		},
+		"option only": {
+			args:         []string{"-o", "StrictHostKeyChecking=no"},
+			wantPassArgs: []string{"-o", "StrictHostKeyChecking=no"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			session, err := NewSSHSession(tc.args)
+			require.NoError(t, err)
+			require.NotNil(t, session)
+			assert.Nil(t, session.Target, "Target should be nil in passthrough mode")
+			assert.Equal(t, tc.wantPassArgs, session.PassArgs)
+		})
+	}
+}
+
+func TestSSHSession_BuildArgs_PassthroughMode(t *testing.T) {
+	t.Parallel()
+
+	// Simulates: ec2ssh -V (passthrough to ssh -V)
+	session := &SSHSession{}
+	session.Target = nil // Passthrough mode
+	session.PassArgs = []string{"-V"}
+
+	args := session.buildArgs()
+
+	// Should contain only passthrough args, no destination
+	assert.Equal(t, []string{"-V"}, args)
 }
 
 // Helper to create string pointer

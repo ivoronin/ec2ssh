@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,14 +13,12 @@ func TestNewSFTPSession(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		args           []string
-		wantHost       string
-		wantLogin      string
-		wantPort       string
-		wantRemotePath string
-		wantDstType    ec2client.DstType
-		wantErr        bool
-		errContains    string
+		args        []string
+		wantHost    string
+		wantLogin   string
+		wantDstType ec2client.DstType
+		wantErr     bool
+		errContains string
 	}{
 		// Basic formats
 		"simple host": {
@@ -32,15 +31,13 @@ func TestNewSFTPSession(t *testing.T) {
 			wantHost:  "myhost",
 		},
 		"host:path": {
-			args:           []string{"myhost:/home/user"},
-			wantHost:       "myhost",
-			wantRemotePath: "/home/user",
+			args:     []string{"myhost:/home/user"},
+			wantHost: "myhost",
 		},
 		"user@host:path": {
-			args:           []string{"admin@myhost:/home/user"},
-			wantLogin:      "admin",
-			wantHost:       "myhost",
-			wantRemotePath: "/home/user",
+			args:      []string{"admin@myhost:/home/user"},
+			wantLogin: "admin",
+			wantHost:  "myhost",
 		},
 
 		// SFTP URL format
@@ -51,26 +48,21 @@ func TestNewSFTPSession(t *testing.T) {
 		"sftp url with port": {
 			args:     []string{"sftp://myhost:2222"},
 			wantHost: "myhost",
-			wantPort: "2222",
 		},
 		"sftp url full": {
-			args:           []string{"sftp://admin@myhost:2222/home/user"},
-			wantLogin:      "admin",
-			wantHost:       "myhost",
-			wantPort:       "2222",
-			wantRemotePath: "home/user",
+			args:      []string{"sftp://admin@myhost:2222/home/user"},
+			wantLogin: "admin",
+			wantHost:  "myhost",
 		},
 
 		// Port flag
 		"port flag": {
 			args:     []string{"-P", "3333", "myhost"},
 			wantHost: "myhost",
-			wantPort: "3333",
 		},
-		"port flag overrides url": {
+		"target port overrides flag": {
 			args:     []string{"-P", "3333", "sftp://myhost:2222"},
 			wantHost: "myhost",
-			wantPort: "3333",
 		},
 
 		// Instance IDs
@@ -84,17 +76,14 @@ func TestNewSFTPSession(t *testing.T) {
 			wantHost:  "i-1234567890abcdef0",
 		},
 
-		// IPv6
+		// IPv6 - brackets preserved (not stripped like OpenSSH)
 		"ipv6": {
-			args:           []string{"[::1]:/path"},
-			wantHost:       "::1",
-			wantRemotePath: "/path",
+			args:     []string{"[::1]:/path"},
+			wantHost: "[::1]", // Brackets preserved
 		},
 		"sftp url ipv6": {
-			args:           []string{"sftp://[2001:db8::1]:22/data"},
-			wantHost:       "2001:db8::1",
-			wantPort:       "22",
-			wantRemotePath: "data",
+			args:     []string{"sftp://[2001:db8::1]:22/data"},
+			wantHost: "[2001:db8::1]", // Brackets preserved
 		},
 
 		// ec2ssh flags
@@ -113,11 +102,6 @@ func TestNewSFTPSession(t *testing.T) {
 		},
 
 		// Error cases
-		"missing destination": {
-			args:        []string{},
-			wantErr:     true,
-			errContains: "missing destination",
-		},
 		"invalid destination type": {
 			args:        []string{"--destination-type", "invalid", "myhost"},
 			wantErr:     true,
@@ -146,13 +130,12 @@ func TestNewSFTPSession(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, session)
+			require.NotNil(t, session.Target, "target should be set")
 
-			assert.Equal(t, tc.wantHost, session.Destination, "destination")
+			assert.Equal(t, tc.wantHost, session.Target.Host(), "host")
 			if tc.wantLogin != "" {
-				assert.Equal(t, tc.wantLogin, session.Login, "login")
+				assert.Equal(t, tc.wantLogin, session.Target.Login(), "login")
 			}
-			assert.Equal(t, tc.wantPort, session.Port, "port")
-			assert.Equal(t, tc.wantRemotePath, session.RemotePath, "remotePath")
 			assert.Equal(t, tc.wantDstType, session.DstType, "dstType")
 		})
 	}
@@ -205,17 +188,13 @@ func TestSFTPSession_BuildArgs(t *testing.T) {
 		t.Parallel()
 
 		session := &SFTPSession{}
-		session.Login = "ec2-user"
-		session.Port = "2222"
-		session.RemotePath = "/home/ec2-user"
-		session.destinationAddr = "10.0.0.1"
+		session.Target, _ = ssh.NewSFTPTarget("ec2-user@myhost:/home/ec2-user")
+		session.Target.SetHost("10.0.0.1")
 		session.privateKeyPath = "/tmp/key"
 		session.instance.InstanceId = strPtr("i-123")
 
 		args := session.buildArgs()
 
-		// Should contain port (uppercase -P for SFTP)
-		assert.Contains(t, args, "-P2222")
 		// Should contain identity file
 		assert.Contains(t, args, "-i/tmp/key")
 		// Last arg: login@host:path
@@ -226,9 +205,8 @@ func TestSFTPSession_BuildArgs(t *testing.T) {
 		t.Parallel()
 
 		session := &SFTPSession{}
-		session.Login = "admin"
-		session.RemotePath = ""
-		session.destinationAddr = "10.0.0.1"
+		session.Target, _ = ssh.NewSFTPTarget("admin@myhost")
+		session.Target.SetHost("10.0.0.1")
 		session.privateKeyPath = "/tmp/key"
 		session.instance.InstanceId = strPtr("i-123")
 
@@ -242,9 +220,8 @@ func TestSFTPSession_BuildArgs(t *testing.T) {
 		t.Parallel()
 
 		session := &SFTPSession{}
-		session.Login = ""
-		session.RemotePath = "/path"
-		session.destinationAddr = "host"
+		session.Target, _ = ssh.NewSFTPTarget("host:/path")
+		session.Target.SetHost("host")
 		session.privateKeyPath = "/tmp/key"
 		session.instance.InstanceId = strPtr("i-123")
 
@@ -253,4 +230,53 @@ func TestSFTPSession_BuildArgs(t *testing.T) {
 		// Last arg: host:path (no login@)
 		assert.Equal(t, "host:/path", args[len(args)-1])
 	})
+}
+
+// Passthrough mode tests - when Target is nil (e.g., ec2sftp -h)
+func TestNewSFTPSession_PassthroughMode(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		args         []string
+		wantPassArgs []string
+	}{
+		"help flag": {
+			args:         []string{"-h"},
+			wantPassArgs: []string{"-h"},
+		},
+		"help long form": {
+			args:         []string{"--help"},
+			wantPassArgs: []string{"--help"},
+		},
+		"option only": {
+			args:         []string{"-o", "StrictHostKeyChecking=no"},
+			wantPassArgs: []string{"-o", "StrictHostKeyChecking=no"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			session, err := NewSFTPSession(tc.args)
+			require.NoError(t, err)
+			require.NotNil(t, session)
+			assert.Nil(t, session.Target, "Target should be nil in passthrough mode")
+			assert.Equal(t, tc.wantPassArgs, session.PassArgs)
+		})
+	}
+}
+
+func TestSFTPSession_BuildArgs_PassthroughMode(t *testing.T) {
+	t.Parallel()
+
+	// Simulates: ec2sftp -h (passthrough to sftp -h)
+	session := &SFTPSession{}
+	session.Target = nil // Passthrough mode
+	session.PassArgs = []string{"-h"}
+
+	args := session.buildArgs()
+
+	// Should contain only passthrough args, no destination
+	assert.Equal(t, []string{"-h"}, args)
 }

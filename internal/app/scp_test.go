@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,100 +13,87 @@ func TestNewSCPSession(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		args           []string
-		wantHost       string
-		wantLogin      string
-		wantLocalPath  string
-		wantRemotePath string
-		wantIsUpload   bool
-		wantPort       string
-		wantDstType    ec2client.DstType
-		wantErr        bool
-		errContains    string
+		args          []string
+		wantHost      string
+		wantLogin     string
+		wantLocalPath string
+		wantIsUpload  bool
+		wantDstType   ec2client.DstType
+		wantErr       bool
+		errContains   string
 	}{
 		// Upload scenarios
 		"upload local to remote": {
-			args:           []string{"/local/file.txt", "host:/remote/file.txt"},
-			wantHost:       "host",
-			wantLocalPath:  "/local/file.txt",
-			wantRemotePath: "/remote/file.txt",
-			wantIsUpload:   true,
+			args:          []string{"/local/file.txt", "host:/remote/file.txt"},
+			wantHost:      "host",
+			wantLocalPath: "/local/file.txt",
+			wantIsUpload:  true,
 		},
 		"upload with user": {
-			args:           []string{"file.txt", "admin@host:/path"},
-			wantHost:       "host",
-			wantLogin:      "admin",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/path",
-			wantIsUpload:   true,
+			args:          []string{"file.txt", "admin@host:/path"},
+			wantHost:      "host",
+			wantLogin:     "admin",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 		"upload to instance id": {
-			args:           []string{"file.txt", "ec2-user@i-1234567890abcdef0:/home/ec2-user/"},
-			wantHost:       "i-1234567890abcdef0",
-			wantLogin:      "ec2-user",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/home/ec2-user/",
-			wantIsUpload:   true,
+			args:          []string{"file.txt", "ec2-user@i-1234567890abcdef0:/home/ec2-user/"},
+			wantHost:      "i-1234567890abcdef0",
+			wantLogin:     "ec2-user",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 
 		// Download scenarios
 		"download remote to local": {
-			args:           []string{"host:/remote/file.txt", "/local/"},
-			wantHost:       "host",
-			wantLocalPath:  "/local/",
-			wantRemotePath: "/remote/file.txt",
-			wantIsUpload:   false,
+			args:          []string{"host:/remote/file.txt", "/local/"},
+			wantHost:      "host",
+			wantLocalPath: "/local/",
+			wantIsUpload:  false,
 		},
 		"download with user": {
-			args:           []string{"admin@host:/path", "."},
-			wantHost:       "host",
-			wantLogin:      "admin",
-			wantLocalPath:  ".",
-			wantRemotePath: "/path",
-			wantIsUpload:   false,
+			args:          []string{"admin@host:/path", "."},
+			wantHost:      "host",
+			wantLogin:     "admin",
+			wantLocalPath: ".",
+			wantIsUpload:  false,
 		},
 
 		// Port flag
 		"with port flag": {
-			args:           []string{"-P", "2222", "file.txt", "host:/path"},
-			wantHost:       "host",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/path",
-			wantPort:       "2222",
-			wantIsUpload:   true,
+			args:          []string{"-P", "2222", "file.txt", "host:/path"},
+			wantHost:      "host",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 
-		// IPv6
+		// IPv6 - brackets preserved as-is
 		"upload to ipv6": {
-			args:           []string{"file.txt", "[::1]:/remote"},
-			wantHost:       "::1",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/remote",
-			wantIsUpload:   true,
+			args:          []string{"file.txt", "[::1]:/remote"},
+			wantHost:      "[::1]",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 
 		// With ec2ssh flags
 		"with region flag": {
-			args:           []string{"--region", "us-west-2", "file.txt", "host:/path"},
-			wantHost:       "host",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/path",
-			wantIsUpload:   true,
+			args:          []string{"--region", "us-west-2", "file.txt", "host:/path"},
+			wantHost:      "host",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 		"with destination type": {
-			args:           []string{"--destination-type", "name_tag", "file.txt", "my-server:/path"},
-			wantHost:       "my-server",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/path",
-			wantIsUpload:   true,
-			wantDstType:    ec2client.DstTypeNameTag,
+			args:          []string{"--destination-type", "name_tag", "file.txt", "my-server:/path"},
+			wantHost:      "my-server",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
+			wantDstType:   ec2client.DstTypeNameTag,
 		},
 		"with use eice": {
-			args:           []string{"--use-eice", "file.txt", "host:/path"},
-			wantHost:       "host",
-			wantLocalPath:  "file.txt",
-			wantRemotePath: "/path",
-			wantIsUpload:   true,
+			args:          []string{"--use-eice", "file.txt", "host:/path"},
+			wantHost:      "host",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 
 		// Error cases
@@ -129,10 +117,11 @@ func TestNewSCPSession(t *testing.T) {
 			wantErr:     true,
 			errContains: "multiple remote operands",
 		},
-		"empty remote path": {
-			args:        []string{"file.txt", "host:"},
-			wantErr:     true,
-			errContains: "remote path cannot be empty",
+		"empty remote path allowed": {
+			args:          []string{"file.txt", "host:"},
+			wantHost:      "host",
+			wantLocalPath: "file.txt",
+			wantIsUpload:  true,
 		},
 		"invalid destination type": {
 			args:        []string{"--destination-type", "invalid", "file.txt", "host:/path"},
@@ -162,15 +151,14 @@ func TestNewSCPSession(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, session)
+			require.NotNil(t, session.Target, "target should be set")
 
-			assert.Equal(t, tc.wantHost, session.Destination, "destination")
+			assert.Equal(t, tc.wantHost, session.Target.Host(), "host")
 			if tc.wantLogin != "" {
-				assert.Equal(t, tc.wantLogin, session.Login, "login")
+				assert.Equal(t, tc.wantLogin, session.Target.Login(), "login")
 			}
 			assert.Equal(t, tc.wantLocalPath, session.LocalPath, "localPath")
-			assert.Equal(t, tc.wantRemotePath, session.RemotePath, "remotePath")
 			assert.Equal(t, tc.wantIsUpload, session.IsUpload, "isUpload")
-			assert.Equal(t, tc.wantPort, session.Port, "port")
 			assert.Equal(t, tc.wantDstType, session.DstType, "dstType")
 		})
 	}
@@ -223,19 +211,15 @@ func TestSCPSession_BuildArgs(t *testing.T) {
 		t.Parallel()
 
 		session := &SCPSession{}
-		session.Login = "ec2-user"
+		session.Target, _ = ssh.NewSCPTarget("ec2-user@myhost:/remote/file.txt")
 		session.LocalPath = "/local/file.txt"
-		session.RemotePath = "/remote/file.txt"
 		session.IsUpload = true
-		session.Port = "2222"
-		session.destinationAddr = "10.0.0.1"
+		session.Target.SetHost("10.0.0.1")
 		session.privateKeyPath = "/tmp/key"
 		session.instance.InstanceId = strPtr("i-123")
 
 		args := session.buildArgs()
 
-		// Should contain port (uppercase -P for SCP)
-		assert.Contains(t, args, "-P2222")
 		// Should contain identity file
 		assert.Contains(t, args, "-i/tmp/key")
 		// Upload: local then remote
@@ -247,11 +231,10 @@ func TestSCPSession_BuildArgs(t *testing.T) {
 		t.Parallel()
 
 		session := &SCPSession{}
-		session.Login = "admin"
+		session.Target, _ = ssh.NewSCPTarget("admin@myhost:/remote/file.txt")
 		session.LocalPath = "/local/"
-		session.RemotePath = "/remote/file.txt"
 		session.IsUpload = false
-		session.destinationAddr = "10.0.0.1"
+		session.Target.SetHost("10.0.0.1")
 		session.privateKeyPath = "/tmp/key"
 		session.instance.InstanceId = strPtr("i-123")
 
@@ -266,11 +249,10 @@ func TestSCPSession_BuildArgs(t *testing.T) {
 		t.Parallel()
 
 		session := &SCPSession{}
-		session.Login = ""
+		session.Target, _ = ssh.NewSCPTarget("host:/path")
 		session.LocalPath = "file.txt"
-		session.RemotePath = "/path"
 		session.IsUpload = true
-		session.destinationAddr = "host"
+		session.Target.SetHost("host")
 		session.privateKeyPath = "/tmp/key"
 		session.instance.InstanceId = strPtr("i-123")
 
@@ -278,5 +260,23 @@ func TestSCPSession_BuildArgs(t *testing.T) {
 
 		// Without login: just host:path
 		assert.Equal(t, "host:/path", args[len(args)-1])
+	})
+
+	t.Run("port preserved in url target", func(t *testing.T) {
+		t.Parallel()
+
+		// Port in URL target is preserved in the target string
+		session := &SCPSession{}
+		session.Target, _ = ssh.NewSCPTarget("scp://user@myhost:2222/remote/file.txt")
+		session.LocalPath = "/local/file.txt"
+		session.IsUpload = true
+		session.Target.SetHost("10.0.0.1")
+		session.privateKeyPath = "/tmp/key"
+		session.instance.InstanceId = strPtr("i-123")
+
+		args := session.buildArgs()
+
+		// Port should be in the target URL string
+		assert.Equal(t, "scp://user@10.0.0.1:2222/remote/file.txt", args[len(args)-1])
 	})
 }

@@ -348,3 +348,127 @@ func TestSift_ComplexPassthrough(t *testing.T) {
 	assert.True(t, flags.Verbose)
 	assert.Equal(t, "us-west-2", flags.Region)
 }
+
+// logLevel implements encoding.TextUnmarshaler for testing custom type support.
+type logLevel int
+
+const (
+	logLevelInfo logLevel = iota
+	logLevelDebug
+	logLevelError
+)
+
+func (l *logLevel) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "", "info":
+		*l = logLevelInfo
+	case "debug":
+		*l = logLevelDebug
+	case "error":
+		*l = logLevelError
+	default:
+		return assert.AnError
+	}
+	return nil
+}
+
+func TestSift_TextUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	type customFlags struct {
+		Level   logLevel `long:"level"`
+		Verbose bool     `short:"v"`
+	}
+
+	tests := map[string]struct {
+		args      []string
+		wantLevel logLevel
+		wantErr   bool
+	}{
+		"valid debug": {
+			args:      []string{"--level", "debug"},
+			wantLevel: logLevelDebug,
+		},
+		"valid error": {
+			args:      []string{"--level", "error"},
+			wantLevel: logLevelError,
+		},
+		"valid info": {
+			args:      []string{"--level", "info"},
+			wantLevel: logLevelInfo,
+		},
+		"empty defaults to info": {
+			args:      []string{"--level", ""},
+			wantLevel: logLevelInfo,
+		},
+		"invalid value": {
+			args:    []string{"--level", "invalid"},
+			wantErr: true,
+		},
+		"with equals": {
+			args:      []string{"--level=debug"},
+			wantLevel: logLevelDebug,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var flags customFlags
+			_, _, err := Sift(&flags, tc.args, nil)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantLevel, flags.Level)
+		})
+	}
+}
+
+func TestParse_TextUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	type customFlags struct {
+		Level logLevel `short:"l" long:"level"`
+	}
+
+	tests := map[string]struct {
+		args      []string
+		wantLevel logLevel
+		wantErr   bool
+	}{
+		"short flag with value": {
+			args:      []string{"-l", "debug"},
+			wantLevel: logLevelDebug,
+		},
+		"short flag attached value": {
+			args:      []string{"-ldebug"},
+			wantLevel: logLevelDebug,
+		},
+		"invalid short": {
+			args:    []string{"-l", "invalid"},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var flags customFlags
+			_, err := Parse(&flags, tc.args)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantLevel, flags.Level)
+		})
+	}
+}

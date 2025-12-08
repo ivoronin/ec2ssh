@@ -159,7 +159,9 @@ func TestSSHSession_Run_WithPort(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "ssh", captured.command)
-	assert.Contains(t, captured.args, "-p2222")
+	// Port flag is passthrough: appears as separate args "-p" and "2222"
+	assert.Contains(t, captured.args, "-p")
+	assert.Contains(t, captured.args, "2222")
 }
 
 func TestSSHSession_Run_WithSSMProxy(t *testing.T) {
@@ -585,8 +587,9 @@ func TestSCPSession_Run_WithPort(t *testing.T) {
 	err = session.Run()
 	require.NoError(t, err)
 
-	// SCP uses uppercase -P for port
-	assert.Contains(t, captured.args, "-P2222")
+	// Port flag is passthrough: appears as separate args "-P" and "2222"
+	assert.Contains(t, captured.args, "-P")
+	assert.Contains(t, captured.args, "2222")
 }
 
 // =============================================================================
@@ -623,8 +626,9 @@ func TestSFTPSession_Run_WithPort(t *testing.T) {
 	err = session.Run()
 	require.NoError(t, err)
 
-	// SFTP uses uppercase -P for port
-	assert.Contains(t, captured.args, "-P2222")
+	// Port flag is passthrough: appears as separate args "-P" and "2222"
+	assert.Contains(t, captured.args, "-P")
+	assert.Contains(t, captured.args, "2222")
 }
 
 // =============================================================================
@@ -1082,6 +1086,7 @@ func TestSSHSession_Run_UserAtDestination(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "ssh", captured.command)
-	// Should have -l ubuntu in args
-	assert.Contains(t, captured.args, "-lubuntu")
+	// With new target design, login is embedded in target string (not -l flag)
+	// Format is preserved: user@host stays as user@resolved_host
+	assert.Equal(t, "ubuntu@10.0.0.1", captured.args[len(captured.args)-1])
 }

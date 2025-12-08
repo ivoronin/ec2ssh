@@ -25,6 +25,25 @@ const (
 	DstTypeNameTag
 )
 
+// UnmarshalText implements encoding.TextUnmarshaler for CLI flag parsing.
+func (d *DstType) UnmarshalText(text []byte) error {
+	types := map[string]DstType{
+		"":            DstTypeAuto,
+		"id":          DstTypeID,
+		"private_ip":  DstTypePrivateIP,
+		"public_ip":   DstTypePublicIP,
+		"ipv6":        DstTypeIPv6,
+		"private_dns": DstTypePrivateDNSName,
+		"name_tag":    DstTypeNameTag,
+	}
+	t, ok := types[string(text)]
+	if !ok {
+		return fmt.Errorf("unknown destination type: %s", text)
+	}
+	*d = t
+	return nil
+}
+
 // ErrNoAddress is returned when an instance doesn't have the requested address type.
 var ErrNoAddress = errors.New("no address found")
 

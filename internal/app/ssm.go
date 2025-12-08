@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/ivoronin/ec2ssh/internal/awsclient"
-	"github.com/ivoronin/ec2ssh/internal/cli"
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/ivoronin/ec2ssh/internal/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/mmmorris1975/ssm-session-client/ssmclient"
@@ -16,13 +16,12 @@ import (
 // SSMSession represents an SSM Session Manager shell connection to an EC2 instance.
 type SSMSession struct {
 	// CLI Configuration
-	Region     string `long:"region"`
-	Profile    string `long:"profile"`
-	DstTypeStr string `long:"destination-type"`
-	Debug      bool   `long:"debug"`
+	Region  string            `long:"region"`
+	Profile string            `long:"profile"`
+	DstType ec2client.DstType `long:"destination-type"`
+	Debug   bool              `long:"debug"`
 
 	// Parsed values
-	DstType     ec2client.DstType
 	Destination string
 
 	// Runtime
@@ -35,24 +34,21 @@ func NewSSMSession(args []string) (*SSMSession, error) {
 
 	positional, err := argsieve.Parse(&session, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrUsage, err)
 	}
 
 	// Parse destination from first positional
 	if len(positional) > 0 {
-		_, host, _ := cli.ParseSSHDestination(positional[0])
-		session.Destination = host
+		target, err := ssh.NewSSHTarget(positional[0])
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrUsage, err)
+		}
+		session.Destination = target.Host()
 	}
 
 	// Reject extra positional arguments
 	if len(positional) > 1 {
 		return nil, fmt.Errorf("%w: unexpected argument %s", ErrUsage, positional[1])
-	}
-
-	// Parse destination type string to enum
-	session.DstType, err = ParseDstType(session.DstTypeStr)
-	if err != nil {
-		return nil, err
 	}
 
 	if session.Destination == "" {
