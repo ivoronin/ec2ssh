@@ -189,8 +189,28 @@ func (s *baseSSHSession) setupProxyCommand() error {
 			eiceID = *eice.InstanceConnectEndpointId
 		}
 
+		// Determine host address for EICE tunnel
+		// EICE supports private IPv4 and IPv6 (not public)
+		var host string
+		if s.AddrType != nil && *s.AddrType == ec2client.AddrTypeIPv6 {
+			// User explicitly requested or inference determined IPv6
+			if s.instance.Ipv6Address == nil {
+				return fmt.Errorf("instance %s has no IPv6 address", *s.instance.InstanceId)
+			}
+			host = *s.instance.Ipv6Address
+		} else {
+			// Prefer private IPv4, fallback to IPv6
+			if s.instance.PrivateIpAddress != nil {
+				host = *s.instance.PrivateIpAddress
+			} else if s.instance.Ipv6Address != nil {
+				host = *s.instance.Ipv6Address
+			} else {
+				return fmt.Errorf("instance %s has no private IPv4 or IPv6 address", *s.instance.InstanceId)
+			}
+		}
+
 		args = append(args, "--eice-tunnel")
-		args = append(args, "--host", *s.instance.PrivateIpAddress)
+		args = append(args, "--host", host)
 		args = append(args, "--port", "%p")
 		args = append(args, "--eice-id", eiceID)
 	} else {
