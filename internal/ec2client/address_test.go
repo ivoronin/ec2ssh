@@ -80,15 +80,9 @@ func TestGetInstanceAddr(t *testing.T) {
 		wantType AddrType
 		wantErr  bool
 	}{
-		// nil (auto) mode - prefers private
-		"nil prefers private": {
+		// nil (auto) mode - prefers public
+		"nil prefers public": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
-			addrType: nil,
-			wantAddr: "10.0.0.1",
-			wantType: AddrTypePrivate,
-		},
-		"nil falls back to public": {
-			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
 			addrType: nil,
 			wantAddr: "1.2.3.4",
 			wantType: AddrTypePublic,
@@ -98,6 +92,12 @@ func TestGetInstanceAddr(t *testing.T) {
 			addrType: nil,
 			wantAddr: "2001:db8::1",
 			wantType: AddrTypeIPv6,
+		},
+		"nil falls back to private": {
+			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
+			addrType: nil,
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
 		},
 		"nil no address": {
 			instance: makeInstance("i-1"),
@@ -163,11 +163,11 @@ func TestGetInstanceAddr(t *testing.T) {
 		},
 
 		// All addresses present
-		"all addresses nil selects private": {
+		"all addresses nil selects public": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("2001:db8::1")),
 			addrType: nil,
-			wantAddr: "10.0.0.1",
-			wantType: AddrTypePrivate,
+			wantAddr: "1.2.3.4",
+			wantType: AddrTypePublic,
 		},
 	}
 

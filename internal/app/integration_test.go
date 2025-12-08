@@ -127,8 +127,8 @@ func TestSSHSession_Run_Success(t *testing.T) {
 	assert.Contains(t, captured.args, "-oHostKeyAlias=i-1234567890abcdef0")
 	// Verify identity file is set
 	assert.Contains(t, captured.args, "-i/tmp/test_key")
-	// Verify destination is the private IP (default)
-	assert.Equal(t, "10.0.0.1", captured.args[len(captured.args)-1])
+	// Verify destination is the public IP (default auto-detect prefers public)
+	assert.Equal(t, "52.1.2.3", captured.args[len(captured.args)-1])
 }
 
 func TestSSHSession_Run_WithLogin(t *testing.T) {
@@ -552,9 +552,9 @@ func TestSCPSession_Run_Upload(t *testing.T) {
 	assert.Equal(t, "scp", captured.command)
 	// Upload: local first, then remote
 	assert.Equal(t, "/local/file.txt", captured.args[len(captured.args)-2])
-	// Remote path includes resolved address
+	// Remote path includes resolved address (auto-detect prefers public)
 	lastArg := captured.args[len(captured.args)-1]
-	assert.Contains(t, lastArg, "10.0.0.1:/remote/file.txt")
+	assert.Contains(t, lastArg, "52.1.2.3:/remote/file.txt")
 }
 
 func TestSCPSession_Run_Download(t *testing.T) {
@@ -570,8 +570,8 @@ func TestSCPSession_Run_Download(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "scp", captured.command)
-	// Download: remote first, then local
-	assert.Contains(t, captured.args[len(captured.args)-2], "10.0.0.1:/remote/file.txt")
+	// Download: remote first, then local (auto-detect prefers public)
+	assert.Contains(t, captured.args[len(captured.args)-2], "52.1.2.3:/remote/file.txt")
 	assert.Equal(t, "/local/", captured.args[len(captured.args)-1])
 }
 
@@ -609,9 +609,9 @@ func TestSFTPSession_Run_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "sftp", captured.command)
-	// SFTP destination format: user@host:path
+	// SFTP destination format: user@host:path (auto-detect prefers public)
 	lastArg := captured.args[len(captured.args)-1]
-	assert.Contains(t, lastArg, "ec2-user@10.0.0.1:/home/ec2-user")
+	assert.Contains(t, lastArg, "ec2-user@52.1.2.3:/home/ec2-user")
 }
 
 func TestSFTPSession_Run_WithPort(t *testing.T) {
@@ -974,8 +974,8 @@ func TestSSHSession_Run_WithDebugFlag(t *testing.T) {
 
 	// Verify ssh command was called
 	assert.Equal(t, "ssh", captured.command)
-	// Destination should be resolved
-	assert.Equal(t, "10.0.0.1", captured.args[len(captured.args)-1])
+	// Destination should be resolved (auto-detect prefers public)
+	assert.Equal(t, "52.1.2.3", captured.args[len(captured.args)-1])
 }
 
 func TestSCPSession_Run_PathWithSpaces(t *testing.T) {
@@ -1088,7 +1088,8 @@ func TestSSHSession_Run_UserAtDestination(t *testing.T) {
 	assert.Equal(t, "ssh", captured.command)
 	// With new target design, login is embedded in target string (not -l flag)
 	// Format is preserved: user@host stays as user@resolved_host
-	assert.Equal(t, "ubuntu@10.0.0.1", captured.args[len(captured.args)-1])
+	// Auto-detect prefers public IP when both private and public are available
+	assert.Equal(t, "ubuntu@52.1.2.3", captured.args[len(captured.args)-1])
 }
 
 // =============================================================================

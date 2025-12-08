@@ -39,11 +39,11 @@ func (a *AddrType) UnmarshalText(text []byte) error {
 }
 
 // GetInstanceAddr returns the appropriate IP address for an instance.
-// If addrType is nil, auto-detects by trying private → public → ipv6.
+// If addrType is nil, auto-detects by trying public → ipv6 → private.
 func GetInstanceAddr(instance types.Instance, addrType *AddrType) (InstanceAddr, error) {
-	// nil means auto-detect: try private → public → ipv6
+	// nil means auto-detect: try public → ipv6 → private
 	if addrType == nil {
-		for _, t := range []AddrType{AddrTypePrivate, AddrTypePublic, AddrTypeIPv6} {
+		for _, t := range []AddrType{AddrTypePublic, AddrTypeIPv6, AddrTypePrivate} {
 			if result, err := GetInstanceAddr(instance, &t); err == nil {
 				return result, nil
 			}
