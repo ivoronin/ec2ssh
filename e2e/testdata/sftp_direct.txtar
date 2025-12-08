@@ -1,0 +1,28 @@
+# Direct SFTP to public instance tests - Basic
+# These tests rely on the default address resolution order: public → ipv6 → private
+
+# Create local test file for SFTP upload
+exec sh -c 'echo "sftp-upload-content-$(date +%s)" > $WORK/sftp-upload.txt'
+
+# Create SFTP batch file for upload
+exec sh -c 'echo "put $WORK/sftp-upload.txt /tmp/e2e-sftp-test.txt" > $WORK/sftp-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/sftp-batch.txt'
+
+# Upload via SFTP batch mode using instance ID (auto-detects public IP)
+exec ec2ssh --sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/sftp-batch.txt $USER@$PUBLIC_ID
+
+# Verify upload via SSH
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- cat /tmp/e2e-sftp-test.txt
+stdout 'sftp-upload-content'
+
+# Create SFTP batch file for download
+exec sh -c 'echo "get /tmp/e2e-sftp-test.txt $WORK/sftp-download.txt" > $WORK/sftp-download-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/sftp-download-batch.txt'
+
+# Download via SFTP batch mode
+exec ec2ssh --sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/sftp-download-batch.txt $USER@$PUBLIC_ID
+
+# Verify downloaded content
+exec cat $WORK/sftp-download.txt
+stdout 'sftp-upload-content'
+

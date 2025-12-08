@@ -1,0 +1,19 @@
+# SCP via EICE tunnel IPv6 tests
+
+# Create local test file for EICE IPv6 SCP upload
+exec sh -c 'echo "eice-ipv6-scp-content-$(date +%s)" > $WORK/eice-ipv6-upload.txt'
+
+# Upload via EICE SCP to IPv6 address (brackets required for SCP path syntax)
+exec ec2ssh --scp --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/eice-ipv6-upload.txt $USER@[$PRIVATE_IPV6]:/tmp/e2e-eice-ipv6-scp.txt
+
+# Verify upload
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_IPV6 -- cat /tmp/e2e-eice-ipv6-scp.txt
+stdout 'eice-ipv6-scp-content'
+
+# Download via EICE SCP over IPv6 (brackets required for SCP path syntax)
+exec ec2ssh --scp --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@[$PRIVATE_IPV6]:/tmp/e2e-eice-ipv6-scp.txt $WORK/eice-ipv6-download.txt
+
+# Verify download
+exec cat $WORK/eice-ipv6-download.txt
+stdout 'eice-ipv6-scp-content'
+

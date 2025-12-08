@@ -1,0 +1,20 @@
+# Direct SCP to public instance tests - Basic
+# These tests rely on the default address resolution order: public → ipv6 → private
+
+# Create local test file for upload
+exec sh -c 'echo "scp-upload-content-$(date +%s)" > $WORK/upload.txt'
+
+# Upload file via SCP to public instance by ID (auto-detects public IP)
+exec ec2ssh --scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/upload.txt $USER@$PUBLIC_ID:/tmp/e2e-scp-test.txt
+
+# Verify upload by reading file content
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- cat /tmp/e2e-scp-test.txt
+stdout 'scp-upload-content'
+
+# Download file via SCP
+exec ec2ssh --scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID:/tmp/e2e-scp-test.txt $WORK/download.txt
+
+# Verify downloaded content matches
+exec cat $WORK/download.txt
+stdout 'scp-upload-content'
+

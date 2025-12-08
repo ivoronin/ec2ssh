@@ -1,0 +1,10 @@
+# Direct SSH URL format tests
+
+# Test ssh:// URL format
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@$PUBLIC_ID -- echo url-ssh
+stdout 'url-ssh'
+
+# Test ssh:// URL with IPv6 (brackets required)
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ssh://$USER@[$PUBLIC_IPV6] -- echo url-ipv6
+stdout 'url-ipv6'
+

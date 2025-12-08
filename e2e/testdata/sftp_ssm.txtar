@@ -1,0 +1,15 @@
+# SFTP over SSM tunnel tests
+
+# Create local test file for SSM SFTP
+exec sh -c 'echo "ssm-sftp-content-$(date +%s)" > $WORK/ssm-sftp-upload.txt'
+
+# Create SFTP batch file
+exec sh -c 'echo "put $WORK/ssm-sftp-upload.txt /tmp/e2e-ssm-sftp.txt" > $WORK/ssm-sftp-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/ssm-sftp-batch.txt'
+
+# Upload via SSM SFTP
+exec ec2ssh --sftp --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/ssm-sftp-batch.txt $USER@$PRIVATE_ID
+
+# Verify SFTP upload
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- cat /tmp/e2e-ssm-sftp.txt
+stdout 'ssm-sftp-content'

@@ -1,0 +1,27 @@
+# Direct SSH to public instance tests - Basic
+# These tests rely on the default address resolution order: public → ipv6 → private
+
+# Test SSH to public instance by ID using user@target syntax
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo hello-public
+stdout 'hello-public'
+
+# Test SSH with hostname command using -l user target syntax
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l $USER $PUBLIC_ID -- hostname
+stdout .
+
+# Test SSH with multiple command arguments using user@target syntax
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo hello multiple args
+stdout 'hello multiple args'
+
+# Test SSH with environment variable using -l user target syntax
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l $USER $PUBLIC_ID -- printenv HOME
+stdout '/home/ec2-user'
+
+# Test SSH to public instance by name tag
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_NAME -- echo hello-by-name
+stdout 'hello-by-name'
+
+# Test --address-type public (explicit, default behavior)
+exec ec2ssh --address-type public -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo atype-public
+stdout 'atype-public'
+

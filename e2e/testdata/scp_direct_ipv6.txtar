@@ -1,0 +1,19 @@
+# Direct SCP IPv6 tests
+
+# Create local test file for IPv6 upload
+exec sh -c 'echo "scp-ipv6-content-$(date +%s)" > $WORK/ipv6-upload.txt'
+
+# Upload file via SCP to public instance by IPv6 address (brackets required for SCP path syntax)
+exec ec2ssh --scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/ipv6-upload.txt $USER@[$PUBLIC_IPV6]:/tmp/e2e-scp-ipv6.txt
+
+# Verify upload
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_IPV6 -- cat /tmp/e2e-scp-ipv6.txt
+stdout 'scp-ipv6-content'
+
+# Download file via SCP over IPv6 (brackets required for SCP path syntax)
+exec ec2ssh --scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@[$PUBLIC_IPV6]:/tmp/e2e-scp-ipv6.txt $WORK/ipv6-download.txt
+
+# Verify downloaded content
+exec cat $WORK/ipv6-download.txt
+stdout 'scp-ipv6-content'
+

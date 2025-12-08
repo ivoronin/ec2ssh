@@ -1,0 +1,18 @@
+# SCP over SSM tunnel tests
+
+# Create local test file for SSM SCP upload
+exec sh -c 'echo "ssm-scp-content-$(date +%s)" > $WORK/ssm-upload.txt'
+
+# Upload via SSM SCP
+exec ec2ssh --scp --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/ssm-upload.txt $USER@$PRIVATE_ID:/tmp/e2e-ssm-scp.txt
+
+# Verify upload
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- cat /tmp/e2e-ssm-scp.txt
+stdout 'ssm-scp-content'
+
+# Download via SSM SCP
+exec ec2ssh --scp --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID:/tmp/e2e-ssm-scp.txt $WORK/ssm-download.txt
+
+# Verify download
+exec cat $WORK/ssm-download.txt
+stdout 'ssm-scp-content'

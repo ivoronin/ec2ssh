@@ -1,0 +1,7 @@
+# Direct SSH identity file test
+
+# Generate test keypair and use custom identity file
+exec ssh-keygen -t ed25519 -f $WORK/test_key -N '' -q
+exec ec2ssh -i $WORK/test_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo identity-test
+stdout 'identity-test'
+

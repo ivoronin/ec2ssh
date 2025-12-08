@@ -1,0 +1,14 @@
+# SSH over SSM tunnel tests - Basic
+
+# Test SSH over SSM to private instance using user@target syntax
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo hello-ssm
+stdout 'hello-ssm'
+
+# Test SSH over SSM to public instance using -l user target syntax
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -l $USER $PUBLIC_ID -- echo hello-ssm-public
+stdout 'hello-ssm-public'
+
+# Test SSH over SSM with hostname command using user@target syntax
+exec ec2ssh --use-ssm -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- hostname
+stdout .
+

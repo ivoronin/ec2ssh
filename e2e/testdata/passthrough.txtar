@@ -1,0 +1,11 @@
+# Passthrough mode tests (no target = passthrough to underlying tool)
+
+# Test SSH version passthrough (ssh -V outputs to stderr)
+exec ec2ssh -V
+stderr 'OpenSSH'
+
+# Test ec2ssh own help (not passthrough, shows ec2ssh usage)
+# Note: --help exits with status 1, use ! to expect this
+! exec ec2ssh --help
+stderr 'ec2ssh'
+stderr 'Usage'

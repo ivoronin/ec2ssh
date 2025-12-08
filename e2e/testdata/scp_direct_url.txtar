@@ -1,0 +1,8 @@
+# Direct SCP URL format tests
+
+# Test SCP with scp:// URL format (double-slash for absolute path)
+exec sh -c 'echo "url-scp-content-$(date +%s)" > $WORK/url-scp.txt'
+exec ec2ssh --scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/url-scp.txt scp://$USER@$PUBLIC_ID//tmp/e2e-url-scp.txt
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- cat /tmp/e2e-url-scp.txt
+stdout 'url-scp-content'
+

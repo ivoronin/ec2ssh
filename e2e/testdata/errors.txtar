@@ -1,0 +1,13 @@
+# Error scenario tests
+
+# Test invalid instance ID (malformed ID format triggers AWS validation error)
+! exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@i-invalid123456789 -- echo should-fail
+stderr 'InvalidInstanceID.Malformed'
+
+# Test invalid name tag
+! exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@nonexistent-instance-name-xyz -- echo should-fail
+stderr 'no matching instances found'
+
+# Test mutually exclusive flags (--use-eice and --use-ssm)
+! exec ec2ssh --use-eice --use-ssm $USER@$PUBLIC_ID -- echo should-fail
+stderr 'mutually exclusive'

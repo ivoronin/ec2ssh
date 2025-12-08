@@ -1,0 +1,9 @@
+# SSM shell mode tests (--ssm flag) - Basic
+# SSM requires a real TTY, so we use 'expect' to spawn a PTY and interact with the session
+
+# Test SSM shell to private instance by ID
+exec expect -c 'set timeout 8; spawn ec2ssh --ssm $env(PRIVATE_ID); expect -re ".*\\$"; send "exit\r"; expect eof'
+
+# Test SSM shell with --destination-type id
+exec expect -c 'set timeout 8; spawn ec2ssh --ssm --destination-type id $env(PRIVATE_ID); expect -re ".*\\$"; send "exit\r"; expect eof'
+

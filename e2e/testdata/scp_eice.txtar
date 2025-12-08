@@ -1,0 +1,19 @@
+# SCP via EICE tunnel tests - Basic
+
+# Create local test file for EICE SCP upload
+exec sh -c 'echo "eice-scp-content-$(date +%s)" > $WORK/eice-upload.txt'
+
+# Upload via EICE SCP
+exec ec2ssh --scp --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $WORK/eice-upload.txt $USER@$PRIVATE_ID:/tmp/e2e-eice-scp.txt
+
+# Verify upload
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- cat /tmp/e2e-eice-scp.txt
+stdout 'eice-scp-content'
+
+# Download via EICE SCP
+exec ec2ssh --scp --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID:/tmp/e2e-eice-scp.txt $WORK/eice-download.txt
+
+# Verify download
+exec cat $WORK/eice-download.txt
+stdout 'eice-scp-content'
+

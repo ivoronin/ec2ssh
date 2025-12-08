@@ -1,0 +1,15 @@
+# List command tests
+
+# Test basic list command
+exec ec2ssh --list
+stdout 'i-'
+stdout 'running'
+
+# Test list with custom columns
+exec ec2ssh --list --list-columns ID,NAME,STATE,TYPE
+stdout 'i-'
+
+# Test list shows both test instances
+exec ec2ssh --list
+stdout $PUBLIC_ID
+stdout $PRIVATE_ID

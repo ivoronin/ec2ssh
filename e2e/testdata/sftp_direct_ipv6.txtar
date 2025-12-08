@@ -1,0 +1,27 @@
+# Direct SFTP IPv6 tests
+
+# Create local test file for IPv6 SFTP upload
+exec sh -c 'echo "sftp-ipv6-content-$(date +%s)" > $WORK/sftp-ipv6-upload.txt'
+
+# Create SFTP batch file for IPv6 upload
+exec sh -c 'echo "put $WORK/sftp-ipv6-upload.txt /tmp/e2e-sftp-ipv6.txt" > $WORK/sftp-ipv6-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/sftp-ipv6-batch.txt'
+
+# Upload via SFTP to IPv6 address (brackets required for SFTP)
+exec ec2ssh --sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/sftp-ipv6-batch.txt $USER@[$PUBLIC_IPV6]
+
+# Verify upload via SSH
+exec ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_IPV6 -- cat /tmp/e2e-sftp-ipv6.txt
+stdout 'sftp-ipv6-content'
+
+# Create SFTP batch file for IPv6 download
+exec sh -c 'echo "get /tmp/e2e-sftp-ipv6.txt $WORK/sftp-ipv6-download.txt" > $WORK/sftp-ipv6-download-batch.txt'
+exec sh -c 'echo "quit" >> $WORK/sftp-ipv6-download-batch.txt'
+
+# Download via SFTP over IPv6 (brackets required for SFTP)
+exec ec2ssh --sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -b $WORK/sftp-ipv6-download-batch.txt $USER@[$PUBLIC_IPV6]
+
+# Verify downloaded content
+exec cat $WORK/sftp-ipv6-download.txt
+stdout 'sftp-ipv6-content'
+

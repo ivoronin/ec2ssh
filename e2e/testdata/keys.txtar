@@ -1,0 +1,24 @@
+# EC2 Instance Connect key management tests
+
+# === Test 1: Custom identity file with automatic EC2IC push ===
+# Flow: Generate key -> ec2ssh -i extracts public key -> Pushes via EC2IC API -> Connects
+
+# Generate test keypair
+exec ssh-keygen -t ed25519 -f $WORK/custom_key -N '' -q
+
+# Connect with -i flag - ec2ssh extracts public key and pushes it via EC2IC
+exec ec2ssh -i $WORK/custom_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo ec2ic-custom-key-test
+stdout 'ec2ic-custom-key-test'
+
+# === Test 2: --no-send-keys with key pre-added to authorized_keys ===
+# Flow: Generate key -> Add to authorized_keys via SSH -> Connect with --no-send-keys
+
+# Generate another test keypair
+exec ssh-keygen -t ed25519 -f $WORK/nosend_key -N '' -q
+
+# Add public key to authorized_keys on the instance (using ec2ssh which will use EC2IC for this connection)
+exec sh -c 'cat $WORK/nosend_key.pub | ec2ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- sh -c "cat >> ~/.ssh/authorized_keys"'
+
+# Connect with --no-send-keys (uses the key we added to authorized_keys, skips EC2IC)
+exec ec2ssh --no-send-keys -i $WORK/nosend_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PUBLIC_ID -- echo no-send-keys-test
+stdout 'no-send-keys-test'

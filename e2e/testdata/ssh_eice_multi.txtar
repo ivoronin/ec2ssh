@@ -1,0 +1,6 @@
+# EICE tunnel SSH multi-argument test
+
+# Test EICE SSH with multiple command arguments using user@target syntax
+exec ec2ssh --eice-id $EICE_ID -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $USER@$PRIVATE_ID -- echo multi arg test
+stdout 'multi arg test'
+
