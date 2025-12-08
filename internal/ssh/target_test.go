@@ -114,19 +114,19 @@ func TestNewSSHTarget(t *testing.T) {
 		},
 		"ssh url ipv6 with port": {
 			input:    "ssh://[::1]:22",
-			wantHost: "[::1]",
+			wantHost: "::1", // Host() returns raw IPv6, String() adds brackets
 			wantPort: "22",
 			wantStr:  "ssh://[::1]:22",
 		},
 		"ssh url bare ipv6 no port": {
 			input:    "ssh://[2001:db8::1]",
-			wantHost: "[2001:db8::1]",
+			wantHost: "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantStr:  "ssh://[2001:db8::1]",
 		},
 		"ssh url user at ipv6 with port": {
 			input:     "ssh://admin@[2001:db8::1]:22",
 			wantLogin: "admin",
-			wantHost:  "[2001:db8::1]",
+			wantHost:  "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantPort:  "22",
 			wantStr:   "ssh://admin@[2001:db8::1]:22",
 		},
@@ -243,29 +243,29 @@ func TestNewSFTPTarget(t *testing.T) {
 		},
 		"ipv6 with path": {
 			input:    "[::1]:/path",
-			wantHost: "[::1]",
+			wantHost: "::1", // Host() returns raw IPv6, String() adds brackets
 			wantPath: "/path",
 			wantStr:  "[::1]:/path",
 		},
 		"bare ipv6 no path": {
 			input:    "[2001:db8::1]",
-			wantHost: "[2001:db8::1]",
+			wantHost: "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantStr:  "[2001:db8::1]",
 		},
 		"user at bare ipv6 no path": {
 			input:     "admin@[2001:db8::1]",
 			wantLogin: "admin",
-			wantHost:  "[2001:db8::1]",
+			wantHost:  "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantStr:   "admin@[2001:db8::1]",
 		},
 		"ipv6 with zone id": {
 			input:    "[fe80::1%eth0]",
-			wantHost: "[fe80::1%eth0]",
+			wantHost: "fe80::1%eth0", // Host() returns raw IPv6, String() adds brackets
 			wantStr:  "[fe80::1%eth0]",
 		},
 		"ipv6 zone id with path": {
 			input:    "[fe80::1%eth0]:/data",
-			wantHost: "[fe80::1%eth0]",
+			wantHost: "fe80::1%eth0", // Host() returns raw IPv6, String() adds brackets
 			wantPath: "/data",
 			wantStr:  "[fe80::1%eth0]:/data",
 		},
@@ -303,19 +303,19 @@ func TestNewSFTPTarget(t *testing.T) {
 		},
 		"sftp url ipv6 with port": {
 			input:    "sftp://[2001:db8::1]:22/data",
-			wantHost: "[2001:db8::1]",
+			wantHost: "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantPort: "22",
 			wantPath: "data",
 			wantStr:  "sftp://[2001:db8::1]:22/data",
 		},
 		"sftp url bare ipv6 no port": {
 			input:    "sftp://[2001:db8::1]",
-			wantHost: "[2001:db8::1]",
+			wantHost: "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantStr:  "sftp://[2001:db8::1]",
 		},
 		"sftp url bare ipv6 with path": {
 			input:    "sftp://[2001:db8::1]/data",
-			wantHost: "[2001:db8::1]",
+			wantHost: "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 			wantPath: "data",
 			wantStr:  "sftp://[2001:db8::1]/data",
 		},
@@ -428,7 +428,7 @@ func TestNewSCPTarget(t *testing.T) {
 		},
 		"ipv6 with path": {
 			input:    "[::1]:/path",
-			wantHost: "[::1]",
+			wantHost: "::1", // Host() returns raw IPv6, String() adds brackets
 			wantPath: "/path",
 			wantStr:  "[::1]:/path",
 		},
@@ -456,7 +456,7 @@ func TestNewSCPTarget(t *testing.T) {
 		},
 		"ipv6 zone id with path": {
 			input:    "[fe80::1%eth0]:/data",
-			wantHost: "[fe80::1%eth0]",
+			wantHost: "fe80::1%eth0", // Host() returns raw IPv6, String() adds brackets
 			wantPath: "/data",
 			wantStr:  "[fe80::1%eth0]:/data",
 		},

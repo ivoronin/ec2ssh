@@ -13,15 +13,17 @@ type SCPTarget interface {
 	Port() string
 	Path() string
 	SetHost(string)
+	SetHostIPv6(string)
 	String() string
 }
 
 // scpURLTarget represents scp://[user@]host[:port]/path
 type scpURLTarget struct {
-	user     string
-	hostname string
-	port     string
-	path     string
+	user      string
+	hostname  string
+	port      string
+	path      string
+	bracketed bool
 }
 
 func (t *scpURLTarget) scpTarget()       {}
@@ -34,13 +36,25 @@ func (t *scpURLTarget) SetHost(h string) {
 		panic("SetHost: empty host")
 	}
 	t.hostname = h
+	t.bracketed = false
+}
+func (t *scpURLTarget) SetHostIPv6(h string) {
+	if h == "" {
+		panic("SetHostIPv6: empty host")
+	}
+	t.hostname = h
+	t.bracketed = true
 }
 func (t *scpURLTarget) String() string {
 	s := "scp://"
 	if t.user != "" {
 		s += t.user + "@"
 	}
-	s += t.hostname
+	if t.bracketed {
+		s += "[" + t.hostname + "]"
+	} else {
+		s += t.hostname
+	}
 	if t.port != "" {
 		s += ":" + t.port
 	}
@@ -50,9 +64,10 @@ func (t *scpURLTarget) String() string {
 
 // scpSimpleTarget represents [user@]host:path (colon required)
 type scpSimpleTarget struct {
-	user     string
-	hostname string
-	path     string
+	user      string
+	hostname  string
+	path      string
+	bracketed bool
 }
 
 func (t *scpSimpleTarget) scpTarget()       {}
@@ -65,13 +80,26 @@ func (t *scpSimpleTarget) SetHost(h string) {
 		panic("SetHost: empty host")
 	}
 	t.hostname = h
+	t.bracketed = false
+}
+func (t *scpSimpleTarget) SetHostIPv6(h string) {
+	if h == "" {
+		panic("SetHostIPv6: empty host")
+	}
+	t.hostname = h
+	t.bracketed = true
 }
 func (t *scpSimpleTarget) String() string {
 	s := ""
 	if t.user != "" {
 		s += t.user + "@"
 	}
-	s += t.hostname + ":" + t.path
+	if t.bracketed {
+		s += "[" + t.hostname + "]"
+	} else {
+		s += t.hostname
+	}
+	s += ":" + t.path
 	return s
 }
 
@@ -147,7 +175,13 @@ func NewSCPTarget(s string) (SCPTarget, error) {
 		if host == "" {
 			return nil, fmt.Errorf("%w: missing hostname", ErrTarget)
 		}
-		return &scpURLTarget{user: user, hostname: host, port: port, path: path}, nil
+		// Detect bracketed IPv6
+		bracketed := false
+		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			host = host[1 : len(host)-1]
+			bracketed = true
+		}
+		return &scpURLTarget{user: user, hostname: host, port: port, path: path, bracketed: bracketed}, nil
 	}
 	// Simple format: [user@]host:path
 	user, rest, _ := splitUserRest(s)
@@ -158,5 +192,11 @@ func NewSCPTarget(s string) (SCPTarget, error) {
 	if host == "" {
 		return nil, fmt.Errorf("%w: missing hostname", ErrTarget)
 	}
-	return &scpSimpleTarget{user: user, hostname: host, path: path}, nil
+	// Detect bracketed IPv6
+	bracketed := false
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = host[1 : len(host)-1]
+		bracketed = true
+	}
+	return &scpSimpleTarget{user: user, hostname: host, path: path, bracketed: bracketed}, nil
 }

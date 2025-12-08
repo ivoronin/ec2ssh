@@ -275,11 +275,15 @@ func (s *baseSSHSession) run(command string, buildArgs func() []string) error {
 			return err
 		}
 	} else {
-		addr, err := ec2client.GetInstanceAddr(s.instance, s.AddrType)
+		result, err := ec2client.GetInstanceAddr(s.instance, s.AddrType)
 		if err != nil {
 			return err
 		}
-		s.Target.SetHost(addr)
+		if result.Type == ec2client.AddrTypeIPv6 {
+			s.Target.SetHostIPv6(result.Addr)
+		} else {
+			s.Target.SetHost(result.Addr)
+		}
 	}
 
 	return executeCommand(command, buildArgs(), s.logger)

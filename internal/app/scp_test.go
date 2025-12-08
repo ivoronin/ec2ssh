@@ -67,10 +67,10 @@ func TestNewSCPSession(t *testing.T) {
 			wantIsUpload:  true,
 		},
 
-		// IPv6 - brackets preserved as-is
+		// IPv6 - brackets stripped, Host() returns raw IPv6
 		"upload to ipv6": {
 			args:          []string{"file.txt", "[::1]:/remote"},
-			wantHost:      "[::1]",
+			wantHost:      "::1", // Host() returns raw IPv6, String() adds brackets
 			wantLocalPath: "file.txt",
 			wantIsUpload:  true,
 		},

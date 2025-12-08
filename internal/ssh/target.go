@@ -15,6 +15,7 @@ type Target interface {
 	Login() string
 	Host() string
 	SetHost(string)
+	SetHostIPv6(string)
 	String() string
 }
 

@@ -76,14 +76,14 @@ func TestNewSFTPSession(t *testing.T) {
 			wantHost:  "i-1234567890abcdef0",
 		},
 
-		// IPv6 - brackets preserved (not stripped like OpenSSH)
+		// IPv6 - brackets stripped, Host() returns raw IPv6
 		"ipv6": {
 			args:     []string{"[::1]:/path"},
-			wantHost: "[::1]", // Brackets preserved
+			wantHost: "::1", // Host() returns raw IPv6, String() adds brackets
 		},
 		"sftp url ipv6": {
 			args:     []string{"sftp://[2001:db8::1]:22/data"},
-			wantHost: "[2001:db8::1]", // Brackets preserved
+			wantHost: "2001:db8::1", // Host() returns raw IPv6, String() adds brackets
 		},
 
 		// ec2ssh flags

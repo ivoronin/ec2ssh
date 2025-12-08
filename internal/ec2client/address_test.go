@@ -76,24 +76,28 @@ func TestGetInstanceAddr(t *testing.T) {
 	tests := map[string]struct {
 		instance types.Instance
 		addrType AddrType
-		want     string
+		wantAddr string
+		wantType AddrType
 		wantErr  bool
 	}{
 		// Auto mode - prefers private
 		"auto prefers private": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
 			addrType: AddrTypeAuto,
-			want:     "10.0.0.1",
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
 		},
 		"auto falls back to public": {
 			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
 			addrType: AddrTypeAuto,
-			want:     "1.2.3.4",
+			wantAddr: "1.2.3.4",
+			wantType: AddrTypePublic,
 		},
 		"auto falls back to ipv6": {
 			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
 			addrType: AddrTypeAuto,
-			want:     "2001:db8::1",
+			wantAddr: "2001:db8::1",
+			wantType: AddrTypeIPv6,
 		},
 		"auto no address": {
 			instance: makeInstance("i-1"),
@@ -105,12 +109,14 @@ func TestGetInstanceAddr(t *testing.T) {
 		"explicit private": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
 			addrType: AddrTypePrivate,
-			want:     "10.0.0.1",
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
 		},
 		"explicit private only private": {
 			instance: makeInstance("i-1", withPrivateIP("192.168.1.1")),
 			addrType: AddrTypePrivate,
-			want:     "192.168.1.1",
+			wantAddr: "192.168.1.1",
+			wantType: AddrTypePrivate,
 		},
 		"missing private": {
 			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
@@ -122,12 +128,14 @@ func TestGetInstanceAddr(t *testing.T) {
 		"explicit public": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
 			addrType: AddrTypePublic,
-			want:     "1.2.3.4",
+			wantAddr: "1.2.3.4",
+			wantType: AddrTypePublic,
 		},
 		"explicit public only public": {
 			instance: makeInstance("i-1", withPublicIP("52.0.0.1")),
 			addrType: AddrTypePublic,
-			want:     "52.0.0.1",
+			wantAddr: "52.0.0.1",
+			wantType: AddrTypePublic,
 		},
 		"missing public": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
@@ -139,12 +147,14 @@ func TestGetInstanceAddr(t *testing.T) {
 		"explicit ipv6": {
 			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
 			addrType: AddrTypeIPv6,
-			want:     "2001:db8::1",
+			wantAddr: "2001:db8::1",
+			wantType: AddrTypeIPv6,
 		},
 		"explicit ipv6 with others": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("fe80::1")),
 			addrType: AddrTypeIPv6,
-			want:     "fe80::1",
+			wantAddr: "fe80::1",
+			wantType: AddrTypeIPv6,
 		},
 		"missing ipv6": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
@@ -156,7 +166,8 @@ func TestGetInstanceAddr(t *testing.T) {
 		"all addresses auto selects private": {
 			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("2001:db8::1")),
 			addrType: AddrTypeAuto,
-			want:     "10.0.0.1",
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
 		},
 	}
 
@@ -164,7 +175,7 @@ func TestGetInstanceAddr(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			addr, err := GetInstanceAddr(tc.instance, tc.addrType)
+			result, err := GetInstanceAddr(tc.instance, tc.addrType)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -173,7 +184,8 @@ func TestGetInstanceAddr(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, addr)
+			assert.Equal(t, tc.wantAddr, result.Addr, "address")
+			assert.Equal(t, tc.wantType, result.Type, "type")
 		})
 	}
 }

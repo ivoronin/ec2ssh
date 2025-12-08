@@ -1090,3 +1090,279 @@ func TestSSHSession_Run_UserAtDestination(t *testing.T) {
 	// Format is preserved: user@host stays as user@resolved_host
 	assert.Equal(t, "ubuntu@10.0.0.1", captured.args[len(captured.args)-1])
 }
+
+// =============================================================================
+// IPv6 Integration Tests
+// =============================================================================
+//
+// Key insight:
+// - SSH: IPv6 addresses passed as-is (no brackets needed)
+// - SFTP/SCP: IPv6 addresses must be bracketed ([2001:db8::1])
+
+// testInstanceIPv6 is a test instance with only an IPv6 address
+var testInstanceIPv6 = types.Instance{
+	InstanceId:  aws.String("i-ipv6test"),
+	Ipv6Address: aws.String("2001:db8::1"),
+	VpcId:       aws.String("vpc-123"),
+	SubnetId:    aws.String("subnet-456"),
+	State:       &types.InstanceState{Name: types.InstanceStateNameRunning},
+}
+
+func TestSSHSession_Run_IPv6Passthrough(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2ssh 2001:db8::1 → ssh 2001:db8::1
+	// User passes IPv6 address directly, no instance lookup needed
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSSHSession([]string{"2001:db8::1"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ssh", captured.command)
+	// SSH: IPv6 address passed as-is (no brackets)
+	assert.Equal(t, "2001:db8::1", captured.args[len(captured.args)-1])
+}
+
+func TestSSHSession_Run_IPv6Lookup(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2ssh i-ipv6test (instance resolves to IPv6) → ssh 2001:db8::1
+	// Instance lookup returns IPv6, SSH should pass it without brackets
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSSHSession([]string{"--address-type", "ipv6", "i-ipv6test"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ssh", captured.command)
+	// SSH: IPv6 address without brackets
+	assert.Equal(t, "2001:db8::1", captured.args[len(captured.args)-1])
+}
+
+func TestSFTPSession_Run_IPv6Passthrough(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2sftp '[2001:db8::1]' → sftp '[2001:db8::1]'
+	// User passes bracketed IPv6, brackets should be preserved
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSFTPSession([]string{"[2001:db8::1]"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "sftp", captured.command)
+	// SFTP: brackets preserved from user input
+	assert.Equal(t, "[2001:db8::1]", captured.args[len(captured.args)-1])
+}
+
+func TestSFTPSession_Run_IPv6Lookup(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2sftp i-ipv6test (instance resolves to IPv6) → sftp '[2001:db8::1]'
+	// Instance lookup returns IPv6, SFTP must add brackets automatically
+	//
+	// NOTE: This test will FAIL until code is fixed to add brackets for IPv6
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSFTPSession([]string{"--address-type", "ipv6", "i-ipv6test"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "sftp", captured.command)
+	// SFTP: brackets must be added automatically for IPv6 lookup
+	assert.Equal(t, "[2001:db8::1]", captured.args[len(captured.args)-1])
+}
+
+func TestSCPSession_Run_IPv6Passthrough(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2scp file.txt '[2001:db8::1]:/remote' → scp file.txt '[2001:db8::1]:/remote'
+	// User passes bracketed IPv6, brackets should be preserved
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSCPSession([]string{"file.txt", "[2001:db8::1]:/remote"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "scp", captured.command)
+	// SCP: brackets preserved from user input
+	lastArg := captured.args[len(captured.args)-1]
+	assert.Contains(t, lastArg, "[2001:db8::1]:/remote")
+}
+
+func TestSCPSession_Run_IPv6Lookup(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2scp file.txt i-ipv6test:/remote → scp file.txt '[2001:db8::1]:/remote'
+	// Instance lookup returns IPv6, SCP must add brackets automatically
+	//
+	// NOTE: This test will FAIL until code is fixed to add brackets for IPv6
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSCPSession([]string{"--address-type", "ipv6", "file.txt", "i-ipv6test:/remote"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "scp", captured.command)
+	// SCP: brackets must be added automatically for IPv6 lookup
+	lastArg := captured.args[len(captured.args)-1]
+	assert.Contains(t, lastArg, "[2001:db8::1]:/remote")
+}
+
+// =============================================================================
+// IPv6 URL Format Tests (ssh://, sftp://, scp://)
+// URL format ALWAYS requires brackets for IPv6 addresses
+// =============================================================================
+
+func TestSSHSession_Run_IPv6URLPassthrough(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2ssh 'ssh://[2001:db8::1]' → ssh 'ssh://[2001:db8::1]'
+	// User passes URL with bracketed IPv6, brackets should be preserved
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSSHSession([]string{"ssh://[2001:db8::1]"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ssh", captured.command)
+	// SSH URL: brackets must be preserved
+	assert.Equal(t, "ssh://[2001:db8::1]", captured.args[len(captured.args)-1])
+}
+
+func TestSSHSession_Run_IPv6URLLookup(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2ssh 'ssh://i-ipv6test' → ssh 'ssh://[2001:db8::1]'
+	// Instance lookup returns IPv6, SSH URL must add brackets automatically
+	//
+	// NOTE: This test will FAIL until code is fixed to add brackets for IPv6
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSSHSession([]string{"--address-type", "ipv6", "ssh://i-ipv6test"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "ssh", captured.command)
+	// SSH URL: brackets must be added automatically for IPv6 lookup
+	assert.Equal(t, "ssh://[2001:db8::1]", captured.args[len(captured.args)-1])
+}
+
+func TestSFTPSession_Run_IPv6URLPassthrough(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2sftp 'sftp://[2001:db8::1]' → sftp 'sftp://[2001:db8::1]'
+	// User passes URL with bracketed IPv6, brackets should be preserved
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSFTPSession([]string{"sftp://[2001:db8::1]"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "sftp", captured.command)
+	// SFTP URL: brackets must be preserved
+	assert.Equal(t, "sftp://[2001:db8::1]", captured.args[len(captured.args)-1])
+}
+
+func TestSFTPSession_Run_IPv6URLLookup(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2sftp 'sftp://i-ipv6test' → sftp 'sftp://[2001:db8::1]'
+	// Instance lookup returns IPv6, SFTP URL must add brackets automatically
+	//
+	// NOTE: This test will FAIL until code is fixed to add brackets for IPv6
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSFTPSession([]string{"--address-type", "ipv6", "sftp://i-ipv6test"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "sftp", captured.command)
+	// SFTP URL: brackets must be added automatically for IPv6 lookup
+	assert.Equal(t, "sftp://[2001:db8::1]", captured.args[len(captured.args)-1])
+}
+
+func TestSCPSession_Run_IPv6URLPassthrough(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2scp file.txt 'scp://[2001:db8::1]/remote' → scp file.txt 'scp://[2001:db8::1]/remote'
+	// User passes URL with bracketed IPv6, brackets should be preserved
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSCPSession([]string{"file.txt", "scp://[2001:db8::1]/remote"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "scp", captured.command)
+	// SCP URL: brackets preserved from user input
+	lastArg := captured.args[len(captured.args)-1]
+	assert.Contains(t, lastArg, "scp://[2001:db8::1]/remote")
+}
+
+func TestSCPSession_Run_IPv6URLLookup(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Test: ec2scp file.txt 'scp://i-ipv6test/remote' → scp file.txt 'scp://[2001:db8::1]/remote'
+	// Instance lookup returns IPv6, SCP URL must add brackets automatically
+	//
+	// NOTE: This test will FAIL until code is fixed to add brackets for IPv6
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceIPv6, &captured)
+
+	session, err := NewSCPSession([]string{"--address-type", "ipv6", "file.txt", "scp://i-ipv6test/remote"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	assert.Equal(t, "scp", captured.command)
+	// SCP URL: brackets must be added automatically for IPv6 lookup
+	lastArg := captured.args[len(captured.args)-1]
+	assert.Contains(t, lastArg, "scp://[2001:db8::1]/remote")
+}

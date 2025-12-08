@@ -12,14 +12,16 @@ type SSHTarget interface {
 	Host() string
 	Port() string
 	SetHost(string)
+	SetHostIPv6(string)
 	String() string
 }
 
 // sshURLTarget represents ssh://[user@]host[:port]
 type sshURLTarget struct {
-	user     string
-	hostname string
-	port     string
+	user      string
+	hostname  string
+	port      string
+	bracketed bool
 }
 
 func (t *sshURLTarget) sshTarget()       {}
@@ -31,13 +33,25 @@ func (t *sshURLTarget) SetHost(h string) {
 		panic("SetHost: empty host")
 	}
 	t.hostname = h
+	t.bracketed = false
+}
+func (t *sshURLTarget) SetHostIPv6(h string) {
+	if h == "" {
+		panic("SetHostIPv6: empty host")
+	}
+	t.hostname = h
+	t.bracketed = true
 }
 func (t *sshURLTarget) String() string {
 	s := "ssh://"
 	if t.user != "" {
 		s += t.user + "@"
 	}
-	s += t.hostname
+	if t.bracketed {
+		s += "[" + t.hostname + "]"
+	} else {
+		s += t.hostname
+	}
 	if t.port != "" {
 		s += ":" + t.port
 	}
@@ -59,6 +73,9 @@ func (t *sshSimpleTarget) SetHost(h string) {
 		panic("SetHost: empty host")
 	}
 	t.hostname = h
+}
+func (t *sshSimpleTarget) SetHostIPv6(h string) {
+	t.SetHost(h) // Simple SSH format doesn't need brackets
 }
 func (t *sshSimpleTarget) String() string {
 	if t.user != "" {
@@ -83,7 +100,13 @@ func NewSSHTarget(s string) (SSHTarget, error) {
 		if host == "" {
 			return nil, fmt.Errorf("%w: missing hostname", ErrTarget)
 		}
-		return &sshURLTarget{user: user, hostname: host, port: port}, nil
+		// Detect bracketed IPv6
+		bracketed := false
+		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			host = host[1 : len(host)-1]
+			bracketed = true
+		}
+		return &sshURLTarget{user: user, hostname: host, port: port, bracketed: bracketed}, nil
 	}
 	// Simple format: [user@]host
 	user, host, _ := splitUserRest(s)
