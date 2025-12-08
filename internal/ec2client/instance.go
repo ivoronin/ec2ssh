@@ -132,6 +132,24 @@ func (c *Client) getFirstMatchingInstance(input *ec2.DescribeInstancesInput) (ty
 	return types.Instance{}, fmt.Errorf("%w in %s", ErrNoMatches, c.region)
 }
 
+// DstTypeToAddrType maps a destination type to an address type.
+// Returns nil for DstType values that don't imply a specific address type (ID, NameTag).
+func DstTypeToAddrType(dstType DstType) *AddrType {
+	switch dstType {
+	case DstTypePrivateIP, DstTypePrivateDNSName:
+		t := AddrTypePrivate
+		return &t
+	case DstTypePublicIP:
+		t := AddrTypePublic
+		return &t
+	case DstTypeIPv6:
+		t := AddrTypeIPv6
+		return &t
+	default:
+		return nil // DstTypeID, DstTypeNameTag don't imply specific address type
+	}
+}
+
 // GuessDestinationType infers the destination type from the destination string.
 func GuessDestinationType(dst string) DstType {
 	switch {

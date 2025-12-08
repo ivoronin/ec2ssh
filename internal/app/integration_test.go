@@ -1367,3 +1367,151 @@ func TestSCPSession_Run_IPv6URLLookup(t *testing.T) {
 	lastArg := captured.args[len(captured.args)-1]
 	assert.Contains(t, lastArg, "scp://[2001:db8::1]/remote")
 }
+
+// =============================================================================
+// Address Type Inference Tests
+// =============================================================================
+//
+// These tests verify that when a user specifies a target with a specific address
+// type (e.g., private IP), the connection uses that same address type, not
+// the default auto-detect fallback.
+
+// testInstanceAllAddrs is a test instance with ALL address types for inference tests.
+var testInstanceAllAddrs = types.Instance{
+	InstanceId:       aws.String("i-alladdrs"),
+	PrivateIpAddress: aws.String("10.0.0.1"),
+	PublicIpAddress:  aws.String("52.1.2.3"),
+	Ipv6Address:      aws.String("2001:db8::1"),
+	VpcId:            aws.String("vpc-123"),
+	SubnetId:         aws.String("subnet-456"),
+	State:            &types.InstanceState{Name: types.InstanceStateNameRunning},
+}
+
+func TestSSHSession_Run_InfersPrivateAddrFromPrivateIP(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// When target is a private IP, connection should go to that private IP
+	// (not to public IP via default auto-detect)
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceAllAddrs, &captured)
+
+	// Target is private IP - should infer AddrType=private
+	session, err := NewSSHSession([]string{"10.0.0.1"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	// Should connect to private IP, NOT public IP
+	assert.Equal(t, "ssh", captured.command)
+	assert.Equal(t, "10.0.0.1", captured.args[len(captured.args)-1],
+		"should connect to private IP when target is private IP")
+}
+
+func TestSSHSession_Run_InfersPublicAddrFromPublicIP(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// When target is a public IP, connection should go to that public IP
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceAllAddrs, &captured)
+
+	// Target is public IP - should infer AddrType=public
+	session, err := NewSSHSession([]string{"52.1.2.3"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	// Should connect to public IP
+	assert.Equal(t, "ssh", captured.command)
+	assert.Equal(t, "52.1.2.3", captured.args[len(captured.args)-1],
+		"should connect to public IP when target is public IP")
+}
+
+func TestSSHSession_Run_InfersIPv6AddrFromIPv6(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// When target is an IPv6 address, connection should go to that IPv6
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceAllAddrs, &captured)
+
+	// Target is IPv6 - should infer AddrType=ipv6
+	session, err := NewSSHSession([]string{"2001:db8::1"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	// Should connect to IPv6
+	assert.Equal(t, "ssh", captured.command)
+	assert.Equal(t, "2001:db8::1", captured.args[len(captured.args)-1],
+		"should connect to IPv6 when target is IPv6")
+}
+
+func TestSSHSession_Run_InfersPrivateAddrFromPrivateDNS(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// When target is a private DNS name, connection should go to private IP
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceAllAddrs, &captured)
+
+	// Target is private DNS - should infer AddrType=private
+	session, err := NewSSHSession([]string{"ip-10-0-0-1.ec2.internal"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	// Should connect to private IP (DNS resolves to private)
+	assert.Equal(t, "ssh", captured.command)
+	assert.Equal(t, "10.0.0.1", captured.args[len(captured.args)-1],
+		"should connect to private IP when target is private DNS name")
+}
+
+func TestSSHSession_Run_ExplicitAddrTypeOverridesInference(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// Explicit --address-type flag should override inference
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceAllAddrs, &captured)
+
+	// Target is private IP, but explicit --address-type public
+	session, err := NewSSHSession([]string{"--address-type", "public", "10.0.0.1"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	// Should connect to public IP (explicit flag overrides inference)
+	assert.Equal(t, "ssh", captured.command)
+	assert.Equal(t, "52.1.2.3", captured.args[len(captured.args)-1],
+		"explicit --address-type should override inference from target")
+}
+
+func TestSSHSession_Run_InstanceIDKeepsAutoDetect(t *testing.T) {
+	// No t.Parallel() - modifies global DI vars
+
+	// When target is instance ID, should keep default auto-detect behavior
+	// (public → ipv6 → private fallback)
+
+	var captured commandCapture
+	setupMocksForRun(t, testInstanceAllAddrs, &captured)
+
+	// Target is instance ID - should NOT infer address type (nil → auto-detect)
+	session, err := NewSSHSession([]string{"i-alladdrs"})
+	require.NoError(t, err)
+
+	err = session.Run()
+	require.NoError(t, err)
+
+	// Should use default auto-detect: public → ipv6 → private
+	// testInstanceAllAddrs has public IP, so it should be used
+	assert.Equal(t, "ssh", captured.command)
+	assert.Equal(t, "52.1.2.3", captured.args[len(captured.args)-1],
+		"instance ID target should use default auto-detect (public IP preferred)")
+}

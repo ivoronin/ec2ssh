@@ -268,6 +268,16 @@ func (s *baseSSHSession) run(command string, buildArgs func() []string) error {
 		}
 	}
 
+	// Infer address type from destination type if not explicitly set
+	if s.AddrType == nil {
+		effectiveDstType := s.DstType
+		if effectiveDstType == nil {
+			guessed := ec2client.GuessDestinationType(s.Target.Host())
+			effectiveDstType = &guessed
+		}
+		s.AddrType = ec2client.DstTypeToAddrType(*effectiveDstType)
+	}
+
 	// Setup destination address and proxy command (EICE or SSM)
 	if s.UseEICE || s.UseSSM {
 		s.Target.SetHost(*s.instance.InstanceId)

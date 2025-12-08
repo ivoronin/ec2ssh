@@ -583,3 +583,52 @@ func TestClient_ListInstances(t *testing.T) {
 		})
 	}
 }
+
+func TestDstTypeToAddrType(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		dstType DstType
+		want    *AddrType
+	}{
+		"private_ip maps to private": {
+			dstType: DstTypePrivateIP,
+			want:    addrTypePtr(AddrTypePrivate),
+		},
+		"public_ip maps to public": {
+			dstType: DstTypePublicIP,
+			want:    addrTypePtr(AddrTypePublic),
+		},
+		"ipv6 maps to ipv6": {
+			dstType: DstTypeIPv6,
+			want:    addrTypePtr(AddrTypeIPv6),
+		},
+		"private_dns maps to private": {
+			dstType: DstTypePrivateDNSName,
+			want:    addrTypePtr(AddrTypePrivate),
+		},
+		"id maps to nil (auto-detect)": {
+			dstType: DstTypeID,
+			want:    nil,
+		},
+		"name_tag maps to nil (auto-detect)": {
+			dstType: DstTypeNameTag,
+			want:    nil,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := DstTypeToAddrType(tc.dstType)
+
+			if tc.want == nil {
+				assert.Nil(t, got)
+			} else {
+				require.NotNil(t, got)
+				assert.Equal(t, *tc.want, *got)
+			}
+		})
+	}
+}
