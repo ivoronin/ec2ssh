@@ -24,7 +24,7 @@ func TestClient_getEICEByID(t *testing.T) {
 			eiceID: "eice-123456789",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(makeEICE("eice-123456789", "vpc-123", "subnet-456", "eice.example.com")),
+					MakeEICEOutput(MakeEICE("eice-123456789", "vpc-123", "subnet-456", "eice.example.com")),
 					nil,
 				)
 			},
@@ -34,7 +34,7 @@ func TestClient_getEICEByID(t *testing.T) {
 			eiceID: "eice-notfound",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(),
+					MakeEICEOutput(),
 					nil,
 				)
 			},
@@ -56,9 +56,9 @@ func TestClient_getEICEByID(t *testing.T) {
 			eiceID: "eice-first",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(
-						makeEICE("eice-first", "vpc-1", "subnet-1", "first.example.com"),
-						makeEICE("eice-second", "vpc-1", "subnet-2", "second.example.com"),
+					MakeEICEOutput(
+						MakeEICE("eice-first", "vpc-1", "subnet-1", "first.example.com"),
+						MakeEICE("eice-second", "vpc-1", "subnet-2", "second.example.com"),
 					),
 					nil,
 				)
@@ -74,7 +74,7 @@ func TestClient_getEICEByID(t *testing.T) {
 			mockEC2 := new(MockEC2API)
 			tc.mockSetup(mockEC2)
 
-			client := newTestClient(mockEC2, nil, nil)
+			client := NewTestClient(mockEC2, nil, nil)
 			eice, err := client.getEICEByID(tc.eiceID)
 
 			if tc.wantErr {
@@ -111,7 +111,7 @@ func TestClient_CreateEICETunnelURI(t *testing.T) {
 			eiceID:    "eice-123",
 			mockEC2: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(makeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
+					MakeEICEOutput(MakeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
 					nil,
 				)
 			},
@@ -131,7 +131,7 @@ func TestClient_CreateEICETunnelURI(t *testing.T) {
 			eiceID:    "eice-123",
 			mockEC2: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(makeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
+					MakeEICEOutput(MakeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
 					nil,
 				)
 			},
@@ -151,7 +151,7 @@ func TestClient_CreateEICETunnelURI(t *testing.T) {
 			eiceID:    "eice-notfound",
 			mockEC2: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(),
+					MakeEICEOutput(),
 					nil,
 				)
 			},
@@ -166,7 +166,7 @@ func TestClient_CreateEICETunnelURI(t *testing.T) {
 			eiceID:    "eice-123",
 			mockEC2: func(m *MockEC2API) {
 				m.On("DescribeInstanceConnectEndpoints", mock.Anything, mock.Anything).Return(
-					makeEICEOutput(makeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
+					MakeEICEOutput(MakeEICE("eice-123", "vpc-1", "subnet-1", "eice.example.com")),
 					nil,
 				)
 			},
@@ -206,7 +206,7 @@ func TestClient_CreateEICETunnelURI(t *testing.T) {
 			tc.mockEC2(mockEC2)
 			tc.mockSigner(mockSigner)
 
-			client := newTestClient(mockEC2, nil, mockSigner)
+			client := NewTestClient(mockEC2, nil, mockSigner)
 			uri, err := client.CreateEICETunnelURI(tc.privateIP, tc.port, tc.eiceID)
 
 			if tc.wantErr {

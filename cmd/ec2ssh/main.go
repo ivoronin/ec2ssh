@@ -93,15 +93,15 @@ func (r *Runner) Run() int {
 }
 
 func (r *Runner) fatalError(err error) int {
-	fmt.Fprintf(r.Stderr, "ec2ssh: %v\n", err)
+	_, _ = fmt.Fprintf(r.Stderr, "ec2ssh: %v\n", err)
 	return 1
 }
 
 func (r *Runner) usage(err error) int {
 	if err != nil {
-		fmt.Fprintf(r.Stderr, "ec2ssh: %v\n", err)
+		_, _ = fmt.Fprintf(r.Stderr, "ec2ssh: %v\n", err)
 	}
-	fmt.Fprint(r.Stderr, HelpText)
+	_, _ = fmt.Fprint(r.Stderr, HelpText)
 	return 1
 }
 

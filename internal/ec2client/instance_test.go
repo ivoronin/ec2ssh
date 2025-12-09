@@ -207,7 +207,7 @@ func TestClient_GetInstanceByID(t *testing.T) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
 					return len(input.InstanceIds) == 1 && input.InstanceIds[0] == "i-1234567890abcdef0"
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-1234567890abcdef0"))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-1234567890abcdef0"))),
 					nil,
 				)
 			},
@@ -217,7 +217,7 @@ func TestClient_GetInstanceByID(t *testing.T) {
 			instanceID: "i-notfound",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(), // empty reservations
+					MakeDescribeOutput(), // empty reservations
 					nil,
 				)
 			},
@@ -244,7 +244,7 @@ func TestClient_GetInstanceByID(t *testing.T) {
 			mockEC2 := new(MockEC2API)
 			tc.mockSetup(mockEC2)
 
-			client := newTestClient(mockEC2, nil, nil)
+			client := NewTestClient(mockEC2, nil, nil)
 			instance, err := client.GetInstanceByID(tc.instanceID)
 
 			if tc.wantErr {
@@ -292,7 +292,7 @@ func TestClient_GetRunningInstanceByFilter(t *testing.T) {
 					}
 					return hasIPFilter && hasStateFilter
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-found", withPrivateIP("10.0.0.1")))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-found", WithPrivateIP("10.0.0.1")))),
 					nil,
 				)
 			},
@@ -303,7 +303,7 @@ func TestClient_GetRunningInstanceByFilter(t *testing.T) {
 			filterValue: "my-server",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-named", withNameTag("my-server")))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-named", WithNameTag("my-server")))),
 					nil,
 				)
 			},
@@ -314,7 +314,7 @@ func TestClient_GetRunningInstanceByFilter(t *testing.T) {
 			filterValue: "10.0.0.99",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(),
+					MakeDescribeOutput(),
 					nil,
 				)
 			},
@@ -329,7 +329,7 @@ func TestClient_GetRunningInstanceByFilter(t *testing.T) {
 			mockEC2 := new(MockEC2API)
 			tc.mockSetup(mockEC2)
 
-			client := newTestClient(mockEC2, nil, nil)
+			client := NewTestClient(mockEC2, nil, nil)
 			instance, err := client.GetRunningInstanceByFilter(tc.filterName, tc.filterValue)
 
 			if tc.wantErr {
@@ -362,7 +362,7 @@ func TestClient_GetInstance(t *testing.T) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
 					return len(input.InstanceIds) == 1 && input.InstanceIds[0] == "i-auto123"
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-auto123"))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-auto123"))),
 					nil,
 				)
 			},
@@ -380,7 +380,7 @@ func TestClient_GetInstance(t *testing.T) {
 					}
 					return false
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-byip", withPrivateIP("10.0.0.5")))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-byip", WithPrivateIP("10.0.0.5")))),
 					nil,
 				)
 			},
@@ -398,7 +398,7 @@ func TestClient_GetInstance(t *testing.T) {
 					}
 					return false
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-bypubip", withPublicIP("54.123.45.67")))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-bypubip", WithPublicIP("54.123.45.67")))),
 					nil,
 				)
 			},
@@ -416,14 +416,14 @@ func TestClient_GetInstance(t *testing.T) {
 					}
 					return false
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-bydns"))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-bydns"))),
 					nil,
 				)
 			},
 			wantID: "i-bydns",
 		},
 		"explicit private dns with wildcard": {
-			dstType:     dstTypePtr(DstTypePrivateDNSName),
+			dstType:     DstTypePtr(DstTypePrivateDNSName),
 			destination: "ip-10-0-0-1",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -434,14 +434,14 @@ func TestClient_GetInstance(t *testing.T) {
 					}
 					return false
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-dns"))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-dns"))),
 					nil,
 				)
 			},
 			wantID: "i-dns",
 		},
 		"explicit name tag": {
-			dstType:     dstTypePtr(DstTypeNameTag),
+			dstType:     DstTypePtr(DstTypeNameTag),
 			destination: "my-server",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -452,14 +452,14 @@ func TestClient_GetInstance(t *testing.T) {
 					}
 					return false
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-named"))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-named"))),
 					nil,
 				)
 			},
 			wantID: "i-named",
 		},
 		"explicit ipv6": {
-			dstType:     dstTypePtr(DstTypeIPv6),
+			dstType:     DstTypePtr(DstTypeIPv6),
 			destination: "2001:db8::1",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.MatchedBy(func(input *ec2.DescribeInstancesInput) bool {
@@ -470,18 +470,18 @@ func TestClient_GetInstance(t *testing.T) {
 					}
 					return false
 				})).Return(
-					makeDescribeOutput(makeReservation(makeInstance("i-ipv6"))),
+					MakeDescribeOutput(MakeReservation(MakeInstance("i-ipv6"))),
 					nil,
 				)
 			},
 			wantID: "i-ipv6",
 		},
 		"not found": {
-			dstType:     dstTypePtr(DstTypeNameTag),
+			dstType:     DstTypePtr(DstTypeNameTag),
 			destination: "nonexistent",
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(),
+					MakeDescribeOutput(),
 					nil,
 				)
 			},
@@ -496,7 +496,7 @@ func TestClient_GetInstance(t *testing.T) {
 			mockEC2 := new(MockEC2API)
 			tc.mockSetup(mockEC2)
 
-			client := newTestClient(mockEC2, nil, nil)
+			client := NewTestClient(mockEC2, nil, nil)
 			instance, err := client.GetInstance(tc.destination, tc.dstType)
 
 			if tc.wantErr {
@@ -522,9 +522,9 @@ func TestClient_ListInstances(t *testing.T) {
 		"multiple reservations": {
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(
-						makeReservation(makeInstance("i-1"), makeInstance("i-2")),
-						makeReservation(makeInstance("i-3")),
+					MakeDescribeOutput(
+						MakeReservation(MakeInstance("i-1"), MakeInstance("i-2")),
+						MakeReservation(MakeInstance("i-3")),
 					),
 					nil,
 				)
@@ -534,8 +534,8 @@ func TestClient_ListInstances(t *testing.T) {
 		"single reservation multiple instances": {
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(
-						makeReservation(makeInstance("i-1"), makeInstance("i-2"), makeInstance("i-3"), makeInstance("i-4")),
+					MakeDescribeOutput(
+						MakeReservation(MakeInstance("i-1"), MakeInstance("i-2"), MakeInstance("i-3"), MakeInstance("i-4")),
 					),
 					nil,
 				)
@@ -545,7 +545,7 @@ func TestClient_ListInstances(t *testing.T) {
 		"empty result": {
 			mockSetup: func(m *MockEC2API) {
 				m.On("DescribeInstances", mock.Anything, mock.Anything).Return(
-					makeDescribeOutput(),
+					MakeDescribeOutput(),
 					nil,
 				)
 			},
@@ -569,7 +569,7 @@ func TestClient_ListInstances(t *testing.T) {
 			mockEC2 := new(MockEC2API)
 			tc.mockSetup(mockEC2)
 
-			client := newTestClient(mockEC2, nil, nil)
+			client := NewTestClient(mockEC2, nil, nil)
 			instances, err := client.ListInstances()
 
 			if tc.wantErr {
@@ -593,19 +593,19 @@ func TestDstTypeToAddrType(t *testing.T) {
 	}{
 		"private_ip maps to private": {
 			dstType: DstTypePrivateIP,
-			want:    addrTypePtr(AddrTypePrivate),
+			want:    AddrTypePtr(AddrTypePrivate),
 		},
 		"public_ip maps to public": {
 			dstType: DstTypePublicIP,
-			want:    addrTypePtr(AddrTypePublic),
+			want:    AddrTypePtr(AddrTypePublic),
 		},
 		"ipv6 maps to ipv6": {
 			dstType: DstTypeIPv6,
-			want:    addrTypePtr(AddrTypeIPv6),
+			want:    AddrTypePtr(AddrTypeIPv6),
 		},
 		"private_dns maps to private": {
 			dstType: DstTypePrivateDNSName,
-			want:    addrTypePtr(AddrTypePrivate),
+			want:    AddrTypePtr(AddrTypePrivate),
 		},
 		"id maps to nil (auto-detect)": {
 			dstType: DstTypeID,

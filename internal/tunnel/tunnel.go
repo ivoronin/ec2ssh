@@ -56,7 +56,7 @@ func RunWithIO(uri string, dial Dialer, stdin io.Reader, stdout io.Writer, stder
 	// Report first error if any occurred
 	for err := range errCh {
 		if err != nil {
-			fmt.Fprintf(stderr, "ec2ssh: error: %v\n", err)
+			_, _ = fmt.Fprintf(stderr, "ec2ssh: error: %v\n", err)
 		}
 	}
 

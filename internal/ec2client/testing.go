@@ -189,3 +189,17 @@ func MakeEICEOutput(endpoints ...types.Ec2InstanceConnectEndpoint) *ec2.Describe
 		InstanceConnectEndpoints: endpoints,
 	}
 }
+
+// =============================================================================
+// Type Pointer Helpers - Exported for use by other packages' tests
+// =============================================================================
+
+// AddrTypePtr returns a pointer to the AddrType value.
+func AddrTypePtr(t AddrType) *AddrType {
+	return &t
+}
+
+// DstTypePtr returns a pointer to the DstType value.
+func DstTypePtr(t DstType) *DstType {
+	return &t
+}

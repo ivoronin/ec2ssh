@@ -82,89 +82,89 @@ func TestGetInstanceAddr(t *testing.T) {
 	}{
 		// nil (auto) mode - prefers public
 		"nil prefers public": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithPublicIP("1.2.3.4")),
 			addrType: nil,
 			wantAddr: "1.2.3.4",
 			wantType: AddrTypePublic,
 		},
 		"nil falls back to ipv6": {
-			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
+			instance: MakeInstance("i-1", WithIPv6("2001:db8::1")),
 			addrType: nil,
 			wantAddr: "2001:db8::1",
 			wantType: AddrTypeIPv6,
 		},
 		"nil falls back to private": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1")),
 			addrType: nil,
 			wantAddr: "10.0.0.1",
 			wantType: AddrTypePrivate,
 		},
 		"nil no address": {
-			instance: makeInstance("i-1"),
+			instance: MakeInstance("i-1"),
 			addrType: nil,
 			wantErr:  true,
 		},
 
 		// Explicit private
 		"explicit private": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
-			addrType: addrTypePtr(AddrTypePrivate),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithPublicIP("1.2.3.4")),
+			addrType: AddrTypePtr(AddrTypePrivate),
 			wantAddr: "10.0.0.1",
 			wantType: AddrTypePrivate,
 		},
 		"explicit private only private": {
-			instance: makeInstance("i-1", withPrivateIP("192.168.1.1")),
-			addrType: addrTypePtr(AddrTypePrivate),
+			instance: MakeInstance("i-1", WithPrivateIP("192.168.1.1")),
+			addrType: AddrTypePtr(AddrTypePrivate),
 			wantAddr: "192.168.1.1",
 			wantType: AddrTypePrivate,
 		},
 		"missing private": {
-			instance: makeInstance("i-1", withPublicIP("1.2.3.4")),
-			addrType: addrTypePtr(AddrTypePrivate),
+			instance: MakeInstance("i-1", WithPublicIP("1.2.3.4")),
+			addrType: AddrTypePtr(AddrTypePrivate),
 			wantErr:  true,
 		},
 
 		// Explicit public
 		"explicit public": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4")),
-			addrType: addrTypePtr(AddrTypePublic),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithPublicIP("1.2.3.4")),
+			addrType: AddrTypePtr(AddrTypePublic),
 			wantAddr: "1.2.3.4",
 			wantType: AddrTypePublic,
 		},
 		"explicit public only public": {
-			instance: makeInstance("i-1", withPublicIP("52.0.0.1")),
-			addrType: addrTypePtr(AddrTypePublic),
+			instance: MakeInstance("i-1", WithPublicIP("52.0.0.1")),
+			addrType: AddrTypePtr(AddrTypePublic),
 			wantAddr: "52.0.0.1",
 			wantType: AddrTypePublic,
 		},
 		"missing public": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
-			addrType: addrTypePtr(AddrTypePublic),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1")),
+			addrType: AddrTypePtr(AddrTypePublic),
 			wantErr:  true,
 		},
 
 		// Explicit IPv6
 		"explicit ipv6": {
-			instance: makeInstance("i-1", withIPv6("2001:db8::1")),
-			addrType: addrTypePtr(AddrTypeIPv6),
+			instance: MakeInstance("i-1", WithIPv6("2001:db8::1")),
+			addrType: AddrTypePtr(AddrTypeIPv6),
 			wantAddr: "2001:db8::1",
 			wantType: AddrTypeIPv6,
 		},
 		"explicit ipv6 with others": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("fe80::1")),
-			addrType: addrTypePtr(AddrTypeIPv6),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithPublicIP("1.2.3.4"), WithIPv6("fe80::1")),
+			addrType: AddrTypePtr(AddrTypeIPv6),
 			wantAddr: "fe80::1",
 			wantType: AddrTypeIPv6,
 		},
 		"missing ipv6": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1")),
-			addrType: addrTypePtr(AddrTypeIPv6),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1")),
+			addrType: AddrTypePtr(AddrTypeIPv6),
 			wantErr:  true,
 		},
 
 		// All addresses present
 		"all addresses nil selects public": {
-			instance: makeInstance("i-1", withPrivateIP("10.0.0.1"), withPublicIP("1.2.3.4"), withIPv6("2001:db8::1")),
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithPublicIP("1.2.3.4"), WithIPv6("2001:db8::1")),
 			addrType: nil,
 			wantAddr: "1.2.3.4",
 			wantType: AddrTypePublic,
@@ -198,23 +198,23 @@ func TestGetInstanceName(t *testing.T) {
 		want     *string
 	}{
 		"has name tag": {
-			instance: makeInstance("i-1", withNameTag("my-server")),
+			instance: MakeInstance("i-1", WithNameTag("my-server")),
 			want:     aws.String("my-server"),
 		},
 		"no name tag": {
-			instance: makeInstance("i-1"),
+			instance: MakeInstance("i-1"),
 			want:     nil,
 		},
 		"has other tags but no name": {
-			instance: makeInstance("i-1", withTag("Environment", "prod"), withTag("Team", "devops")),
+			instance: MakeInstance("i-1", WithTag("Environment", "prod"), WithTag("Team", "devops")),
 			want:     nil,
 		},
 		"empty name tag": {
-			instance: makeInstance("i-1", withNameTag("")),
+			instance: MakeInstance("i-1", WithNameTag("")),
 			want:     aws.String(""),
 		},
 		"name tag among others": {
-			instance: makeInstance("i-1", withTag("Environment", "prod"), withNameTag("web-server"), withTag("Team", "devops")),
+			instance: MakeInstance("i-1", WithTag("Environment", "prod"), WithNameTag("web-server"), WithTag("Team", "devops")),
 			want:     aws.String("web-server"),
 		},
 	}

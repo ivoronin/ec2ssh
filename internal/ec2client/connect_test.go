@@ -92,8 +92,8 @@ func TestClient_SendSSHPublicKey(t *testing.T) {
 			mockConnect := new(MockEC2InstanceConnectAPI)
 			tc.mockSetup(mockConnect)
 
-			instance := makeInstance(tc.instanceID)
-			client := newTestClient(nil, mockConnect, nil)
+			instance := MakeInstance(tc.instanceID)
+			client := NewTestClient(nil, mockConnect, nil)
 
 			err := client.SendSSHPublicKey(instance, tc.osUser, tc.publicKey)
 
