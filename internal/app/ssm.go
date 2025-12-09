@@ -79,7 +79,7 @@ func (s *SSMSession) Run() error {
 	}
 
 	// Get instance
-	instance, err := client.GetInstance(s.DstType, s.Destination)
+	instance, err := client.GetInstance(s.Destination, s.DstType)
 	if err != nil {
 		return err
 	}

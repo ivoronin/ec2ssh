@@ -258,7 +258,7 @@ func (s *baseSSHSession) run(command string, buildArgs func() []string) error {
 	}
 
 	// Get instance
-	s.instance, err = s.client.GetInstance(s.DstType, s.Target.Host())
+	s.instance, err = s.client.GetInstance(s.Target.Host(), s.DstType)
 	if err != nil {
 		return fmt.Errorf("unable to get instance: %w", err)
 	}

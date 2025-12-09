@@ -177,7 +177,7 @@ func GuessDestinationType(dst string) DstType {
 
 // GetInstance retrieves an instance using the specified destination type and value.
 // If dstType is nil, auto-detects the type from the destination string.
-func (c *Client) GetInstance(dstType *DstType, destination string) (types.Instance, error) {
+func (c *Client) GetInstance(destination string, dstType *DstType) (types.Instance, error) {
 	// nil means auto-detect
 	if dstType == nil {
 		guessed := GuessDestinationType(destination)

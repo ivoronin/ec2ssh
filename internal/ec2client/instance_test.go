@@ -497,7 +497,7 @@ func TestClient_GetInstance(t *testing.T) {
 			tc.mockSetup(mockEC2)
 
 			client := newTestClient(mockEC2, nil, nil)
-			instance, err := client.GetInstance(tc.dstType, tc.destination)
+			instance, err := client.GetInstance(tc.destination, tc.dstType)
 
 			if tc.wantErr {
 				require.Error(t, err)
