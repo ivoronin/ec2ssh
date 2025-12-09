@@ -190,6 +190,105 @@ func TestGetInstanceAddr(t *testing.T) {
 	}
 }
 
+func TestGetEICEAddr(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		instance types.Instance
+		addrType *AddrType // nil = auto-detect
+		wantAddr string
+		wantType AddrType
+		wantErr  bool
+	}{
+		// nil (auto) mode - prefers private (not public!)
+		"nil prefers private over public": {
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithPublicIP("1.2.3.4")),
+			addrType: nil,
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
+		},
+		"nil prefers private over ipv6": {
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithIPv6("2001:db8::1")),
+			addrType: nil,
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
+		},
+		"nil falls back to ipv6": {
+			instance: MakeInstance("i-1", WithIPv6("2001:db8::1")),
+			addrType: nil,
+			wantAddr: "2001:db8::1",
+			wantType: AddrTypeIPv6,
+		},
+		"nil ignores public-only": {
+			instance: MakeInstance("i-1", WithPublicIP("1.2.3.4")),
+			addrType: nil,
+			wantErr:  true,
+		},
+		"nil no address": {
+			instance: MakeInstance("i-1"),
+			addrType: nil,
+			wantErr:  true,
+		},
+
+		// Explicit IPv6
+		"explicit ipv6": {
+			instance: MakeInstance("i-1", WithIPv6("2001:db8::1")),
+			addrType: AddrTypePtr(AddrTypeIPv6),
+			wantAddr: "2001:db8::1",
+			wantType: AddrTypeIPv6,
+		},
+		"explicit ipv6 ignores private": {
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1"), WithIPv6("2001:db8::1")),
+			addrType: AddrTypePtr(AddrTypeIPv6),
+			wantAddr: "2001:db8::1",
+			wantType: AddrTypeIPv6,
+		},
+		"missing ipv6": {
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1")),
+			addrType: AddrTypePtr(AddrTypeIPv6),
+			wantErr:  true,
+		},
+
+		// Explicit private
+		"explicit private": {
+			instance: MakeInstance("i-1", WithPrivateIP("10.0.0.1")),
+			addrType: AddrTypePtr(AddrTypePrivate),
+			wantAddr: "10.0.0.1",
+			wantType: AddrTypePrivate,
+		},
+		"explicit private missing": {
+			instance: MakeInstance("i-1", WithIPv6("2001:db8::1")),
+			addrType: AddrTypePtr(AddrTypePrivate),
+			wantErr:  true,
+		},
+
+		// Explicit public - not allowed for EICE
+		"explicit public rejected": {
+			instance: MakeInstance("i-1", WithPublicIP("1.2.3.4")),
+			addrType: AddrTypePtr(AddrTypePublic),
+			wantErr:  true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := GetEICEAddr(tc.instance, tc.addrType)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrNoAddress)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantAddr, result.Addr, "address")
+			assert.Equal(t, tc.wantType, result.Type, "type")
+		})
+	}
+}
+
 func TestGetInstanceName(t *testing.T) {
 	t.Parallel()
 

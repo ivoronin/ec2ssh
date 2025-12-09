@@ -59,6 +59,32 @@ func GetInstanceAddr(instance types.Instance, addrType *AddrType) (InstanceAddr,
 	return InstanceAddr{Addr: *addr, Type: *addrType}, nil
 }
 
+// GetEICEAddr returns the appropriate address for EICE tunneling.
+// EICE can only use private IPv4 or IPv6 (not public).
+// If addrType is nil, auto-detects: private IPv4 first, then IPv6.
+func GetEICEAddr(instance types.Instance, addrType *AddrType) (InstanceAddr, error) {
+	// Explicit type requested
+	if addrType != nil {
+		if *addrType == AddrTypePublic {
+			return InstanceAddr{}, fmt.Errorf("%w: EICE does not support public addresses", ErrNoAddress)
+		}
+		addr, name := getAddrByType(instance, *addrType)
+		if addr == nil {
+			return InstanceAddr{}, fmt.Errorf("%w: no %s address for instance %s", ErrNoAddress, name, *instance.InstanceId)
+		}
+		return InstanceAddr{Addr: *addr, Type: *addrType}, nil
+	}
+
+	// Auto-detect: private IPv4 first, then IPv6
+	for _, t := range []AddrType{AddrTypePrivate, AddrTypeIPv6} {
+		if addr, _ := getAddrByType(instance, t); addr != nil {
+			return InstanceAddr{Addr: *addr, Type: t}, nil
+		}
+	}
+
+	return InstanceAddr{}, fmt.Errorf("%w: no private IPv4 or IPv6 address for instance %s", ErrNoAddress, *instance.InstanceId)
+}
+
 func getAddrByType(instance types.Instance, addrType AddrType) (*string, string) {
 	switch addrType {
 	case AddrTypePrivate:

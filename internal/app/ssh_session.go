@@ -189,28 +189,14 @@ func (s *baseSSHSession) setupProxyCommand() error {
 			eiceID = *eice.InstanceConnectEndpointId
 		}
 
-		// Determine host address for EICE tunnel
-		// EICE supports private IPv4 and IPv6 (not public)
-		var host string
-		if s.AddrType != nil && *s.AddrType == ec2client.AddrTypeIPv6 {
-			// User explicitly requested or inference determined IPv6
-			if s.instance.Ipv6Address == nil {
-				return fmt.Errorf("instance %s has no IPv6 address", *s.instance.InstanceId)
-			}
-			host = *s.instance.Ipv6Address
-		} else {
-			// Prefer private IPv4, fallback to IPv6
-			if s.instance.PrivateIpAddress != nil {
-				host = *s.instance.PrivateIpAddress
-			} else if s.instance.Ipv6Address != nil {
-				host = *s.instance.Ipv6Address
-			} else {
-				return fmt.Errorf("instance %s has no private IPv4 or IPv6 address", *s.instance.InstanceId)
-			}
+		// Get host address for EICE tunnel (private IPv4 or IPv6, not public)
+		result, err := ec2client.GetEICEAddr(s.instance, s.AddrType)
+		if err != nil {
+			return err
 		}
 
 		args = append(args, "--eice-tunnel")
-		args = append(args, "--host", host)
+		args = append(args, "--host", result.Addr)
 		args = append(args, "--port", "%p")
 		args = append(args, "--eice-id", eiceID)
 	} else {
@@ -299,10 +285,10 @@ func (s *baseSSHSession) run(command string, buildArgs func() []string) error {
 
 	// Setup destination address and proxy command (EICE or SSM)
 	if s.UseEICE || s.UseSSM {
-		s.Target.SetHost(*s.instance.InstanceId)
 		if err := s.setupProxyCommand(); err != nil {
 			return err
 		}
+		s.Target.SetHost(*s.instance.InstanceId)
 	} else {
 		result, err := ec2client.GetInstanceAddr(s.instance, s.AddrType)
 		if err != nil {
