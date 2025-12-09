@@ -1,7 +1,12 @@
-name: goreleaser
+name: Build and release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (leave empty for snapshot build)'
+        required: false
+        type: string
   pull_request:
     branches: [main]
   push:
@@ -17,12 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set snapshot flag
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.tag == '' }}
         run: echo "GORELEASER_FLAGS=--snapshot" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -42,3 +48,18 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ivoronin/ec2ssh
+
+  homebrew:
+    needs: goreleaser
+    if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew formula
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: ec2ssh
+          homebrew-tap: ivoronin/homebrew-ivoronin
+          tag-name: ${{ inputs.tag || github.ref_name }}
+          download-url: https://github.com/ivoronin/ec2ssh/archive/refs/tags/${{ inputs.tag || github.ref_name }}.tar.gz
+        env:
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
