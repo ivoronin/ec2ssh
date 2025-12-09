@@ -55,3 +55,5 @@ require (
 	golang.org/x/tools v0.38.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/mmmorris1975/ssm-session-client => github.com/ivoronin/ssm-session-client v0.0.0-20251209090344-158895a5ad27
