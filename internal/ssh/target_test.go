@@ -321,8 +321,8 @@ func TestNewSFTPTarget(t *testing.T) {
 		},
 		"sftp url ipv6 without brackets malformed": {
 			input:    "sftp://2001:db8::1",
-			wantHost: "2001",        // parsed as host:port, not IPv6
-			wantPort: "db8::1",      // colon splits at first :
+			wantHost: "2001",   // parsed as host:port, not IPv6
+			wantPort: "db8::1", // colon splits at first :
 			wantStr:  "sftp://2001:db8::1",
 		},
 

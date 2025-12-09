@@ -44,4 +44,3 @@ func splitHostRest(s string) (host, rest string, ok bool) {
 	}
 	return s, "", false
 }
-

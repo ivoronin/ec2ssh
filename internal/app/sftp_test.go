@@ -3,8 +3,8 @@ package app
 import (
 	"testing"
 
-	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

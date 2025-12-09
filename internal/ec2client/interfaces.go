@@ -30,7 +30,7 @@ type HTTPRequestSigner interface {
 
 // Ensure AWS SDK clients implement our interfaces at compile time.
 var (
-	_ EC2API                 = (*ec2.Client)(nil)
-	_ EC2InstanceConnectAPI  = (*ec2instanceconnect.Client)(nil)
-	_ HTTPRequestSigner      = (*signerV4.Signer)(nil)
+	_ EC2API                = (*ec2.Client)(nil)
+	_ EC2InstanceConnectAPI = (*ec2instanceconnect.Client)(nil)
+	_ HTTPRequestSigner     = (*signerV4.Signer)(nil)
 )

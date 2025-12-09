@@ -26,11 +26,11 @@ type scpURLTarget struct {
 	bracketed bool
 }
 
-func (t *scpURLTarget) scpTarget()       {}
-func (t *scpURLTarget) Login() string    { return t.user }
-func (t *scpURLTarget) Host() string     { return t.hostname }
-func (t *scpURLTarget) Port() string     { return t.port }
-func (t *scpURLTarget) Path() string     { return "/" + t.path }
+func (t *scpURLTarget) scpTarget()    {}
+func (t *scpURLTarget) Login() string { return t.user }
+func (t *scpURLTarget) Host() string  { return t.hostname }
+func (t *scpURLTarget) Port() string  { return t.port }
+func (t *scpURLTarget) Path() string  { return "/" + t.path }
 func (t *scpURLTarget) SetHost(h string) {
 	if h == "" {
 		panic("SetHost: empty host")
@@ -70,11 +70,11 @@ type scpSimpleTarget struct {
 	bracketed bool
 }
 
-func (t *scpSimpleTarget) scpTarget()       {}
-func (t *scpSimpleTarget) Login() string    { return t.user }
-func (t *scpSimpleTarget) Host() string     { return t.hostname }
-func (t *scpSimpleTarget) Port() string     { return "" }
-func (t *scpSimpleTarget) Path() string     { return t.path }
+func (t *scpSimpleTarget) scpTarget()    {}
+func (t *scpSimpleTarget) Login() string { return t.user }
+func (t *scpSimpleTarget) Host() string  { return t.hostname }
+func (t *scpSimpleTarget) Port() string  { return "" }
+func (t *scpSimpleTarget) Path() string  { return t.path }
 func (t *scpSimpleTarget) SetHost(h string) {
 	if h == "" {
 		panic("SetHost: empty host")

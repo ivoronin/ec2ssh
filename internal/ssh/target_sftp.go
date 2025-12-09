@@ -26,11 +26,11 @@ type sftpURLTarget struct {
 	bracketed bool
 }
 
-func (t *sftpURLTarget) sftpTarget()      {}
-func (t *sftpURLTarget) Login() string    { return t.user }
-func (t *sftpURLTarget) Host() string     { return t.hostname }
-func (t *sftpURLTarget) Port() string     { return t.port }
-func (t *sftpURLTarget) Path() string     { return t.path }
+func (t *sftpURLTarget) sftpTarget()   {}
+func (t *sftpURLTarget) Login() string { return t.user }
+func (t *sftpURLTarget) Host() string  { return t.hostname }
+func (t *sftpURLTarget) Port() string  { return t.port }
+func (t *sftpURLTarget) Path() string  { return t.path }
 func (t *sftpURLTarget) SetHost(h string) {
 	if h == "" {
 		panic("SetHost: empty host")
@@ -72,11 +72,11 @@ type sftpSimpleTarget struct {
 	bracketed bool
 }
 
-func (t *sftpSimpleTarget) sftpTarget()      {}
-func (t *sftpSimpleTarget) Login() string    { return t.user }
-func (t *sftpSimpleTarget) Host() string     { return t.hostname }
-func (t *sftpSimpleTarget) Port() string     { return "" }
-func (t *sftpSimpleTarget) Path() string     { return t.path }
+func (t *sftpSimpleTarget) sftpTarget()   {}
+func (t *sftpSimpleTarget) Login() string { return t.user }
+func (t *sftpSimpleTarget) Host() string  { return t.hostname }
+func (t *sftpSimpleTarget) Port() string  { return "" }
+func (t *sftpSimpleTarget) Path() string  { return t.path }
 func (t *sftpSimpleTarget) SetHost(h string) {
 	if h == "" {
 		panic("SetHost: empty host")

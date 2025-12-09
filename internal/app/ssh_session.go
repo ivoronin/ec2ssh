@@ -55,16 +55,16 @@ func defaultExecuteCommand(command string, args []string, logger *log.Logger) er
 // Fields are organized by lifecycle stage: CLI flags → parsed values → runtime state.
 type baseSSHSession struct {
 	// --- CLI Configuration (populated by argsieve from command-line flags) ---
-	Region       string             `long:"region"`
-	Profile      string             `long:"profile"`
-	EICEID       string             `long:"eice-id"`
-	DstType  *ec2client.DstType  `long:"destination-type"` // nil = auto-detect
-	AddrType *ec2client.AddrType `long:"address-type"`     // nil = auto-detect
-	IdentityFile string             `short:"i"`
-	UseEICE      bool               `long:"use-eice"`
-	UseSSM       bool               `long:"use-ssm"`
-	NoSendKeys   bool               `long:"no-send-keys"`
-	Debug        bool               `long:"debug"`
+	Region       string              `long:"region"`
+	Profile      string              `long:"profile"`
+	EICEID       string              `long:"eice-id"`
+	DstType      *ec2client.DstType  `long:"destination-type"` // nil = auto-detect
+	AddrType     *ec2client.AddrType `long:"address-type"`     // nil = auto-detect
+	IdentityFile string              `short:"i"`
+	UseEICE      bool                `long:"use-eice"`
+	UseSSM       bool                `long:"use-ssm"`
+	NoSendKeys   bool                `long:"no-send-keys"`
+	Debug        bool                `long:"debug"`
 
 	// --- Parsed Session Parameters (set after argument parsing) ---
 	Target    ssh.Target // Parsed target (provides Login, Host, SetHost, String)
@@ -230,7 +230,6 @@ func (s *baseSSHSession) setupProxyCommand() error {
 	s.proxyCommand = strings.Join(args, " ")
 	return nil
 }
-
 
 // run executes the session command. Called by embedded types.
 // buildArgs is called after setup completes, ensuring runtime fields are populated.

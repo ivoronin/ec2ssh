@@ -24,10 +24,10 @@ type sshURLTarget struct {
 	bracketed bool
 }
 
-func (t *sshURLTarget) sshTarget()       {}
-func (t *sshURLTarget) Login() string    { return t.user }
-func (t *sshURLTarget) Host() string     { return t.hostname }
-func (t *sshURLTarget) Port() string     { return t.port }
+func (t *sshURLTarget) sshTarget()    {}
+func (t *sshURLTarget) Login() string { return t.user }
+func (t *sshURLTarget) Host() string  { return t.hostname }
+func (t *sshURLTarget) Port() string  { return t.port }
 func (t *sshURLTarget) SetHost(h string) {
 	if h == "" {
 		panic("SetHost: empty host")
@@ -64,10 +64,10 @@ type sshSimpleTarget struct {
 	hostname string
 }
 
-func (t *sshSimpleTarget) sshTarget()       {}
-func (t *sshSimpleTarget) Login() string    { return t.user }
-func (t *sshSimpleTarget) Host() string     { return t.hostname }
-func (t *sshSimpleTarget) Port() string     { return "" }
+func (t *sshSimpleTarget) sshTarget()    {}
+func (t *sshSimpleTarget) Login() string { return t.user }
+func (t *sshSimpleTarget) Host() string  { return t.hostname }
+func (t *sshSimpleTarget) Port() string  { return "" }
 func (t *sshSimpleTarget) SetHost(h string) {
 	if h == "" {
 		panic("SetHost: empty host")

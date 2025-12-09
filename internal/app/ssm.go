@@ -6,20 +6,20 @@ import (
 	"log"
 	"os"
 
-	"github.com/ivoronin/ec2ssh/internal/awsclient"
-	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
+	"github.com/ivoronin/ec2ssh/internal/ssh"
 	"github.com/mmmorris1975/ssm-session-client/ssmclient"
 )
 
 // SSMSession represents an SSM Session Manager shell connection to an EC2 instance.
 type SSMSession struct {
 	// CLI Configuration
-	Region  string            `long:"region"`
-	Profile string            `long:"profile"`
+	Region  string             `long:"region"`
+	Profile string             `long:"profile"`
 	DstType *ec2client.DstType `long:"destination-type"` // nil = auto-detect
-	Debug   bool              `long:"debug"`
+	Debug   bool               `long:"debug"`
 
 	// Parsed values
 	Destination string
