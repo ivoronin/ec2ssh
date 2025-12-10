@@ -31,6 +31,7 @@
 | SCP file transfer | `ec2scp ./file.txt ec2-user@my-server:/tmp/` |
 | SFTP session | `ec2sftp my-server` |
 | SSM shell (no SSH) | `ec2ssm my-server` |
+| SSM run command | `ec2ssm my-server whoami` |
 | List all instances | `ec2list` or `ec2ssh --list` |
 | Private instance via EICE | `ec2ssh --use-eice my-private-server` |
 | Private instance via SSM | `ec2ssh --use-ssm my-private-server` |
@@ -48,6 +49,7 @@ ec2ssh supports four ways to reach your instances:
 | **EICE Tunnel** | `ec2ssh --use-eice` | Private instances via EC2 Instance Connect Endpoint | EICE endpoint in VPC |
 | **SSM Tunnel** | `ec2ssh --use-ssm` | SSH over Systems Manager tunnel | SSM Agent on instance |
 | **SSM Shell** | `ec2ssm` | Direct shell via SSM (no SSH) | SSM Agent on instance |
+| **SSM RunCommand** | `ec2ssm host cmd` | Execute command via SSM API | SSM Agent on instance |
 
 ```bash
 # Direct SSH (public instance or same VPC)
@@ -61,6 +63,10 @@ ec2ssh --use-ssm my-private-server
 
 # Direct SSM shell session - no SSH at all
 ec2ssm my-instance
+
+# Execute command via SSM RunCommand API
+ec2ssm my-instance whoami
+ec2ssm my-instance -- ls -la /tmp
 ```
 
 ### Smart Instance Discovery
@@ -186,7 +192,9 @@ ec2ssh --profile my-profile my-instance
   "Effect": "Allow",
   "Action": [
     "ssm:StartSession",
-    "ssm:TerminateSession"
+    "ssm:TerminateSession",
+    "ssm:SendCommand",
+    "ssm:GetCommandInvocation"
   ],
   "Resource": "*"
 }
@@ -198,10 +206,10 @@ ec2ssh --profile my-profile my-instance
 <summary><strong>Full command reference (click to expand)</strong></summary>
 
 ```
-Usage: ec2ssh [options] [user@]destination [command]
+Usage: ec2ssh [options] [user@]destination [command [args...]]
        ec2scp [options] source target
        ec2sftp [options] [user@]destination[:path]
-       ec2ssm [options] destination
+       ec2ssm [options] destination [command [args...]]
        ec2list [options]
 
 Intents (first argument or binary name ec2ssh/ec2scp/ec2sftp/ec2ssm/ec2list):
@@ -227,6 +235,9 @@ List Options:
                           Available: ID,NAME,STATE,TYPE,AZ,PRIVATE-IP,
                                      PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
 
+SSM Command Options:
+  --timeout <duration>    Timeout for command completion (default: 60s)
+
 Other:
   --help, --version       Show help or version
   --debug                 Enable debug logging (default: false)
@@ -238,6 +249,8 @@ Examples:
   ec2scp -r --region us-west-2 ./logs admin@10.0.1.5:/backup/
   ec2sftp -P 2222 user@app01:/var/log
   ec2ssm my-bastion-host
+  ec2ssm i-0123456789abcdef0 whoami
+  ec2ssm --timeout 5m i-xxx -- ./long-running-script.sh
   ec2list --profile prod --list-columns ID,NAME,STATE
 
 All standard ssh/scp/sftp options are passed through to the underlying command.

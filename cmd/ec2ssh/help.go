@@ -1,10 +1,10 @@
 package main
 
 // HelpText contains the usage documentation for ec2ssh.
-const HelpText = `Usage: ec2ssh [options] [user@]destination [command]
+const HelpText = `Usage: ec2ssh [options] [user@]destination [command [args...]]
        ec2scp [options] source target
        ec2sftp [options] [user@]destination[:path]
-       ec2ssm [options] destination
+       ec2ssm [options] destination [command [args...]]
        ec2list [options]
 
 Intents (first argument or binary name ec2ssh/ec2scp/ec2sftp/ec2ssm/ec2list):
@@ -30,6 +30,9 @@ List Options:
                           Available: ID,NAME,STATE,TYPE,AZ,PRIVATE-IP,
                                      PUBLIC-IP,IPV6,PRIVATE-DNS,PUBLIC-DNS
 
+SSM Command Options:
+  --timeout <duration>    Timeout for command completion (default: 60s)
+
 Other:
   --help, --version       Show help or version
   --debug                 Enable debug logging (default: false)
@@ -41,6 +44,8 @@ Examples:
   ec2scp -r --region us-west-2 ./logs admin@10.0.1.5:/backup/
   ec2sftp -P 2222 user@app01:/var/log
   ec2ssm my-bastion-host
+  ec2ssm i-0123456789abcdef0 whoami
+  ec2ssm --timeout 5m i-xxx -- ./long-running-script.sh
   ec2list --profile prod --list-columns ID,NAME,STATE
 
 All standard ssh/scp/sftp options are passed through to the underlying command.

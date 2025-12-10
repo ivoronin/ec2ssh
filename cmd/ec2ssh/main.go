@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 
 	"github.com/ivoronin/ec2ssh/internal/app"
 	"github.com/ivoronin/ec2ssh/internal/intent"
@@ -26,6 +25,10 @@ func DefaultRunner() *Runner {
 		Args:   os.Args,
 		Stderr: os.Stderr,
 	}
+}
+
+type exitCoder interface {
+	ExitCode() int
 }
 
 // Run executes the CLI and returns an exit code.
@@ -78,8 +81,8 @@ func (r *Runner) Run() int {
 	}
 
 	if err != nil {
-		// Handle subprocess exit codes - propagate them as our exit code
-		var exitErr *exec.ExitError
+		// Handle exit codes - from subprocesses or remote commands
+		var exitErr exitCoder
 		if errors.As(err, &exitErr) {
 			return exitErr.ExitCode()
 		} else if errors.Is(err, app.ErrUsage) {

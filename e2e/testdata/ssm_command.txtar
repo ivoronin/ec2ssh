@@ -1,0 +1,39 @@
+# SSM RunCommand tests - executes commands via SSM SendCommand API
+# Note: SSM RunCommand executes as root, not ssm-user
+
+# Test simple command execution
+exec ec2ssh --ssm $PRIVATE_ID whoami
+stdout 'root'
+
+# Test command with arguments using -- separator
+exec ec2ssh --ssm $PRIVATE_ID -- echo hello world
+stdout 'hello world'
+
+# Test command output to stdout
+exec ec2ssh --ssm $PRIVATE_ID -- hostname
+stdout .
+
+# Test exit code propagation - false should return exit code 1
+! exec ec2ssh --ssm $PRIVATE_ID -- false
+
+# Test exit code propagation - exit 42 should return exit code 42
+! exec ec2ssh --ssm $PRIVATE_ID -- exit 42
+
+# Test with --destination-type flag
+exec ec2ssh --ssm --destination-type id $PRIVATE_ID whoami
+stdout 'root'
+
+# Test --timeout flag - short timeout should fail for long-running command
+! exec ec2ssh --ssm --timeout 1s $PRIVATE_ID -- sleep 10
+stderr 'timeout'
+
+# Test argument passing - args should not be split by spaces
+exec ec2ssh --ssm $PRIVATE_ID -- echo 'hello   world'
+stdout 'hello   world'
+
+# Test argument passing - multiple args preserved correctly
+exec ec2ssh --ssm $PRIVATE_ID -- printf '%s\n' one two three
+stdout 'one'
+stdout 'two'
+stdout 'three'
+
