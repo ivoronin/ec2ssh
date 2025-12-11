@@ -25,7 +25,7 @@ stdout 'root'
 
 # Test --timeout flag - short timeout should fail for long-running command
 ! exec ec2ssh --ssm --timeout 1s $PRIVATE_ID -- sleep 10
-stderr 'timeout'
+stderr 'context deadline exceeded'
 
 # Test argument passing - args should not be split by spaces
 exec ec2ssh --ssm $PRIVATE_ID -- echo 'hello   world'
@@ -36,4 +36,3 @@ exec ec2ssh --ssm $PRIVATE_ID -- printf '%s\n' one two three
 stdout 'one'
 stdout 'two'
 stdout 'three'
-

@@ -57,4 +57,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/mmmorris1975/ssm-session-client => github.com/ivoronin/ssm-session-client v0.0.0-20251209090344-158895a5ad27
+replace github.com/mmmorris1975/ssm-session-client => github.com/ivoronin/ssm-session-client v0.0.0-20251210165256-7a67290e8efb
