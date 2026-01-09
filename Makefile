@@ -7,7 +7,7 @@ lint:
 	golangci-lint run
 
 test:
-	gotestsum -- -race ./...
+	go test -race ./...
 
 test-all: lint test
 
