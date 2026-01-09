@@ -1,4 +1,4 @@
-.PHONY: lint test build demo clean e2e-init e2e-plan e2e-apply e2e-destroy e2e-output e2e-build e2e-test e2e
+.PHONY: lint test test-all build release demo clean e2e-init e2e-plan e2e-apply e2e-destroy e2e-output e2e-build e2e-test e2e
 
 VERSION ?= dev
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -8,6 +8,11 @@ lint:
 
 test:
 	gotestsum -- -race ./...
+
+test-all: lint test
+
+release:
+	goreleaser release --clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/ec2ssh ./cmd/ec2ssh
