@@ -1,5 +1,8 @@
 .PHONY: lint test build demo clean e2e-init e2e-plan e2e-apply e2e-destroy e2e-output e2e-build e2e-test e2e
 
+VERSION ?= dev
+LDFLAGS := -s -w -X main.version=$(VERSION)
+
 lint:
 	golangci-lint run
 
@@ -7,7 +10,7 @@ test:
 	gotestsum -- -race ./...
 
 build:
-	go build ./cmd/ec2ssh
+	go build -ldflags "$(LDFLAGS)" -o bin/ec2ssh ./cmd/ec2ssh
 
 demo:
 	cd demo && vhs demo.vhs

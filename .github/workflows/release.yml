@@ -1,0 +1,17 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    uses: ivoronin/github-workflows/.github/workflows/release.yml@main
+    with:
+      language: go
+      docker: false
+      brew: true
+    secrets: inherit

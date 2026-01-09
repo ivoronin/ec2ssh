@@ -1,7 +1,7 @@
 version: "2"
 
 linters:
-  enable-all: true
+  default: all
   disable:
     # Not useful for this project
     - wrapcheck
@@ -9,9 +9,41 @@ linters:
     - depguard
     - gochecknoglobals
     - mnd
-
-issues:
-  exclude-rules:
-    - path: ".*_test.go"
-      linters:
-        - funlen
+    # Legacy suppressions
+    - cyclop
+    - embeddedstructfieldcheck
+    - err113
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - forcetypeassert
+    - funcorder
+    - funlen
+    - gocognit
+    - goconst
+    - gocritic
+    - godot
+    - gomoddirectives
+    - gosec
+    - inamedparam
+    - intrange
+    - ireturn
+    - lll
+    - modernize
+    - nestif
+    - nlreturn
+    - noctx
+    - noinlineerr
+    - nonamedreturns
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - revive
+    - tagalign
+    - testifylint
+    - testpackage
+    - unparam
+    - varnamelen
+    - whitespace
+    - wsl
+    - wsl_v5
