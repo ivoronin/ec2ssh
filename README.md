@@ -1,6 +1,6 @@
 # ec2ssh
 
-SSH to EC2 instances by Name tag or instance ID without manual IP lookup
+SSH to EC2 instances by Name tag or ID with ephemeral keys and EICE/SSM tunneling
 
 [![CI](https://github.com/ivoronin/ec2ssh/actions/workflows/test.yml/badge.svg)](https://github.com/ivoronin/ec2ssh/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/v/release/ivoronin/ec2ssh)](https://github.com/ivoronin/ec2ssh/releases)
