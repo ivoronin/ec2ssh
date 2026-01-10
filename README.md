@@ -1,6 +1,6 @@
 # ec2ssh
 
-SSH to EC2 instances without managing keys or security groups
+SSH to EC2 instances by Name tag or instance ID without manual IP lookup
 
 [![CI](https://github.com/ivoronin/ec2ssh/actions/workflows/test.yml/badge.svg)](https://github.com/ivoronin/ec2ssh/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/v/release/ivoronin/ec2ssh)](https://github.com/ivoronin/ec2ssh/releases)
@@ -8,10 +8,14 @@ SSH to EC2 instances without managing keys or security groups
 [Overview](#overview) · [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Requirements](#requirements) · [License](#license)
 
 ```bash
-# Before: find instance ID in console, manage SSH keys, configure security groups
-ssh -i ~/.ssh/my-key.pem ec2-user@i-0123456789abcdef0
+# Before: look up instance IP and push ephemeral SSH key manually
+aws ec2 describe-instances --filters "Name=tag:Name,Values=my-web-server" \
+  --query "Reservations[].Instances[].[InstanceId,PublicIpAddress]" --output text
+aws ec2-instance-connect send-ssh-public-key --instance-id i-0123456789abcdef0 \
+  --instance-os-user ec2-user --ssh-public-key file://~/.ssh/id_ed25519.pub
+ssh ec2-user@203.0.113.42  # key valid for 60 seconds
 
-# After: connect by Name tag with ephemeral keys
+# After: connect by Name tag or instance ID directly
 ec2ssh my-web-server
 ```
 
