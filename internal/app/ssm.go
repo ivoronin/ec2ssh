@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
 	"github.com/ivoronin/ec2ssh/internal/ssh"

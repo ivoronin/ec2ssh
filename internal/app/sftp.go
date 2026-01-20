@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/ssh"
 )
 

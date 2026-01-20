@@ -10,7 +10,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/awsclient"
 	"github.com/ivoronin/ec2ssh/internal/ec2client"
 )

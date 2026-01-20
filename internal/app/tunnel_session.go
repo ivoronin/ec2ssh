@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/ivoronin/ec2ssh/internal/argsieve"
+	"github.com/ivoronin/argsieve"
 	"github.com/ivoronin/ec2ssh/internal/tunnel"
 	"github.com/mmmorris1975/ssm-session-client/ssmclient"
 )
