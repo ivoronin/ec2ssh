@@ -24,8 +24,8 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.17 h1:WWLqlh79iO48yLkj1v
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.17/go.mod h1:EhG22vHRrvF8oXSTYStZhJc1aUgKtnJe+aOiFEV90cM=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 h1:WKuaxf++XKWlHWu9ECbMlha8WOEGm0OUEZqm4K/Gcfk=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4/go.mod h1:ZWy7j6v1vWGmPReu0iSGvRiise4YI5SkR3OHKTZ6Wuc=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.279.2 h1:MG12Z/W1zzJLkw2gCU2gKZ872rqLM0pi9LdkZ/z3FHc=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.279.2/go.mod h1:Uy+C+Sc58jozdoL1McQr8bDsEvNFx+/nBY+vpO1HVUY=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.281.0 h1:9bFLf1b1EQS9JWghInM4cLlfv7bfJCdW5I6dECnWens=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.281.0/go.mod h1:Uy+C+Sc58jozdoL1McQr8bDsEvNFx+/nBY+vpO1HVUY=
 github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect v1.32.16 h1:ZR8a/0eaT+ceJEXM31f+YSaxZ1CclXo3oCWYsSyoEXU=
 github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect v1.32.16/go.mod h1:VYNznYe3XZfBSA06L1LvI1RxFb6rfrTFLC+wQJ+zubo=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 h1:0ryTNEdJbzUCEWkVXEXoqlXV72J5keC1GvILMOuD00E=
@@ -89,8 +89,8 @@ github.com/hashicorp/terraform-exec v0.24.0 h1:mL0xlk9H5g2bn0pPF6JQZk5YlByqSqrO5
 github.com/hashicorp/terraform-exec v0.24.0/go.mod h1:lluc/rDYfAhYdslLJQg3J0oDqo88oGQAdHR+wDqFvo4=
 github.com/hashicorp/terraform-json v0.27.1 h1:zWhEracxJW6lcjt/JvximOYyc12pS/gaKSy/wzzE7nY=
 github.com/hashicorp/terraform-json v0.27.1/go.mod h1:GzPLJ1PLdUG5xL6xn1OXWIjteQRT2CNT9o/6A9mi9hE=
-github.com/ivoronin/argsieve v0.0.2 h1:7kIMMuNo00Y+rfLwYBQnA0ibajuUs6m1trurQ+DuHj8=
-github.com/ivoronin/argsieve v0.0.2/go.mod h1:ZNinyee+AUAUdYSMDpKakjKTRu3orpH9dLAHbpdv+oU=
+github.com/ivoronin/argsieve v0.0.3 h1:s8t6cyTmsys5c6tlmDmn4mv72B7WKrxp8n6k4Oi7OpY=
+github.com/ivoronin/argsieve v0.0.3/go.mod h1:ZNinyee+AUAUdYSMDpKakjKTRu3orpH9dLAHbpdv+oU=
 github.com/ivoronin/ssm-session-client v0.0.0-20251210165256-7a67290e8efb h1:KgxBdscAIlTYg2ixIaN7T6ZxlxkxWPLq+XgFcqPiuhE=
 github.com/ivoronin/ssm-session-client v0.0.0-20251210165256-7a67290e8efb/go.mod h1:GUMBk2MQJbA5COsPY9LAK4v6g1XQFwUZ40g60rj393A=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
