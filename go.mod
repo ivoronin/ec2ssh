@@ -6,7 +6,7 @@ require (
 	al.essio.dev/pkg/shellescape v1.6.0
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.299.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.301.0
 	github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect v1.32.22
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.68.6
 	github.com/gorilla/websocket v1.5.3
