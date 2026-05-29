@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   release:
-    uses: ivoronin/github-workflows/.github/workflows/release.yml@main
+    uses: ivoronin/github-workflows/.github/workflows/release.yml@da9a532c23890a7b70f130239a0abc93a268cdbe # main
     with:
       language: go
       docker: false
